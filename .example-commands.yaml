@@ -1,0 +1,31 @@
+creeps:
+  spawn1: "spawn('room_name', {type: 'defender'})"
+  spawn2: "spawn('room_name', {type: 'miner', workplace: {x: 37, y: 23, roomName: 'room_name'}})"
+  update_memory: "ccm('defender_0eca', {role: {type: 'defender', home: 'claimed_room'}, respawned: true})"
+  kill: "kill('creep_name')"
+
+requests:
+  get_all: "requests('roomName')"
+  create:
+    transfer: "request('from_room', {'assignment':'None','kind':{'type':'Transfer','resource':'X','amount':3000, destination: 'to_room'}})"
+    defend: "request('claimed_room', {'assignment':'Multi()','kind':{'type':'Defend','room_name':'target_room'}})"
+  delete:
+    transfer: "resolve_request('from_room', {type: 'Transfer', resource: 'lemergium_bar', amount: 3593, destination: 'to_room'})"
+    factory: "resolve_request('claimed_room', {'assignment':'None','kind':{'type':'Factory',resource: 'phlegm'}})"
+
+rooms:
+  add_farm: "add_farm('claimed_room', 'farm_room')"
+  add_boost: "add_boost('claimed_room', boost_number, ticks)"
+  delete_boost: "delete_boost('claimed_room', boost_number)"
+  trade: "trade('claimed_room', 'sell', 'emanation', n, price)"
+  delete_trades: "clear_trades('claimed_room')"
+  get_plan_for_specific_cell: "get_plan_for('claimed_room', x, y)"
+  add_plan_for_specific_cell: "add_plan('claimed_room', x, y, RoomStructure, build_lvl, removal_lvl)"
+  delete_plan_for_specific_cell: "delete_plan_for('claimed_room', x, y, RoomStructure)"
+
+orders:
+  buy: Game.market.createOrder({type: ORDER_BUY, resourceType: 'pixel', price: 40001, totalAmount: 10000});
+  sell: Game.market.createOrder({type: ORDER_SELL, resourceType: 'X', price: 750, totalAmount: 20000, roomName: 'claimed_room'});
+
+info: "info()" #info about colony state
+avoid_room: "avoid_room('room_name')" #permanently avoid the room while moving

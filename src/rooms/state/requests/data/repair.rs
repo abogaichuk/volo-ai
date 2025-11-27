@@ -1,0 +1,40 @@
+use serde::{Serialize, Deserialize};
+use screeps::{game, ObjectId, Structure, Position};
+use smallvec::{smallvec, SmallVec};
+use crate::rooms::{RoomEvent, state::requests::{Meta, Status, Assignment}};
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct RepairData {
+    pub id: ObjectId<Structure>,
+    pub pos: Position,
+    pub hits: u32,
+    pub attempts: u8,
+    pub attempts_max: u8
+}
+
+impl RepairData {
+    pub fn new(id: ObjectId<Structure>, pos: Position, attempts: u8) -> Self {
+        Self { id, pos, hits: 100, attempts, attempts_max: 5 }
+    }
+    pub fn with_max_attempts_and_hits(id: ObjectId<Structure>, pos: Position, attempts_max: u8, hits: u32) -> Self {
+        Self { id, pos, hits, attempts: 0, attempts_max }
+    }
+}
+
+pub(in crate::rooms::state::requests) fn repair_handler(
+    meta: &mut Meta,
+    assignment: &mut Assignment
+) -> SmallVec<[RoomEvent; 3]> {
+    if meta.created_at + 1500 > game::time() {
+        match meta.status {
+            Status::InProgress if game::time() % 100 == 0 && !assignment.has_alive_members() => {
+                meta.update(Status::Created);
+                *assignment = Assignment::Single(None);
+            }
+            _ => {}
+        };
+    } else {
+        meta.update(Status::Resolved);
+    };
+    smallvec![]
+}
