@@ -109,7 +109,10 @@ impl RoomPlan {
     }
 
     pub fn replace_cell(&mut self, value: PlannedCell) {
-        self.planned_cells.replace(value);
+        if let Some(mut cell) = self.planned_cells.take(&value) {
+            cell.structure = value.structure;
+            self.planned_cells.insert(cell);
+        }
     }
 
     pub fn get_cell(&self, cell: PlannedCell) -> Option<&PlannedCell> {
@@ -143,17 +146,17 @@ impl RoomPlan {
             .filter(|c| matches!(c.structure, RoomStructure::Lab(_)))
     }
 
-    pub fn boosts_in_use(&self) -> HashSet<ResourceType> {
-        self.get_labs()
-            .filter_map(|cell| match cell.structure {
-                RoomStructure::Lab(status) => match status {
-                    LabStatus::Boost(resource) => Some(resource),
-                    _ => None
-                }
-                _ => None
-            })
-            .collect()
-    }
+    // pub fn boosts_in_use(&self) -> HashSet<ResourceType> {
+    //     self.get_labs()
+    //         .filter_map(|cell| match cell.structure {
+    //             RoomStructure::Lab(status) => match status {
+    //                 LabStatus::Boost(resource) => Some(resource),
+    //                 _ => None
+    //             }
+    //             _ => None
+    //         })
+    //         .collect()
+    // }
 
     pub fn delete(&mut self, cell: PlannedCell) -> bool {
         self.planned_cells.remove(&cell)

@@ -4,7 +4,7 @@ use screeps::{
     MaybeHasId, Mineral, Nuke, Part, PowerCreep, RawObjectId, Resource,
     ResourceType, Room, RoomName, RoomXY, SharedCreepProperties, Source,
     StructureContainer, StructureController, StructureExtension, StructureFactory,
-    StructureLab, StructureLink, StructureNuker, StructureObject, StructureObserver,
+    StructureNuker, StructureObject, StructureObserver,
     StructurePowerSpawn, StructureRampart, StructureRoad, StructureSpawn, StructureStorage,
     StructureTerminal, StructureTower, StructureType, StructureWall, Tombstone, find, game,
     INVADER_USERNAME
@@ -17,7 +17,7 @@ use crate::{
         RoomEvent, RoomState, is_extractor, missed_buildings,
         state::{BoostReason, FarmInfo, constructions::{RoomPlan, RoomPlannerError},
         requests::{BodyPart, BuildData, CarryData, CreepHostile, PickupData,
-            RepairData, Request, RequestKind, WithdrawData, assignment::Assignment}}
+            RepairData, Request, RequestKind, WithdrawData, assignment::Assignment}}, wrappers::claimed::structures::{labs::Labs, links::Links}
     },
     units::{
         Memory,
@@ -41,13 +41,13 @@ pub(crate) struct Claimed {
     pub(crate) extensions: Vec<StructureExtension>,
     pub(crate) towers: Vec<StructureTower>,
     pub(crate) storage: Option<StructureStorage>,
-    pub(crate) links: Vec<StructureLink>,
+    pub(crate) links: Links,
     pub(crate) terminal: Option<StructureTerminal>,
     pub(crate) factory: Option<StructureFactory>,
     pub(crate) observer: Option<StructureObserver>,
     pub(crate) nuker: Option<StructureNuker>,
     pub(crate) power_spawn: Option<StructurePowerSpawn>,
-    pub(crate) labs: Vec<StructureLab>,
+    pub(crate) labs: Labs,
     pub(crate) ramparts: Vec<StructureRampart>,
     pub(crate) containers: Vec<StructureContainer>,
     pub(crate) roads: Vec<StructureRoad>,
@@ -59,12 +59,11 @@ pub(crate) struct Claimed {
     pub(crate) tombs: Vec<Tombstone>,
     pub(crate) cs: Vec<ConstructionSite>,
     pub(crate) dropped: Vec<Resource>,
-    pub(crate) events: Vec<Event>,
-    pub(crate) time: u32
+    pub(crate) events: Vec<Event>
 }
 
 impl Claimed {
-    pub(crate) fn new(room: Room, farms: Vec<Farm>) -> Self {
+    pub(crate) fn new(room: Room, farms: Vec<Farm>, state: &RoomState) -> Self {
         let controller = room.controller().expect("expect controller in my Base");
         let mineral = room.find(find::MINERALS, None).remove(0);
         let sources = room.find(find::SOURCES, None);
@@ -122,13 +121,13 @@ impl Claimed {
             extensions,
             towers,
             storage,
-            links,
+            links: Links::new(links, state.plan.as_ref()),
             terminal,
             factory,
             observer,
             nuker,
             power_spawn,
-            labs,
+            labs: Labs::new(labs, state.plan.as_ref()),
             ramparts,
             containers,
             roads,
@@ -141,7 +140,6 @@ impl Claimed {
             cs,
             dropped,
             events,
-            time: game::time()
         }
     }
 
@@ -268,7 +266,7 @@ impl Claimed {
         room_memory: &'a RoomState,
         creeps: &'a HashMap<String, Memory>) -> impl Iterator<Item = RoomEvent> + 'a
     {
-        (self.time % 100 == 0)
+        (game::time() % 100 == 0)
             .then(|| {
                 once(RoomEvent::RetainBoosts)
                     .chain(self.manage_mineral_miner(room_memory, creeps))
@@ -319,10 +317,6 @@ impl Claimed {
         self.factory.as_ref()
     }
 
-    pub fn find_lab_by_xy(&self, xy: RoomXY) -> Option<&StructureLab> {
-        self.labs.iter().find(|lab| lab.pos().xy() == xy)
-    }
-
     pub fn energy_available(&self) -> u32 {
         self.room.energy_available()
     }
@@ -330,10 +324,6 @@ impl Claimed {
     pub fn energy_capacity_available(&self) -> u32 {
         self.room.energy_capacity_available()
     }
-
-    // fn memory<'a>(&self, rooms: &'a mut HashMap<RoomName, RoomState>) -> &'a mut RoomState {
-    //     rooms.get_mut(&self.get_name()).expect("room exists")
-    // }
 
     pub fn resource_amount(&self, resource: ResourceType) -> u32 {
         self.storage()
@@ -531,7 +521,7 @@ impl Claimed {
                     events.push(RoomEvent::Spawn(guard, to_spawn));
                     events.push(RoomEvent::Intrusion(Some(format!("Boosted player invasion in room {}!!", self.get_name()))));
 
-                } else if room_memory.intrusion && room_memory.last_intrusion + 100 < self.time {
+                } else if room_memory.intrusion && room_memory.last_intrusion + 100 < game::time() {
                     events.push(RoomEvent::Intrusion(None));
                 }
             }

@@ -1,7 +1,7 @@
 use log::*;
 use screeps::{
     Creep, EffectType, HasHits, HasId, HasPosition, MaybeHasId, Mineral,
-    OwnedStructureProperties, Part, Room, RoomName, RoomObjectProperties,
+    Part, Room, RoomName, RoomObjectProperties,
     SOURCE_KEEPER_USERNAME, SharedCreepProperties, Source, StructureContainer,
     StructureController, StructureInvaderCore, StructureKeeperLair,
     StructureObject, StructureRoad, find, game, Event
@@ -86,7 +86,7 @@ impl Farm {
                         .find_map(|effect| {
                             match effect.effect() {
                                 //add 50 ticks to make sure a request with collapse timer has been created
-                                EffectType::NaturalEffect(_) => Some(effect.ticks_remaining() as u32 + 50),
+                                EffectType::NaturalEffect(_) => Some(effect.ticks_remaining() + 50),
                                 _ => None
                             }
                         }))

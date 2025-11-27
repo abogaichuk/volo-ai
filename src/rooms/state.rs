@@ -2,9 +2,9 @@ use log::*;
 use serde::{Serialize, Deserialize};
 use screeps::{
     ObjectId, OrderType, PowerType, ResourceType, RoomName,
-    StructureLab, StructureLink, StructureRampart,
+    StructureRampart, game,
 };
-use std::{collections::{BTreeMap, HashMap, HashSet}, hash::{Hash, Hasher}, iter::Iterator};
+use std::{collections::{HashMap, HashSet}, hash::{Hash, Hasher}, iter::Iterator};
 use ordered_float::OrderedFloat;
 
 use crate::{
@@ -27,9 +27,6 @@ pub struct RoomState {
     pub plan: Option<RoomPlan>,
     #[serde(default = "HashMap::new")]
     pub farms: HashMap<RoomName, FarmInfo>,
-    // #[serde(default = "BTreeMap::new")]
-    //treemap is important here to avoid lab id changing when assign boost to a lab
-    // pub labs: BTreeMap<ObjectId<StructureLab>, LabStatus>,
     #[serde(default = "HashSet::new")]
     pub trades: HashSet<TradeData>,
     #[serde(skip)]
@@ -120,8 +117,8 @@ impl RoomState {
             .filter(move |future_creep| *future_creep == role)
     }
 
-    pub fn update_expired_boosts(&mut self, now: u32) {
-        self.boosts.retain(|_, timeout| now < *timeout);
+    pub fn update_expired_boosts(&mut self) {
+        self.boosts.retain(|_, timeout| game::time() < *timeout);
     }
 }
 

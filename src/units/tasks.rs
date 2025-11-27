@@ -32,6 +32,8 @@ mod combat;
 mod deposit;
 mod powerbank;
 
+
+//todo implement prelude
 #[derive(Clone)]
 pub enum Task {
     DefendHome,

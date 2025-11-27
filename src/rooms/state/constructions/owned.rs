@@ -1,5 +1,5 @@
 use itertools::Itertools;
-use screeps::{Direction, HasPosition, Position, RoomCoordinate, RoomXY, RoomPosition, Step};
+use screeps::{Direction, HasPosition, Position, RoomXY, RoomPosition, Step};
 use std::{collections::{HashMap, HashSet}, cmp::Ordering};
 use crate::{
     movement::{callback::closest_in_room_range, find_path_in_room},

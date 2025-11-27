@@ -1,5 +1,5 @@
 use serde::{Serialize, Deserialize};
-use screeps::{Creep, Part, ResourceType, HasId, RoomName, SharedCreepProperties};
+use screeps::{Creep, Part, ResourceType, RoomName, SharedCreepProperties};
 use std::{fmt, collections::HashMap};
 use arrayvec::ArrayVec;
 use crate::{
