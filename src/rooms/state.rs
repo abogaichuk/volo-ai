@@ -1,9 +1,6 @@
 use log::*;
 use serde::{Serialize, Deserialize};
-use screeps::{
-    ObjectId, OrderType, PowerType, ResourceType, RoomName,
-    StructureRampart, game,
-};
+use screeps::{OrderType, PowerType, ResourceType, RoomName, game};
 use std::{collections::{HashMap, HashSet}, hash::{Hash, Hasher}, iter::Iterator};
 use ordered_float::OrderedFloat;
 
@@ -21,8 +18,8 @@ pub struct RoomState {
     pub spawns: Vec<Role>,
     #[serde(default)]
     pub requests: HashSet<Request>,
-    #[serde(default)]
-    pub perimetr: Vec<ObjectId<StructureRampart>>,
+    // #[serde(default)]
+    // pub perimetr: Vec<ObjectId<StructureRampart>>,
     #[serde(default)]
     pub plan: Option<RoomPlan>,
     #[serde(default = "HashMap::new")]

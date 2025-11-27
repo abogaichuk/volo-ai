@@ -5,7 +5,7 @@ use screeps::{
     ResourceType, Room, RoomName, RoomXY, SharedCreepProperties, Source,
     StructureContainer, StructureController, StructureExtension, StructureFactory,
     StructureNuker, StructureObject, StructureObserver,
-    StructurePowerSpawn, StructureRampart, StructureRoad, StructureSpawn, StructureStorage,
+    StructurePowerSpawn, StructureRoad, StructureSpawn, StructureStorage,
     StructureTerminal, StructureTower, StructureType, StructureWall, Tombstone, find, game,
     INVADER_USERNAME
 };
@@ -17,7 +17,7 @@ use crate::{
         RoomEvent, RoomState, is_extractor, missed_buildings,
         state::{BoostReason, FarmInfo, constructions::{RoomPlan, RoomPlannerError},
         requests::{BodyPart, BuildData, CarryData, CreepHostile, PickupData,
-            RepairData, Request, RequestKind, WithdrawData, assignment::Assignment}}, wrappers::claimed::structures::{labs::Labs, links::Links}
+            RepairData, Request, RequestKind, WithdrawData, assignment::Assignment}}, wrappers::claimed::structures::{labs::Labs, links::Links, ramparts::{Rampart, Ramparts}}
     },
     units::{
         Memory,
@@ -48,7 +48,7 @@ pub(crate) struct Claimed {
     pub(crate) nuker: Option<StructureNuker>,
     pub(crate) power_spawn: Option<StructurePowerSpawn>,
     pub(crate) labs: Labs,
-    pub(crate) ramparts: Vec<StructureRampart>,
+    pub(crate) ramparts: Ramparts,
     pub(crate) containers: Vec<StructureContainer>,
     pub(crate) roads: Vec<StructureRoad>,
     pub(crate) walls: Vec<StructureWall>,
@@ -128,7 +128,7 @@ impl Claimed {
             nuker,
             power_spawn,
             labs: Labs::new(labs, state.plan.as_ref()),
-            ramparts,
+            ramparts: Ramparts::new(ramparts, state.plan.as_ref()),
             containers,
             roads,
             walls,
@@ -477,7 +477,7 @@ impl Claimed {
     //todo logic close to logic for towers
     pub fn security_check(&self, room_memory: &RoomState, creeps: &HashMap<String, Memory>) -> impl Iterator<Item = RoomEvent> {
         let mut events = self.invasion_check(room_memory, creeps);
-        events.extend(self.perimetr_check(room_memory));
+        events.extend(self.perimetr_check());
 
         if !self.nukes.is_empty() {
             events.push(RoomEvent::NukeFalling);
@@ -529,15 +529,10 @@ impl Claimed {
         events
     }
     
-    fn perimetr_check(&self, room_memory: &RoomState) -> Option<RoomEvent> {
-        room_memory.plan.as_ref()
-            .map(|plan| plan.perimeter())
-            .filter(|perimetr| {
-                self.ramparts.iter()
-                    .filter(|rampart| perimetr.contains(&rampart.pos().xy()))
-                    .any(|rampart| rampart.hits() < MIN_PERIMETR_HITS)
-            })
-            .map(|_| RoomEvent::ActivateSafeMode("Perimeter out of order! Enabling safe mode!".to_string()))
+    fn perimetr_check(&self) -> Option<RoomEvent> {
+        (self.ramparts.perimeter()
+            .any(|rampart| rampart.hits() < MIN_PERIMETR_HITS))
+                .then(|| RoomEvent::ActivateSafeMode("Perimeter out of order! Enabling safe mode!".to_string()))
     }
 }
 

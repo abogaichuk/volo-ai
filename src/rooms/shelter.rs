@@ -41,7 +41,7 @@ impl <'s> Shelter<'s> {
         //     //todo Request as updateable?
         //     //find better abstraction for request handler, sequential\parallel or implement task runner for factory, terminal and labs
 
-        self.base.run_towers(&self.state.perimetr);
+        self.base.run_towers();
         let security_events = self.base.security_check(self.state, creeps);
 
         self.base.run_links();
@@ -260,12 +260,7 @@ impl <'s> Shelter<'s> {
     }
 
     pub fn lowest_perimetr_hits(&self) -> Option<&StructureRampart> {
-        let perimeter = self.state.plan.as_ref()
-            .map(|plan| plan.perimeter())
-            .unwrap_or_default();
-
-        self.base.ramparts.iter()
-            .filter(|r| perimeter.contains(&r.pos().xy()))
+        self.base.ramparts.perimeter()
             .sorted_by_key(|r| r.hits())
             .next()
     }
