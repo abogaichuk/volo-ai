@@ -332,6 +332,7 @@ impl Claimed {
                 .unwrap_or_default()
     }
 
+    //todo the Box requires cloning, consider to avoid cloning by adding new lifetime to Task -> CreepMemory -> Unit
     pub(crate) fn closest_empty_structure(&self, to: &dyn HasPosition) -> Option<Box<dyn Fillable>> {
         self.extensions.iter()
             .filter(|e| e.store().get_free_capacity(Some(ResourceType::Energy)) > 0).cloned()

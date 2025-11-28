@@ -52,7 +52,6 @@ pub enum Task {
     DepositCarry(Position),
     Upgrade(ObjectId<StructureController>, Option<RawObjectId>),
     TakeResource(ObjectId<Resource>),
-    // FillStructures(RoomName),
     FillStructure(Box<dyn Fillable>),
     Dismantle(ObjectId<Structure>, Position),
     PullTo(String, Position),
@@ -264,10 +263,6 @@ impl Task {
                 logistics::fill_structure(structure, creep, role,
                     with_parts(hostiles, vec![Part::RangedAttack, Part::Attack]))
             }
-            // Task::FillStructures(room_name) => {
-            //     logistics::fill_structures(room_name, creep, role,
-            //         with_parts(hostiles, vec![Part::RangedAttack, Part::Attack]))
-            // }
             Task::Withdraw(pos, id, resources) => {
                 logistics::withdraw(pos, id, resources, creep, role,
                     with_parts(hostiles, vec![Part::RangedAttack, Part::Attack]))

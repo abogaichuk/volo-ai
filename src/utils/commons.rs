@@ -79,59 +79,6 @@ pub fn is_cpu_on_low() -> bool {
     }
 }
 
-pub fn extension_capacity(room: &Room) -> u32 {
-    let c_level = room.controller()
-        .map(|controller| controller.level())
-        .unwrap_or_default();
-
-    match c_level {
-        1..=6 => 50,
-        7 => 100,
-        8 => 200,
-        _ => u32::MAX
-    }
-}
-
-// pub fn find_closest_empty_structure(base: &Room, creep: &Creep) -> Option<StructureObject> {
-//     find_empty_structures(base)
-//         .min_by_key(|str| str.pos().get_range_to(creep.pos()))
-// }
-
-// pub fn find_empty_structures(room: &Room) -> impl Iterator<Item = StructureObject> {
-//     room.find(find::MY_STRUCTURES, None)
-//         .into_iter()
-//         .filter(is_structure_empty)
-// }
-
-// fn is_structure_empty(structure: &StructureObject) -> bool {
-//     is_empty_extension(structure) || is_empty_spawn(structure) || is_empty_tower(structure)
-// }
-
-// fn is_empty_extension(structure: &StructureObject) -> bool {
-//     if let StructureObject::StructureExtension(extension) = structure {
-//         if extension.store().get_free_capacity(Some(ResourceType::Energy)) > 0 {
-//             return true
-//         }
-//     }
-//     false
-// }
-
-// fn is_empty_spawn(structure: &StructureObject) -> bool {
-//     if let StructureObject::StructureSpawn(spawn) = structure {
-//         if spawn.store().get_free_capacity(Some(ResourceType::Energy)) > 0 {
-//             return true
-//         }
-//     }
-//     false
-// }
-
-// fn is_empty_tower(structure: &StructureObject) -> bool {
-//     if let StructureObject::StructureTower(tower) = structure {
-//         return tower.store().get_used_capacity(Some(ResourceType::Energy)) < 800
-//     }
-//     false
-// }
-
 pub fn get_random(from: usize, to: usize) -> usize {
     rand::thread_rng().gen_range(from..to)
 }
@@ -198,14 +145,6 @@ pub fn say_message(creep: &Creep) {
         8 => creep.say("let's build", true),
         9 => creep.say("safe world", true),
         0 => creep.say("togather!", true),
-        // 1 => creep.say("This room", true),
-        // 2 => creep.say("is under", true),
-        // 3 => creep.say(USERNAME, true),
-        // 4 => creep.say("occupation!", true),
-        // 5 => creep.say("USSR funs", true),
-        // 6 => creep.say("are not", true),
-        // 7 => creep.say("welcome", true),
-        // 8 => creep.say("here!", true),
         _ => Ok(())
     };
 }
