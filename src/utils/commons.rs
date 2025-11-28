@@ -95,8 +95,6 @@ pub fn extension_capacity(room: &Room) -> u32 {
 pub fn find_closest_empty_structure(base: &Room, creep: &Creep) -> Option<StructureObject> {
     find_empty_structures(base)
         .min_by_key(|str| str.pos().get_range_to(creep.pos()))
-        // .sorted_by_key(|str| str.pos().get_range_to(creep.pos()))
-        // .next()
 }
 
 pub fn find_empty_structures(room: &Room) -> impl Iterator<Item = StructureObject> {

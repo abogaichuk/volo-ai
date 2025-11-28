@@ -7,9 +7,7 @@ use screeps::{
     StructureController, action_error_codes::WithdrawErrorCode, game
 };
 use crate::{
-    units::{Task, TaskResult, roles::Role},
-    movement::walker::Walker,
-    utils::{
+    movement::walker::Walker, rooms::wrappers::claimed::Fillable, units::{Task, TaskResult, roles::Role}, utils::{
         commons::{extension_capacity, find_closest_empty_structure, find_walkable_positions_near_by, get_in_room_bank},
         constants::CLOSE_RANGE_ACTION}
 };
@@ -94,8 +92,10 @@ pub fn take_from_structure(pos: Position, id: RawObjectId, resource: ResourceTyp
 
 pub fn deliver_to_structure(pos: Position, id: RawObjectId, resource: ResourceType, amount: Option<u32>, creep: &Creep, role: &Role, enemies: Vec<Creep>) -> TaskResult {
     if let Some(room_obj) = game::get_object_by_id_erased(&id) {
-        if creep.pos().is_near_to(room_obj.pos()) {
-            let container = room_obj.unchecked_ref::<StructureContainer>();
+        let container = room_obj.unchecked_ref::<StructureContainer>();
+        if container.store().get_free_capacity(Some(resource)) == 0 {
+            TaskResult::Abort
+        } else if creep.pos().is_near_to(room_obj.pos()) {
             match creep.transfer(container, resource, amount) {
                 Ok(_) => {
                     let _ = creep.say("👌", false); //OK emoji!
@@ -119,39 +119,111 @@ pub fn deliver_to_structure(pos: Position, id: RawObjectId, resource: ResourceTy
     }
 }
 
-pub fn fill_structures(room_name: RoomName, creep: &Creep, role: &Role, enemies: Vec<Creep>) -> TaskResult {
-    let cpu_start = game::cpu::get_used();
-    let home_room = game::rooms().get(room_name).expect("expect home room!");
-    
-    if creep.store().get_used_capacity(Some(ResourceType::Energy)) < extension_capacity(&home_room) {
-        TaskResult::Abort
-    } else if let Some(closest_str) = find_closest_empty_structure(&home_room, creep) {
-        if creep.pos().is_near_to(closest_str.pos()) {
-            if let Some(transferable) = closest_str.as_transferable() {
-                let _ = creep.say("🚰", false); //valve
-                let _ = creep.transfer(transferable, ResourceType::Energy, None);
-                let cpu_used = game::cpu::get_used() - cpu_start;
-                if cpu_used > 5. {
-                    info!("{}, fill_structures transfer - pos: {}, cpu {} exceed!", creep.name(), creep.pos(), cpu_used);
-                }
-                TaskResult::StillWorking(Task::FillStructures(room_name), None)
-            } else {
-                error!("{} structure: {} is not transferable", creep.name(), closest_str.as_structure().raw_id());
-                TaskResult::Abort
-            }
-        } else {
-            let _ = creep.say("🚶🏿", false); //walk dark
-            let goal = Walker::Exploring(false).walk(closest_str.pos(), CLOSE_RANGE_ACTION, creep, role, enemies);
-            let cpu_used = game::cpu::get_used() - cpu_start;
-            if cpu_used > 5. {
-                    info!("{}, fill_structures walk - pos: {}, to: {}, cpu {} exceed!", creep.name(), creep.pos(), goal.pos, cpu_used);
-                }
-            TaskResult::StillWorking(Task::FillStructures(room_name), Some(goal))
-        }
+// pub fn deliver_to_structure(pos: Position, id: RawObjectId, resource: ResourceType, amount: Option<u32>, creep: &Creep, role: &Role, enemies: Vec<Creep>) -> TaskResult {
+//     if let Some(room_obj) = game::get_object_by_id_erased(&id) {
+//         if creep.pos().is_near_to(room_obj.pos()) {
+//             let container = room_obj.unchecked_ref::<StructureContainer>();
+//             match creep.transfer(container, resource, amount) {
+//                 Ok(_) => {
+//                     let _ = creep.say("👌", false); //OK emoji!
+//                     TaskResult::Completed
+//                 }
+//                 Err(err) => {
+//                     error!("{} can't transfer resource: {} to: {}, error: {:?}", creep.name(), resource, id, err);
+//                     TaskResult::Abort
+//                 }
+//             }
+//         } else {
+//             let goal = Walker::Exploring(false).walk(pos, CLOSE_RANGE_ACTION, creep, role, enemies);
+//             TaskResult::StillWorking(Task::DeliverToStructure(pos, id, resource, amount), Some(goal))
+//         }
+//     } else if creep.pos().room_name() != pos.room_name() {
+//         let goal = Walker::Exploring(false).walk(pos, CLOSE_RANGE_ACTION, creep, role, enemies);
+//         TaskResult::StillWorking(Task::DeliverToStructure(pos, id, resource, amount), Some(goal))
+//     } else {
+//         error!("{} container deliver to not found! {}", creep.name(), id);
+//         TaskResult::Abort
+//     }
+// }
+
+pub fn fill_structure(structure: Box<dyn Fillable>, creep: &Creep, role: &Role, enemies: Vec<Creep>) -> TaskResult {
+    if creep.pos().is_near_to(structure.position()) {
+        let _ = creep.say("🚰", false); //valve
+        let _ = creep.transfer(structure.as_transferable(), ResourceType::Energy, None);
+        TaskResult::Completed
     } else {
-        TaskResult::Abort
+
+        let _ = creep.say("🚶🏿", false); //walk dark
+        let goal = Walker::Exploring(false).walk(structure.position(), CLOSE_RANGE_ACTION, creep, role, enemies);
+        TaskResult::StillWorking(Task::DeliverToStructure(structure.position(), structure.id(), ResourceType::Energy, None), Some(goal))
+        // TaskResult::MoveTo(goal)
     }
+    // let cpu_start = game::cpu::get_used();
+    // let home_room = game::rooms().get(room_name).expect("expect home room!");
+    
+    // if creep.store().get_used_capacity(Some(ResourceType::Energy)) < extension_capacity(&home_room) {
+    //     TaskResult::Abort
+    // } else if let Some(closest_str) = find_closest_empty_structure(&home_room, creep) {
+    //     if creep.pos().is_near_to(closest_str.pos()) {
+    //         if let Some(transferable) = closest_str.as_transferable() {
+                // let _ = creep.say("🚰", false); //valve
+                // let _ = creep.transfer(transferable, ResourceType::Energy, None);
+    //             let cpu_used = game::cpu::get_used() - cpu_start;
+    //             if cpu_used > 5. {
+    //                 info!("{}, fill_structures transfer - pos: {}, cpu {} exceed!", creep.name(), creep.pos(), cpu_used);
+    //             }
+    //             TaskResult::StillWorking(Task::FillStructures(room_name), None)
+    //         } else {
+    //             error!("{} structure: {} is not transferable", creep.name(), closest_str.as_structure().raw_id());
+    //             TaskResult::Abort
+    //         }
+    //     } else {
+            // let _ = creep.say("🚶🏿", false); //walk dark
+            // let goal = Walker::Exploring(false).walk(closest_str.pos(), CLOSE_RANGE_ACTION, creep, role, enemies);
+    //         let cpu_used = game::cpu::get_used() - cpu_start;
+    //         if cpu_used > 5. {
+    //             info!("{}, fill_structures walk - pos: {}, to: {}, cpu {} exceed!", creep.name(), creep.pos(), goal.pos, cpu_used);
+    //         }
+    //         TaskResult::StillWorking(Task::FillStructures(room_name), Some(goal))
+    //     }
+    // } else {
+    //     TaskResult::Abort
+    // }
 }
+
+// pub fn fill_structures(room_name: RoomName, creep: &Creep, role: &Role, enemies: Vec<Creep>) -> TaskResult {
+//     let cpu_start = game::cpu::get_used();
+//     let home_room = game::rooms().get(room_name).expect("expect home room!");
+    
+//     if creep.store().get_used_capacity(Some(ResourceType::Energy)) < extension_capacity(&home_room) {
+//         TaskResult::Abort
+//     } else if let Some(closest_str) = find_closest_empty_structure(&home_room, creep) {
+//         if creep.pos().is_near_to(closest_str.pos()) {
+//             if let Some(transferable) = closest_str.as_transferable() {
+//                 let _ = creep.say("🚰", false); //valve
+//                 let _ = creep.transfer(transferable, ResourceType::Energy, None);
+//                 let cpu_used = game::cpu::get_used() - cpu_start;
+//                 if cpu_used > 5. {
+//                     info!("{}, fill_structures transfer - pos: {}, cpu {} exceed!", creep.name(), creep.pos(), cpu_used);
+//                 }
+//                 TaskResult::StillWorking(Task::FillStructures(room_name), None)
+//             } else {
+//                 error!("{} structure: {} is not transferable", creep.name(), closest_str.as_structure().raw_id());
+//                 TaskResult::Abort
+//             }
+//         } else {
+//             let _ = creep.say("🚶🏿", false); //walk dark
+//             let goal = Walker::Exploring(false).walk(closest_str.pos(), CLOSE_RANGE_ACTION, creep, role, enemies);
+//             let cpu_used = game::cpu::get_used() - cpu_start;
+//             if cpu_used > 5. {
+//                 info!("{}, fill_structures walk - pos: {}, to: {}, cpu {} exceed!", creep.name(), creep.pos(), goal.pos, cpu_used);
+//             }
+//             TaskResult::StillWorking(Task::FillStructures(room_name), Some(goal))
+//         }
+//     } else {
+//         TaskResult::Abort
+//     }
+// }
 
 pub fn withdraw(pos: Position, id: RawObjectId, mut resources: Vec<(ResourceType, Option<u32>)>, creep: &Creep, role: &Role, enemies: Vec<Creep>) -> TaskResult {
     if let Some((resource, amount)) = resources.first() {

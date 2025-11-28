@@ -123,7 +123,6 @@ pub fn claim_room(room_name: String) -> String {
                     StructureObject::StructureTower(tower) if !tower.my() => tower.destroy(),
                     StructureObject::StructureSpawn(s) if !s.my() => s.destroy(),
                     StructureObject::StructureExtension(e) if !e.my() => e.destroy(),
-                    // StructureObject::StructureFactory(f) if !f.my() => f.destroy(),
                     StructureObject::StructureLink(link) if !link.my() => link.destroy(),
                     StructureObject::StructureLab(lab) if !lab.my() => lab.destroy(),
                     StructureObject::StructureObserver(o) if !o.my() => o.destroy(),

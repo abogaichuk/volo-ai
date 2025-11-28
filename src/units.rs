@@ -48,26 +48,19 @@ impl<'m, 'h, 's> Unit<'m, 'h, 's> {
     }
 
     fn resolve_request(&mut self, task: Task, suicide: bool) {
-        if let Ok(request) = Request::try_from(task.clone()) {
-            if let Task::Carry(_,_,_,_,_) = task {
-                info!("{} in {} resolve request: {:?}", self.name(), self.home.name(), request);
-            }
+        if let Ok(request) = Request::try_from(task) {
             self.home.resolve_request(request, self.name());
 
             if suicide {
                 self.memory.respawned = true;
             }
-        } else {
-            warn!("{} can't get room request from task: {:?}", self.name(), task);
         }
     }
 
     fn update_request(&mut self, task: Task) {
-        if let Ok(mut req) = Request::try_from(task.clone()) {
+        if let Ok(mut req) = Request::try_from(task) {
             req.join(Some(self.name()), None);
             self.home.replace_request(req);
-        } else {
-            warn!("{} can't get room request from task: {:?}", self.name(), task);
         }
     }
 
@@ -102,7 +95,7 @@ impl<'m, 'h, 's> Unit<'m, 'h, 's> {
                 None
             }
             TaskResult::AddNewRequest(task, another, movement_goal) => {
-                self.memory.task = Some(task.clone());
+                self.memory.task = Some(task);
                 self.add_request(another);
                 movement_goal
             }
@@ -195,7 +188,7 @@ pub enum UnitError {
     HomeRoomIsNotSet,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[derive(Serialize, Deserialize, Debug, Default)]
 pub struct Memory {
     #[serde(default)]
     pub role: Role,

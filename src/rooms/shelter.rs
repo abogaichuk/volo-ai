@@ -2,11 +2,7 @@ use log::*;
 use std::collections::{HashMap, HashSet};
 use itertools::Itertools;
 use screeps::{
-    game, game::market::Order, OrderType, ResourceType, RoomName, Room, Position,
-    PowerType, StructureRampart, StructureLink, StructureStorage, StructureController,
-    StructureLab, StructureTerminal, StructurePowerSpawn, StructureFactory, HasHits,
-    Mineral, Source, ObjectId,  RawObjectId, Creep, Part, HasStore, HasId, HasPosition,
-    Effect, EffectType, RoomObjectProperties, StructureSpawn, StructureTower
+    Creep, Effect, EffectType, HasHits, HasId, HasPosition, HasStore, Mineral, ObjectId, OrderType, Part, Position, PowerType, RawObjectId, ResourceType, Room, RoomName, RoomObjectProperties, Source, StructureController, StructureFactory, StructureLab, StructureLink, StructureObject, StructurePowerSpawn, StructureRampart, StructureSpawn, StructureStorage, StructureTerminal, StructureTower, game::{self, market::Order}
 };
 use crate::{
     colony::ColonyEvent, commons::find_roles,
@@ -14,7 +10,7 @@ use crate::{
         RoomEvent, state::{RoomState, TradeData,
             requests::{CreepHostile, DefendData, Request, RequestKind, assignment::Assignment}
         },
-        wrappers::{claimed::Claimed, farm::Farm}
+        wrappers::{claimed::{Claimed, Fillable}, farm::Farm}
     },
     units::{Memory, roles::Role}
 };
@@ -196,7 +192,6 @@ impl <'s> Shelter<'s> {
                 }
                 RoomEvent::AddPlans(plans) => {
                     for (name, additional) in plans {
-                        // info!("{} additional plan: {:?}", name, additional.planned_cells());
                         if name == self.name() {
                             self.state.set_plan(additional);
                         } else {
@@ -257,6 +252,10 @@ impl <'s> Shelter<'s> {
 
     pub fn is_power_enabled(&self, power: &PowerType) -> bool {
         self.state.powers.contains(power)
+    }
+
+    pub fn closest_empty_structure(&self, to: &dyn HasPosition) -> Option<&dyn Fillable> {
+        self.base.closest_empty_structure(to)
     }
 
     pub fn lowest_perimetr_hits(&self) -> Option<&StructureRampart> {

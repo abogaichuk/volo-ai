@@ -1,13 +1,7 @@
 use log::*;
+use rand::Fill;
 use screeps::{
-    ConstructionSite, Creep, Event, HasHits, HasId, HasPosition, HasStore,
-    MaybeHasId, Mineral, Nuke, Part, PowerCreep, RawObjectId, Resource,
-    ResourceType, Room, RoomName, RoomXY, SharedCreepProperties, Source,
-    StructureContainer, StructureController, StructureExtension, StructureFactory,
-    StructureNuker, StructureObject, StructureObserver,
-    StructurePowerSpawn, StructureRoad, StructureSpawn, StructureStorage,
-    StructureTerminal, StructureTower, StructureType, StructureWall, Tombstone, find, game,
-    INVADER_USERNAME
+    ConstructionSite, Creep, Event, HasHits, HasId, HasPosition, HasStore, INVADER_USERNAME, MaybeHasId, Mineral, Nuke, Part, Position, PowerCreep, RawObjectId, Resource, ResourceType, Room, RoomName, RoomXY, SharedCreepProperties, Source, StructureContainer, StructureController, StructureExtension, StructureFactory, StructureNuker, StructureObject, StructureObserver, StructurePowerSpawn, StructureRoad, StructureSpawn, StructureStorage, StructureTerminal, StructureTower, StructureType, StructureWall, Tombstone, Transferable, find, game
 };
 use smallvec::SmallVec;
 use std::{cmp::min, collections::HashMap, iter::once};
@@ -31,6 +25,7 @@ use super::farm::Farm;
 
 mod structures;
 
+//todo implement prelude.rs
 pub(crate) struct Claimed {
     pub(crate) room: Room,
     pub(crate) controller: StructureController,
@@ -333,6 +328,13 @@ impl Claimed {
                 .unwrap_or_default()
     }
 
+    pub(crate) fn closest_empty_structure(&self, to: &dyn HasPosition) -> Option<&dyn Fillable> {
+        self.extensions.iter().map(|e| e as &dyn Fillable)
+            .chain(self.towers.iter().map(|t| t as &dyn Fillable))
+            .chain(self.spawns.iter().map(|s| s as &dyn Fillable))
+            .min_by_key(|f| to.pos().get_range_to(f.position()))
+    }
+
     pub fn build_requests(&self) -> Vec<Request> {
         self.cs
             .iter()
@@ -535,6 +537,76 @@ impl Claimed {
                 .then(|| RoomEvent::ActivateSafeMode("Perimeter out of order! Enabling safe mode!".to_string()))
     }
 }
+
+pub trait Fillable {
+    fn position(&self) -> Position;
+    fn id(&self) -> RawObjectId;
+    fn free_capacity(&self) -> i32;
+    fn as_transferable(&self) -> &dyn Transferable;
+}
+
+impl Fillable for StructureExtension {
+    fn position(&self) -> Position {
+        self.pos()
+    }
+
+    fn id(&self) -> RawObjectId {
+        self.raw_id()
+    }
+
+    fn as_transferable(&self) -> &dyn Transferable {
+        self
+    }
+    
+    fn free_capacity(&self) -> i32 {
+        self.store().get_free_capacity(Some(ResourceType::Energy))
+    }
+}
+
+impl Fillable for StructureTower {
+    fn position(&self) -> Position {
+        self.pos()
+    }
+
+    fn id(&self) -> RawObjectId {
+        self.raw_id()
+    }
+
+    fn as_transferable(&self) -> &dyn Transferable {
+        self
+    }
+
+    fn free_capacity(&self) -> i32 {
+        self.store().get_free_capacity(Some(ResourceType::Energy))
+    }
+}
+
+impl Fillable for StructureSpawn {
+    fn position(&self) -> Position {
+        self.pos()
+    }
+
+    fn id(&self) -> RawObjectId {
+        self.raw_id()
+    }
+
+    fn as_transferable(&self) -> &dyn Transferable {
+        self
+    }
+
+    fn free_capacity(&self) -> i32 {
+        self.store().get_free_capacity(Some(ResourceType::Energy))
+    }
+}
+// impl<F> TerrainSource for F
+// where
+//     F: Fn(u8, u8) -> Terrain,
+// {
+//     #[inline]
+//     fn terrain_at(&self, x: u8, y: u8) -> Terrain {
+//         (self)(x, y)
+//     }
+// }
 
 fn find_player_boosted_creeps(enemies: &[Creep]) -> Vec<CreepHostile> {
     enemies.iter()

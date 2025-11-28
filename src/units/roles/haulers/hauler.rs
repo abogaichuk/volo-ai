@@ -69,12 +69,15 @@ impl Kind for Hauler {
                     let resource = creep.store().store_types().into_iter().next()
                         .expect("expect resource in a creep!");
 
-                    if creep.store().get_used_capacity(Some(ResourceType::Energy)) >= extension_capacity(home.room()) &&
-                        find_empty_structures(home.room()).count() > 0
-                    {
-                        Task::FillStructures(home.name())
-                    } else if let Some(storage) = home.storage()
-                        .filter(|storage| storage.store().get_free_capacity(None) > 10000)
+                    if let Some(structure) = home.closest_empty_structure(creep) {
+                        if resource == ResourceType::Energy && structure.free_capacity() < creep.store().get_used_capacity(Some(resource)) as i32 {
+                            
+                            return Task::FillStructure(Box::new(structure));
+                        } 
+                    }
+
+                    if let Some(storage) = home.storage()
+                        .filter(|storage| storage.store().get_free_capacity(None) > 5000)
                     {
                         Task::DeliverToStructure(storage.pos(), storage.raw_id(), resource, None)
                     } else {
@@ -82,6 +85,19 @@ impl Kind for Hauler {
                         let _ = creep.drop(resource, None);
                         Task::Idle(1)
                     }
+                    // if creep.store().get_used_capacity(Some(ResourceType::Energy)) >= extension_capacity(home.room()) &&
+                    //     find_empty_structures(home.room()).count() > 0
+                    // {
+                    //     Task::FillStructures(home.name())
+                    // } else if let Some(storage) = home.storage()
+                    //     .filter(|storage| storage.store().get_free_capacity(None) > 10000)
+                    // {
+                    //     Task::DeliverToStructure(storage.pos(), storage.raw_id(), resource, None)
+                    // } else {
+                        // warn!("{} {} there is no place to store! drop?", home.name(), creep.name());
+                        // let _ = creep.drop(resource, None);
+                        // Task::Idle(1)
+                    // }
                 })
                 .or_else(|| get_new_job(home)
                     .and_then(|req| home.take_request(&req))

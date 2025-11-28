@@ -8,10 +8,7 @@ use screeps::{
 };
 use std::{cmp::Ordering, collections::HashSet, fmt};
 use crate::{
-    rooms::state::requests::{Request, RequestKind},
-    movement::walker::Walker,
-    units::{MovementGoal, has_part},
-    commons::{find_hostiles, say_message, find_closest_exit, closest_attacker}
+    commons::{closest_attacker, find_closest_exit, find_hostiles, say_message}, movement::walker::Walker, rooms::{state::requests::{Request, RequestKind}, wrappers::claimed::Fillable}, units::{MovementGoal, has_part}
 };
 use super::{with_parts, roles::Role};
 
@@ -34,7 +31,6 @@ mod powerbank;
 
 
 //todo implement prelude
-#[derive(Clone)]
 pub enum Task {
     DefendHome,
     MoveMe(RoomName, Walker), //task to get inside room only! in the target room -> abort followed by new task
@@ -56,7 +52,8 @@ pub enum Task {
     DepositCarry(Position),
     Upgrade(ObjectId<StructureController>, Option<RawObjectId>),
     TakeResource(ObjectId<Resource>),
-    FillStructures(RoomName),
+    // FillStructures(RoomName),
+    FillStructure(Box<dyn Fillable>),
     Dismantle(ObjectId<Structure>, Position),
     PullTo(String, Position),
     TakeFromStructure(Position, RawObjectId, ResourceType, Option<u32>),
@@ -263,10 +260,14 @@ impl Task {
                 logistics::deliver_to_structure(pos, id, resource, amount, creep, role,
                     with_parts(hostiles, vec![Part::RangedAttack, Part::Attack]))
             }
-            Task::FillStructures(room_name) => {
-                logistics::fill_structures(room_name, creep, role,
+            Task::FillStructure(structure) => {
+                logistics::fill_structure(structure, creep, role,
                     with_parts(hostiles, vec![Part::RangedAttack, Part::Attack]))
             }
+            // Task::FillStructures(room_name) => {
+            //     logistics::fill_structures(room_name, creep, role,
+            //         with_parts(hostiles, vec![Part::RangedAttack, Part::Attack]))
+            // }
             Task::Withdraw(pos, id, resources) => {
                 logistics::withdraw(pos, id, resources, creep, role,
                     with_parts(hostiles, vec![Part::RangedAttack, Part::Attack]))
@@ -344,7 +345,8 @@ impl fmt::Debug for Task {
             Task::Withdraw(pos, id, resources) => write!(f, "Task::Withdraw[{}, {}, {:?}]", pos, id, resources),
             Task::LongRangeWithdraw(pos, id, resource, amount) => write!(f, "Task::LongRangeWithdraw[{}, {}, {}, {}]", pos, id, resource, amount),
             Task::GenerateSafeMode(pos, id, storage_id) => write!(f, "Task::GenerateSafeMode[{}, {}, {}]", pos, id, storage_id),
-            Task::FillStructures(empty_structures) => write!(f, "Task::FillStructures[{:?}]", empty_structures),
+            Task::FillStructure(structure) => write!(f, "Task::FillStructure[{}]", structure.position()),
+            // Task::FillStructures(empty_structures) => write!(f, "Task::FillStructures[{:?}]", empty_structures),
             Task::DeliverToStructure(pos, id, resource, amount) => write!(f, "Task::DeliverToStructure[{}, {}, {}, {:?}]", pos, id, resource, amount),
             Task::Carry(from, to, resource, amount, _) => write!(f, "Task::Carry[{}, {}, {}, {}]", from, to, resource, amount)
         }
