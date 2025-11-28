@@ -7,7 +7,7 @@ use screeps::{
     StructureController, action_error_codes::WithdrawErrorCode, game
 };
 use crate::{
-    movement::walker::Walker, rooms::wrappers::claimed::Fillable, units::{Task, TaskResult, roles::Role}, utils::{
+    movement::walker::Walker, rooms::wrappers::Fillable, units::{Task, TaskResult, roles::Role}, utils::{
         commons::{extension_capacity, find_closest_empty_structure, find_walkable_positions_near_by, get_in_room_bank},
         constants::CLOSE_RANGE_ACTION}
 };

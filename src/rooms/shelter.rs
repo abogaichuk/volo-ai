@@ -10,7 +10,7 @@ use crate::{
         RoomEvent, state::{RoomState, TradeData,
             requests::{CreepHostile, DefendData, Request, RequestKind, assignment::Assignment}
         },
-        wrappers::{claimed::{Claimed, Fillable}, farm::Farm}
+        wrappers::{Fillable, claimed::Claimed, farm::Farm}
     },
     units::{Memory, roles::Role}
 };
@@ -254,7 +254,7 @@ impl <'s> Shelter<'s> {
         self.state.powers.contains(power)
     }
 
-    pub fn closest_empty_structure(&self, to: &dyn HasPosition) -> Option<&dyn Fillable> {
+    pub fn closest_empty_structure(&self, to: &dyn HasPosition) -> Option<Box<dyn Fillable>> {
         self.base.closest_empty_structure(to)
     }
 

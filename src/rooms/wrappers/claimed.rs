@@ -1,7 +1,11 @@
 use log::*;
-use rand::Fill;
 use screeps::{
-    ConstructionSite, Creep, Event, HasHits, HasId, HasPosition, HasStore, INVADER_USERNAME, MaybeHasId, Mineral, Nuke, Part, Position, PowerCreep, RawObjectId, Resource, ResourceType, Room, RoomName, RoomXY, SharedCreepProperties, Source, StructureContainer, StructureController, StructureExtension, StructureFactory, StructureNuker, StructureObject, StructureObserver, StructurePowerSpawn, StructureRoad, StructureSpawn, StructureStorage, StructureTerminal, StructureTower, StructureType, StructureWall, Tombstone, Transferable, find, game
+    ConstructionSite, Creep, Event, HasHits, HasId, HasPosition, HasStore, INVADER_USERNAME,
+    MaybeHasId, Mineral, Nuke, Part, PowerCreep, RawObjectId, Resource, ResourceType, Room,
+    RoomName, RoomXY, SharedCreepProperties, Source, StructureContainer, StructureController,
+    StructureExtension, StructureFactory, StructureNuker, StructureObject, StructureObserver,
+    StructurePowerSpawn, StructureRoad, StructureSpawn, StructureStorage, StructureTerminal,
+    StructureTower, StructureType, StructureWall, Tombstone, find, game
 };
 use smallvec::SmallVec;
 use std::{cmp::min, collections::HashMap, iter::once};
@@ -11,7 +15,7 @@ use crate::{
         RoomEvent, RoomState, is_extractor, missed_buildings,
         state::{BoostReason, FarmInfo, constructions::{RoomPlan, RoomPlannerError},
         requests::{BodyPart, BuildData, CarryData, CreepHostile, PickupData,
-            RepairData, Request, RequestKind, WithdrawData, assignment::Assignment}}, wrappers::claimed::structures::{labs::Labs, links::Links, ramparts::{Rampart, Ramparts}}
+            RepairData, Request, RequestKind, WithdrawData, assignment::Assignment}}, wrappers::{Fillable, claimed::structures::{labs::Labs, links::Links, ramparts::{Rampart, Ramparts}}}
     },
     units::{
         Memory,
@@ -328,10 +332,10 @@ impl Claimed {
                 .unwrap_or_default()
     }
 
-    pub(crate) fn closest_empty_structure(&self, to: &dyn HasPosition) -> Option<&dyn Fillable> {
-        self.extensions.iter().map(|e| e as &dyn Fillable)
-            .chain(self.towers.iter().map(|t| t as &dyn Fillable))
-            .chain(self.spawns.iter().map(|s| s as &dyn Fillable))
+    pub(crate) fn closest_empty_structure(&self, to: &dyn HasPosition) -> Option<Box<dyn Fillable>> {
+        self.extensions.iter().cloned().map(|e| Box::new(e) as Box<dyn Fillable>)
+            .chain(self.towers.iter().cloned().map(|t| Box::new(t) as Box<dyn Fillable>))
+            .chain(self.spawns.iter().cloned().map(|s| Box::new(s) as Box<dyn Fillable>))
             .min_by_key(|f| to.pos().get_range_to(f.position()))
     }
 
@@ -538,76 +542,6 @@ impl Claimed {
     }
 }
 
-pub trait Fillable {
-    fn position(&self) -> Position;
-    fn id(&self) -> RawObjectId;
-    fn free_capacity(&self) -> i32;
-    fn as_transferable(&self) -> &dyn Transferable;
-}
-
-impl Fillable for StructureExtension {
-    fn position(&self) -> Position {
-        self.pos()
-    }
-
-    fn id(&self) -> RawObjectId {
-        self.raw_id()
-    }
-
-    fn as_transferable(&self) -> &dyn Transferable {
-        self
-    }
-    
-    fn free_capacity(&self) -> i32 {
-        self.store().get_free_capacity(Some(ResourceType::Energy))
-    }
-}
-
-impl Fillable for StructureTower {
-    fn position(&self) -> Position {
-        self.pos()
-    }
-
-    fn id(&self) -> RawObjectId {
-        self.raw_id()
-    }
-
-    fn as_transferable(&self) -> &dyn Transferable {
-        self
-    }
-
-    fn free_capacity(&self) -> i32 {
-        self.store().get_free_capacity(Some(ResourceType::Energy))
-    }
-}
-
-impl Fillable for StructureSpawn {
-    fn position(&self) -> Position {
-        self.pos()
-    }
-
-    fn id(&self) -> RawObjectId {
-        self.raw_id()
-    }
-
-    fn as_transferable(&self) -> &dyn Transferable {
-        self
-    }
-
-    fn free_capacity(&self) -> i32 {
-        self.store().get_free_capacity(Some(ResourceType::Energy))
-    }
-}
-// impl<F> TerrainSource for F
-// where
-//     F: Fn(u8, u8) -> Terrain,
-// {
-//     #[inline]
-//     fn terrain_at(&self, x: u8, y: u8) -> Terrain {
-//         (self)(x, y)
-//     }
-// }
-
 fn find_player_boosted_creeps(enemies: &[Creep]) -> Vec<CreepHostile> {
     enemies.iter()
         .filter(|creep| {
@@ -628,4 +562,3 @@ fn find_player_boosted_creeps(enemies: &[Creep]) -> Vec<CreepHostile> {
             }
         }).collect()
 }
-

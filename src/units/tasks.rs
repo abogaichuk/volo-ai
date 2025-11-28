@@ -8,7 +8,7 @@ use screeps::{
 };
 use std::{cmp::Ordering, collections::HashSet, fmt};
 use crate::{
-    commons::{closest_attacker, find_closest_exit, find_hostiles, say_message}, movement::walker::Walker, rooms::{state::requests::{Request, RequestKind}, wrappers::claimed::Fillable}, units::{MovementGoal, has_part}
+    commons::{closest_attacker, find_closest_exit, find_hostiles, say_message}, movement::walker::Walker, rooms::{state::requests::{Request, RequestKind}, wrappers::Fillable}, units::{MovementGoal, has_part}
 };
 use super::{with_parts, roles::Role};
 
