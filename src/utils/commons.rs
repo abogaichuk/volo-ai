@@ -281,6 +281,7 @@ pub fn look_for(position: &RoomPosition, structure_type: StructureType) -> bool 
             .any(|structure| structure.as_structure().structure_type() == structure_type))
 }
 
+//todo move to shelter
 pub fn find_container_with(
         resource: ResourceType,
         amount: Option<u32>,
@@ -496,4 +497,9 @@ pub fn is_skr(f_mod: u32, s_mod: u32) -> bool {
 
 pub fn room_xy(x: u8, y: u8) -> RoomXY {
     unsafe { RoomXY::new(RoomCoordinate::unchecked_new(x), RoomCoordinate::unchecked_new(y)) }
+}
+
+//83 -> 85, 89 -> 90, 2 -> 5
+pub fn round_up_to_5(x: u32) -> u32 {
+    x.div_ceil(5) * 5
 }

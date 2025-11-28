@@ -66,7 +66,7 @@ impl Request {
             RequestKind::Defend(d) => defend_handler(d, &mut meta, &mut assignment, home, creeps),
             RequestKind::Transfer(d) => transfer_handler(d, &mut meta, home),
             RequestKind::Factory(d) => factory_handler(d, &mut meta, home),
-            RequestKind::Lab(d) => lab_handler(d, &mut meta, home),
+            RequestKind::Lab(d) => lab_handler(d, &mut meta, &home.base),
             RequestKind::Powerbank(d) => powerbank_handler(d, &mut meta, &mut assignment, home),
             RequestKind::Deposit(d) => deposit_handler(d, &mut meta, &mut assignment, home.name()),
             RequestKind::Caravan(d) => caravan_handler(d, &mut meta, home.name()),

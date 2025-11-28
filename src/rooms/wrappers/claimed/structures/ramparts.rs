@@ -21,7 +21,7 @@ impl Claimed {
         
         let enemies = self.hostiles.len();
         for rampart in self.ramparts.all() {
-            rampart.switch(enemies == 0);
+            rampart.toogle(enemies == 0);
 
             if rampart.need_repair(&nuke_positions) {
                 requests.push(Request::new(
@@ -81,7 +81,7 @@ pub(crate) struct Rampart {
 }
 
 impl Rampart {
-    fn switch(&self, open: bool) {
+    fn toogle(&self, open: bool) {
         if self.perimeter {
             if open && !self.structure.is_public() {
                 let _ = self.structure.set_public(true);

@@ -238,10 +238,6 @@ impl ColonyEvent {
                             Assignment::None);
                         info!("{} added lack STOREABLE: {:?} by colony", room_name, transfer_request);
                         state.add_request(room_name, transfer_request);
-                    }  else {
-                        lack_order.to = Some(from);
-                        //todo bug: resource ops not found, craft 3000 items!
-                        info!("resource: {} not found, {} craft {} items", resource, from, amount);
                     }
                     state.orders.insert(ColonyOrder::Lack(lack_order));
                 }

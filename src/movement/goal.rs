@@ -179,7 +179,6 @@ mod tests {
         let zones2 = vec![RoomXY::new(RoomCoordinate(1), RoomCoordinate(5))];
 
         assert!(zones1 == zones2)
-
     }
 }
 

@@ -87,12 +87,12 @@ pub fn counter_clockwise_dir(direction: Direction) -> Direction {
 mod tests {
     // use crate::rooms::constructions::tests::{sources, spawn};
     // use crate::rooms::constructions::blueprints::tests::{perimeter, grid};
-    use super::*;
+    // use super::*;
 
-    #[test]
-    fn get_sides_test() {
-        let xy = unsafe { RoomXY::unchecked_new(25, 25) };
-        get_sides(&xy, 1)
-            .for_each(|side| println!("side: {}", side));
-    }
+    // #[test]
+    // fn get_sides_test() {
+    //     let xy = unsafe { RoomXY::unchecked_new(25, 25) };
+    //     get_sides(&xy, 1)
+    //         .for_each(|side| println!("side: {}", side));
+    // }
 }

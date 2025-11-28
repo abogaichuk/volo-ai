@@ -45,7 +45,7 @@ impl <'s> Shelter<'s> {
 
         let requests: HashSet<Request> = self.state.requests.drain().collect();
 
-        // lab, terminal and factory switch request status to InProgress only
+        // lab, terminal and factory toogle request status to InProgress only
         // because only one request can be correctly handled at one tick
         let manufacture_events = self.base.run_labs(&requests, &self.state.boosts)
             .chain(self.base.run_factory(&requests, self.state))
@@ -390,9 +390,9 @@ impl <'s> Shelter<'s> {
         self.base.unload(obj, allowed)
     }
 
-    pub fn load_lab(&self, lab: &StructureLab, component: (ResourceType, u32)) -> Option<RoomEvent> {
-        self.base.load_lab(lab, component)
-    }
+    // pub fn load_lab(&self, lab: &StructureLab, component: (ResourceType, u32)) -> Option<RoomEvent> {
+    //     self.base.load_lab(lab, component)
+    // }
 
     pub fn supply_resources(&self, to: RawObjectId, resource: ResourceType, amount: u32) -> Option<RoomEvent> {
         self.base.supply_resources(to, resource, amount)

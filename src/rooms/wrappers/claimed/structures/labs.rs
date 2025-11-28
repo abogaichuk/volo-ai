@@ -77,7 +77,7 @@ impl Claimed {
     }
 
     fn update_lab_state(&self, boosts: &HashMap<BoostReason, u32>) -> Option<RoomEvent> {
-        //all unique resources needed for boosts
+        //all unique boostable resources
         let boost_resources: Vec<ResourceType> = boosts.iter()
             .flat_map(|boost_reason| boost_reason.0.value())
             .unique()
@@ -112,8 +112,8 @@ impl Claimed {
     }
 
     pub fn load_lab(&self, lab: &StructureLab, component: (ResourceType, u32)) -> Option<RoomEvent> {
-        if lab.store().get_used_capacity(Some(component.0)) < component.1 {
-            find_container_with(component.0, None, self.storage(), self.terminal(), self.factory())
+        (lab.store().get_used_capacity(Some(component.0)) < component.1)
+            .then(|| find_container_with(component.0, None, self.storage(), self.terminal(), self.factory())
                 .map(|(id, amount)| {
                     let min_amount = cmp::min(amount, component.1);
                     RoomEvent::Request(Request::new(
@@ -123,10 +123,8 @@ impl Claimed {
                             component.0,
                             min_amount)),
                         Assignment::Single(None)))
-                })
-        } else {
-            None
-        }
+                }))
+            .flatten()
     }
 }
 
@@ -180,7 +178,7 @@ impl Labs {
         &self.outputs
     }
 
-    pub(crate) fn boosts(&self) -> &HashMap<ResourceType, StructureLab> {
+    fn boosts(&self) -> &HashMap<ResourceType, StructureLab> {
         &self.boosts
     }
 
