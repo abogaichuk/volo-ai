@@ -1,6 +1,6 @@
 use serde::{Serialize, Deserialize};
 use screeps::{
-    Creep, HasId, Part, Position, ResourceType, ObjectId, RoomName, StructureController
+    Creep, Part, Position, ResourceType, ObjectId, RoomName, StructureController
 };
 use std::{fmt, collections::HashMap};
 use arrayvec::ArrayVec;

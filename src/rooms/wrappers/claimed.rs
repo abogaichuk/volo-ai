@@ -1,13 +1,11 @@
 use log::*;
 use screeps::{
-    ConstructionSite, Creep, Event, HasHits, HasId, HasPosition, HasStore,
-    MaybeHasId, Mineral, Nuke, Part, PowerCreep, RawObjectId, Resource,
-    ResourceType, Room, RoomName, RoomXY, SharedCreepProperties, Source,
-    StructureContainer, StructureController, StructureExtension, StructureFactory,
-    StructureLab, StructureLink, StructureNuker, StructureObject, StructureObserver,
-    StructurePowerSpawn, StructureRampart, StructureRoad, StructureSpawn, StructureStorage,
-    StructureTerminal, StructureTower, StructureType, StructureWall, Tombstone, find, game,
-    INVADER_USERNAME
+    ConstructionSite, Creep, Event, HasHits, HasId, HasPosition, HasStore, INVADER_USERNAME,
+    MaybeHasId, Mineral, Nuke, Part, PowerCreep, RawObjectId, Resource, ResourceType, Room,
+    RoomName, RoomXY, SharedCreepProperties, Source, StructureContainer, StructureController,
+    StructureExtension, StructureFactory, StructureNuker, StructureObject, StructureObserver,
+    StructurePowerSpawn, StructureRoad, StructureSpawn, StructureStorage, StructureTerminal,
+    StructureTower, StructureType, StructureWall, Tombstone, find, game
 };
 use smallvec::SmallVec;
 use std::{cmp::min, collections::HashMap, iter::once};
@@ -17,7 +15,7 @@ use crate::{
         RoomEvent, RoomState, is_extractor, missed_buildings,
         state::{BoostReason, FarmInfo, constructions::{RoomPlan, RoomPlannerError},
         requests::{BodyPart, BuildData, CarryData, CreepHostile, PickupData,
-            RepairData, Request, RequestKind, WithdrawData, assignment::Assignment}}
+            RepairData, Request, RequestKind, WithdrawData, assignment::Assignment}}, wrappers::{Fillable, claimed::structures::{labs::Labs, links::Links, ramparts::Ramparts}}
     },
     units::{
         Memory,
@@ -31,6 +29,7 @@ use super::farm::Farm;
 
 mod structures;
 
+//todo implement prelude.rs
 pub(crate) struct Claimed {
     pub(crate) room: Room,
     pub(crate) controller: StructureController,
@@ -41,14 +40,14 @@ pub(crate) struct Claimed {
     pub(crate) extensions: Vec<StructureExtension>,
     pub(crate) towers: Vec<StructureTower>,
     pub(crate) storage: Option<StructureStorage>,
-    pub(crate) links: Vec<StructureLink>,
+    pub(crate) links: Links,
     pub(crate) terminal: Option<StructureTerminal>,
     pub(crate) factory: Option<StructureFactory>,
     pub(crate) observer: Option<StructureObserver>,
     pub(crate) nuker: Option<StructureNuker>,
     pub(crate) power_spawn: Option<StructurePowerSpawn>,
-    pub(crate) labs: Vec<StructureLab>,
-    pub(crate) ramparts: Vec<StructureRampart>,
+    pub(crate) labs: Labs,
+    pub(crate) ramparts: Ramparts,
     pub(crate) containers: Vec<StructureContainer>,
     pub(crate) roads: Vec<StructureRoad>,
     pub(crate) walls: Vec<StructureWall>,
@@ -59,12 +58,11 @@ pub(crate) struct Claimed {
     pub(crate) tombs: Vec<Tombstone>,
     pub(crate) cs: Vec<ConstructionSite>,
     pub(crate) dropped: Vec<Resource>,
-    pub(crate) events: Vec<Event>,
-    pub(crate) time: u32
+    pub(crate) events: Vec<Event>
 }
 
 impl Claimed {
-    pub(crate) fn new(room: Room, farms: Vec<Farm>) -> Self {
+    pub(crate) fn new(room: Room, farms: Vec<Farm>, state: &RoomState) -> Self {
         let controller = room.controller().expect("expect controller in my Base");
         let mineral = room.find(find::MINERALS, None).remove(0);
         let sources = room.find(find::SOURCES, None);
@@ -122,14 +120,14 @@ impl Claimed {
             extensions,
             towers,
             storage,
-            links,
+            links: Links::new(links, state.plan.as_ref()),
             terminal,
             factory,
             observer,
             nuker,
             power_spawn,
-            labs,
-            ramparts,
+            labs: Labs::new(labs, state.plan.as_ref()),
+            ramparts: Ramparts::new(ramparts, state.plan.as_ref()),
             containers,
             roads,
             walls,
@@ -141,7 +139,6 @@ impl Claimed {
             cs,
             dropped,
             events,
-            time: game::time()
         }
     }
 
@@ -268,7 +265,7 @@ impl Claimed {
         room_memory: &'a RoomState,
         creeps: &'a HashMap<String, Memory>) -> impl Iterator<Item = RoomEvent> + 'a
     {
-        (self.time % 100 == 0)
+        (game::time() % 100 == 0)
             .then(|| {
                 once(RoomEvent::RetainBoosts)
                     .chain(self.manage_mineral_miner(room_memory, creeps))
@@ -319,10 +316,6 @@ impl Claimed {
         self.factory.as_ref()
     }
 
-    pub fn find_lab_by_xy(&self, xy: RoomXY) -> Option<&StructureLab> {
-        self.labs.iter().find(|lab| lab.pos().xy() == xy)
-    }
-
     pub fn energy_available(&self) -> u32 {
         self.room.energy_available()
     }
@@ -331,16 +324,26 @@ impl Claimed {
         self.room.energy_capacity_available()
     }
 
-    // fn memory<'a>(&self, rooms: &'a mut HashMap<RoomName, RoomState>) -> &'a mut RoomState {
-    //     rooms.get_mut(&self.get_name()).expect("room exists")
-    // }
-
     pub fn resource_amount(&self, resource: ResourceType) -> u32 {
         self.storage()
             .map(|storage| storage.store().get_used_capacity(Some(resource)))
             .and_then(|in_storage| self.terminal()
                 .map(|terminal| terminal.store().get_used_capacity(Some(resource)) + in_storage))
                 .unwrap_or_default()
+    }
+
+    //todo the Box requires cloning, consider to avoid cloning by adding new lifetime to Task -> CreepMemory -> Unit
+    pub(crate) fn closest_empty_structure(&self, to: &dyn HasPosition) -> Option<Box<dyn Fillable>> {
+        self.extensions.iter()
+            .filter(|e| e.store().get_free_capacity(Some(ResourceType::Energy)) > 0).cloned()
+            .map(|e| Box::new(e) as Box<dyn Fillable>)
+            .chain(self.towers.iter()
+                .filter(|t| t.store().get_free_capacity(Some(ResourceType::Energy)) > 0).cloned()
+                .map(|t| Box::new(t) as Box<dyn Fillable>))
+            .chain(self.spawns.iter()
+                .filter(|s| s.store().get_free_capacity(Some(ResourceType::Energy)) > 0).cloned()
+                .map(|s| Box::new(s) as Box<dyn Fillable>))
+            .min_by_key(|f| to.pos().get_range_to(f.position()))
     }
 
     pub fn build_requests(&self) -> Vec<Request> {
@@ -487,7 +490,7 @@ impl Claimed {
     //todo logic close to logic for towers
     pub fn security_check(&self, room_memory: &RoomState, creeps: &HashMap<String, Memory>) -> impl Iterator<Item = RoomEvent> {
         let mut events = self.invasion_check(room_memory, creeps);
-        events.extend(self.perimetr_check(room_memory));
+        events.extend(self.perimetr_check());
 
         if !self.nukes.is_empty() {
             events.push(RoomEvent::NukeFalling);
@@ -531,7 +534,7 @@ impl Claimed {
                     events.push(RoomEvent::Spawn(guard, to_spawn));
                     events.push(RoomEvent::Intrusion(Some(format!("Boosted player invasion in room {}!!", self.get_name()))));
 
-                } else if room_memory.intrusion && room_memory.last_intrusion + 100 < self.time {
+                } else if room_memory.intrusion && room_memory.last_intrusion + 100 < game::time() {
                     events.push(RoomEvent::Intrusion(None));
                 }
             }
@@ -539,15 +542,10 @@ impl Claimed {
         events
     }
     
-    fn perimetr_check(&self, room_memory: &RoomState) -> Option<RoomEvent> {
-        room_memory.plan.as_ref()
-            .map(|plan| plan.perimeter())
-            .filter(|perimetr| {
-                self.ramparts.iter()
-                    .filter(|rampart| perimetr.contains(&rampart.pos().xy()))
-                    .any(|rampart| rampart.hits() < MIN_PERIMETR_HITS)
-            })
-            .map(|_| RoomEvent::ActivateSafeMode("Perimeter out of order! Enabling safe mode!".to_string()))
+    fn perimetr_check(&self) -> Option<RoomEvent> {
+        (self.ramparts.perimeter()
+            .any(|rampart| rampart.hits() < MIN_PERIMETR_HITS))
+                .then(|| RoomEvent::ActivateSafeMode("Perimeter out of order! Enabling safe mode!".to_string()))
     }
 }
 
@@ -571,4 +569,3 @@ fn find_player_boosted_creeps(enemies: &[Creep]) -> Vec<CreepHostile> {
             }
         }).collect()
 }
-

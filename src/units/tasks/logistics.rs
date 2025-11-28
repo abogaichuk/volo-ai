@@ -2,15 +2,13 @@ use log::*;
 use std::cmp;
 use wasm_bindgen::JsCast;
 use screeps::{
-    Creep, HasId, HasPosition, HasStore, ObjectId, Position, RawObjectId,
-    Resource, ResourceType, RoomName, SharedCreepProperties, StructureContainer,
+    Creep, HasPosition, HasStore, ObjectId, Position, RawObjectId,
+    Resource, ResourceType, SharedCreepProperties, StructureContainer,
     StructureController, action_error_codes::WithdrawErrorCode, game
 };
 use crate::{
-    units::{Task, TaskResult, roles::Role},
-    movement::walker::Walker,
-    utils::{
-        commons::{extension_capacity, find_closest_empty_structure, find_walkable_positions_near_by, get_in_room_bank},
+    movement::walker::Walker, rooms::wrappers::Fillable, units::{Task, TaskResult, roles::Role}, utils::{
+        commons::{find_walkable_positions_near_by},
         constants::CLOSE_RANGE_ACTION}
 };
 
@@ -94,8 +92,10 @@ pub fn take_from_structure(pos: Position, id: RawObjectId, resource: ResourceTyp
 
 pub fn deliver_to_structure(pos: Position, id: RawObjectId, resource: ResourceType, amount: Option<u32>, creep: &Creep, role: &Role, enemies: Vec<Creep>) -> TaskResult {
     if let Some(room_obj) = game::get_object_by_id_erased(&id) {
-        if creep.pos().is_near_to(room_obj.pos()) {
-            let container = room_obj.unchecked_ref::<StructureContainer>();
+        let container = room_obj.unchecked_ref::<StructureContainer>();
+        if container.store().get_free_capacity(Some(resource)) == 0 {
+            TaskResult::Abort
+        } else if creep.pos().is_near_to(room_obj.pos()) {
             match creep.transfer(container, resource, amount) {
                 Ok(_) => {
                     let _ = creep.say("👌", false); //OK emoji!
@@ -119,37 +119,16 @@ pub fn deliver_to_structure(pos: Position, id: RawObjectId, resource: ResourceTy
     }
 }
 
-pub fn fill_structures(room_name: RoomName, creep: &Creep, role: &Role, enemies: Vec<Creep>) -> TaskResult {
-    let cpu_start = game::cpu::get_used();
-    let home_room = game::rooms().get(room_name).expect("expect home room!");
-    
-    if creep.store().get_used_capacity(Some(ResourceType::Energy)) < extension_capacity(&home_room) {
-        TaskResult::Abort
-    } else if let Some(closest_str) = find_closest_empty_structure(&home_room, creep) {
-        if creep.pos().is_near_to(closest_str.pos()) {
-            if let Some(transferable) = closest_str.as_transferable() {
-                let _ = creep.say("🚰", false); //valve
-                let _ = creep.transfer(transferable, ResourceType::Energy, None);
-                let cpu_used = game::cpu::get_used() - cpu_start;
-                if cpu_used > 5. {
-                    info!("{}, fill_structures transfer - pos: {}, cpu {} exceed!", creep.name(), creep.pos(), cpu_used);
-                }
-                TaskResult::StillWorking(Task::FillStructures(room_name), None)
-            } else {
-                error!("{} structure: {} is not transferable", creep.name(), closest_str.as_structure().raw_id());
-                TaskResult::Abort
-            }
-        } else {
-            let _ = creep.say("🚶🏿", false); //walk dark
-            let goal = Walker::Exploring(false).walk(closest_str.pos(), CLOSE_RANGE_ACTION, creep, role, enemies);
-            let cpu_used = game::cpu::get_used() - cpu_start;
-            if cpu_used > 5. {
-                    info!("{}, fill_structures walk - pos: {}, to: {}, cpu {} exceed!", creep.name(), creep.pos(), goal.pos, cpu_used);
-                }
-            TaskResult::StillWorking(Task::FillStructures(room_name), Some(goal))
-        }
+pub fn fill_structure(structure: Box<dyn Fillable>, creep: &Creep, role: &Role, enemies: Vec<Creep>) -> TaskResult {
+    if creep.pos().is_near_to(structure.position()) {
+        let _ = creep.say("🚰", false); //valve
+        let _ = creep.transfer(structure.as_transferable(), ResourceType::Energy, None);
+        TaskResult::Completed
     } else {
-        TaskResult::Abort
+
+        let _ = creep.say("🚶🏿", false); //walk dark
+        let goal = Walker::Exploring(false).walk(structure.position(), CLOSE_RANGE_ACTION, creep, role, enemies);
+        TaskResult::StillWorking(Task::DeliverToStructure(structure.position(), structure.id(), ResourceType::Energy, None), Some(goal))
     }
 }
 
@@ -235,7 +214,6 @@ pub fn generate_safe_mode(pos: Position, id: ObjectId<StructureController>, stor
 }
 
 pub fn carry(from: RawObjectId, to: RawObjectId, resource: ResourceType, amount: u32, creep: &Creep, role: &Role, enemies: Vec<Creep>) -> TaskResult {
-    debug!("{} start carry {} from {} to {}", creep.name(), resource, from.to_string(), to.to_string());
     if has_enough_or_full(creep, resource, amount) {
         //deliver to structure
         if let Some(room_obj) = game::get_object_by_id_erased(&to) {
@@ -260,24 +238,9 @@ pub fn carry(from: RawObjectId, to: RawObjectId, resource: ResourceType, amount:
             error!("there is no structure carry to: {:?}", to);
             TaskResult::ResolveRequest(Task::Carry(from, to, resource, amount, None), false)
         }
-    } else if let Some(useless_res) = get_resource(creep, &resource) {
-        //unload the useless_res
-        let home_room = role.get_home()
-            .and_then(|home| game::rooms().get(home))
-            .expect("expect role has a home!");
-        
-        if let Some(storage) = get_in_room_bank(&home_room) {
-            match deliver_to_structure(storage.pos(), storage.as_structure().raw_id(), useless_res, None, creep, role, enemies) {
-                TaskResult::Abort => {
-                    TaskResult::ResolveRequest(Task::Carry(from, to, resource, amount, None), false)
-                }
-                another => another
-            }
-        } else {
-            error!("{} there is no available bank in: {:?}", creep.name(), role.get_home());
-            TaskResult::ResolveRequest(Task::Carry(from, to, resource, amount, None), false)
-        }
-    } else if let Some(room_obj) = game::get_object_by_id_erased(&from) {
+    } else if !creep.store().store_types().into_iter().any(|res| res != resource) &&
+        let Some(room_obj) = game::get_object_by_id_erased(&from)
+    {
         //creep has or has not some amount of the resource here, withdraw additional resource
         let additional_amount = if amount > creep.store().get_capacity(None) {
             None
@@ -296,6 +259,69 @@ pub fn carry(from: RawObjectId, to: RawObjectId, resource: ResourceType, amount:
         TaskResult::ResolveRequest(Task::Carry(from, to, resource, amount, None), false)
     }
 }
+
+// pub fn carry(from: RawObjectId, to: RawObjectId, resource: ResourceType, amount: u32, creep: &Creep, role: &Role, enemies: Vec<Creep>) -> TaskResult {
+//     debug!("{} start carry {} from {} to {}", creep.name(), resource, from.to_string(), to.to_string());
+//     if has_enough_or_full(creep, resource, amount) {
+//         //deliver to structure
+//         if let Some(room_obj) = game::get_object_by_id_erased(&to) {
+//             let current_amount = cmp::min(amount, creep.store().get_used_capacity(Some(resource)));
+//             match deliver_to_structure(room_obj.pos(), to, resource, Some(current_amount), creep, role, enemies) {
+//                 TaskResult::Completed => {
+//                     if current_amount >= amount {
+//                         TaskResult::ResolveRequest(Task::Carry(from, to, resource, 0, None), false)
+//                     } else {
+//                         TaskResult::UpdateRequest(Task::Carry(from, to, resource, amount - current_amount, None))
+//                     }
+//                 }
+//                 TaskResult::StillWorking(_, movement_goal) => {
+//                     TaskResult::StillWorking(Task::Carry(from, to, resource, amount, None), movement_goal)
+//                 }
+//                 _ => {
+//                     error!("{} carry got abort from deliver to: {:?} task", creep.name(), to);
+//                     TaskResult::ResolveRequest(Task::Carry(from, to, resource, amount, None), false)
+//                 }
+//             }
+//         } else {
+//             error!("there is no structure carry to: {:?}", to);
+//             TaskResult::ResolveRequest(Task::Carry(from, to, resource, amount, None), false)
+//         }
+//     } else if let Some(useless_res) = get_resource(creep, &resource) {
+//         //unload the useless_res
+//         let home_room = role.get_home()
+//             .and_then(|home| game::rooms().get(home))
+//             .expect("expect role has a home!");
+        
+//         if let Some(storage) = get_in_room_bank(&home_room) {
+//             match deliver_to_structure(storage.pos(), storage.as_structure().raw_id(), useless_res, None, creep, role, enemies) {
+//                 TaskResult::Abort => {
+//                     TaskResult::ResolveRequest(Task::Carry(from, to, resource, amount, None), false)
+//                 }
+//                 another => another
+//             }
+//         } else {
+//             error!("{} there is no available bank in: {:?}", creep.name(), role.get_home());
+//             TaskResult::ResolveRequest(Task::Carry(from, to, resource, amount, None), false)
+//         }
+//     } else if let Some(room_obj) = game::get_object_by_id_erased(&from) {
+//         //creep has or has not some amount of the resource here, withdraw additional resource
+//         let additional_amount = if amount > creep.store().get_capacity(None) {
+//             None
+//         } else {
+//             Some(amount - creep.store().get_used_capacity(Some(resource)))
+//         };
+//         match take_from_structure(room_obj.pos(), from, resource, additional_amount, creep, role, enemies) {
+//             TaskResult::Abort => {
+//                 error!("{} carry got abort from take_from_structure {}, res: {}, amount: {}", creep.name(), from, resource, amount);
+//                 TaskResult::ResolveRequest(Task::Carry(from, to, resource, amount, None), false)
+//             }
+//             another => another
+//         }
+//     } else {
+//         error!("there is no structure carry from: {:?}", from);
+//         TaskResult::ResolveRequest(Task::Carry(from, to, resource, amount, None), false)
+//     }
+// }
 
 pub fn pull_to(creep_name: String, destination: Position, creep: &Creep, role: &Role, enemies: Vec<Creep>) -> TaskResult {
     if let Some(cargo) = game::creeps().get(creep_name.clone()) {

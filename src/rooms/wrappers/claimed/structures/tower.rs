@@ -1,18 +1,14 @@
 use log::*;
-use screeps::{
-    ObjectId, Part, Position, PowerCreep, StructureRampart, objects::Creep,
-    prelude::*, INVADER_USERNAME
-};
+use screeps::{Part, Position, PowerCreep, objects::Creep, prelude::*, INVADER_USERNAME};
 use crate::{
     rooms::wrappers::claimed::Claimed,
     commons::full_boosted
 };
 
 impl Claimed {
-    pub(crate) fn run_towers(&self, perimeter: &[ObjectId<StructureRampart>]) {
-        let perimetr:Vec<Position> = perimeter
-            .iter()
-            .filter_map(|id| id.resolve().map(|rampart| rampart.pos()))
+    pub(crate) fn run_towers(&self) {
+        let perimetr:Vec<Position> = self.ramparts.perimeter()
+            .map(|rampart| rampart.pos())
             .collect();
 
         let (hostiles, invanders):(Vec<_>, _) = self.hostiles.iter()

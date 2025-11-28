@@ -1,8 +1,8 @@
 use itertools::Itertools;
 use log::*;
 use screeps::{
-    game, HasPosition, Mineral, ObjectId, RoomPosition, PowerType,
-    ResourceType, Room, RoomName, RoomXY, StructureLab, StructureType
+    game, HasPosition, Mineral, RoomPosition, PowerType,
+    ResourceType, Room, RoomName, RoomXY, StructureType
 };
 use std::{collections::{HashMap, HashSet}, iter::Iterator};
 use js_sys::JsString;
@@ -10,8 +10,8 @@ use crate::{
     commons::look_for,
     rooms::{
         shelter::Shelter,
-        state::{BoostReason, RoomState, constructions::{LabStatus, PlannedCell, RoomPlan}, requests::{CreepHostile, Request}},
-        wrappers::{claimed::Claimed, farm::Farm, neutral::Neutral}
+        state::{BoostReason, RoomState, constructions::{PlannedCell, RoomPlan}, requests::{CreepHostile, Request}},
+        wrappers::{farm::Farm, neutral::Neutral}
     },
     units::roles::Role
 };
@@ -30,14 +30,11 @@ pub enum RoomEvent {
     DeletePower(PowerType),
     AddBoost(BoostReason, u32),
     RetainBoosts,
-    // UpdateLab(RoomXY, LabStatus),
-    // UpdateLab(ObjectId<StructureLab>, LabStatus),
     StopFarm(RoomName, Option<RoomName>),
     StartFarm(RoomName, Option<RoomName>),
     AddPlans(HashMap<RoomName, RoomPlan>),
     Plan(RoomPlan),
     ReplaceCell(PlannedCell),
-    // Build(RoomName, HashMap<RoomXY, StructureType>),
     BuiltAll,
     Lack(ResourceType, u32),
     Excess(ResourceType, u32),
@@ -73,7 +70,7 @@ pub fn register_rooms<'a>(
                 }
             }
 
-            homes.insert(*room_name, Shelter::new(state, Claimed::new(base_room, farms), white_list));
+            homes.insert(*room_name, Shelter::new(base_room, farms, state, white_list));
         }
     }
     debug!("registered shelters: {}", homes.len());

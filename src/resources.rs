@@ -224,8 +224,8 @@ impl ResourceHandler for OpsHandler {
                 let amount = storage.store().get_used_capacity(Some(ResourceType::Ops));
                 if amount < 10000 {
                     Some(RoomEvent::Lack(ResourceType::Ops, 3000))
-                } else if amount > 100000 {
-                    Some(RoomEvent::Excess(ResourceType::Ops, amount - 100000))
+                } else if amount > 50000 {
+                    Some(RoomEvent::Excess(ResourceType::Ops, amount - 50000))
                 } else {
                     None
                 }

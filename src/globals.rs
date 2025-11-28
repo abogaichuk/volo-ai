@@ -4,7 +4,7 @@ use wasm_bindgen::prelude::wasm_bindgen;
 use wasm_bindgen::JsValue;
 use std::str::FromStr;
 use screeps::{
-    game, HasHits, RoomXY, find, OwnedStructureProperties, ResourceType,
+    game, RoomXY, find, OwnedStructureProperties, ResourceType,
     StructureObject, StructureProperties, OrderType, RoomName
 };
 use crate::{
@@ -33,13 +33,14 @@ pub fn info() -> String {
 
                     let requests_info = format!("     requests size: {}\n", elem.1.requests.len());
 
-                    let min_hits =  elem.1.perimetr.iter()
-                        .map(|id| id.resolve()
-                            .map_or_else(||0, |rampart| rampart.hits()))
-                        .min().unwrap_or(0);
-                    let perimetr_info = format!("     min perimeter hits: {}\n", min_hits);
+                    // let min_hits =  elem.1.perimetr.iter()
+                    //     .map(|id| id.resolve()
+                    //         .map_or_else(||0, |rampart| rampart.hits()))
+                    //     .min().unwrap_or(0);
+                    // let perimetr_info = format!("     min perimeter hits: {}\n", min_hits);
 
-                    format!("{}{}{}{}{}", acc, room_header, spawn_info, requests_info, perimetr_info)
+                    // format!("{}{}{}{}{}", acc, room_header, spawn_info, requests_info, perimetr_info)
+                    format!("{}{}{}{}", acc, room_header, spawn_info, requests_info)
                 });
         rooms_info
     })
@@ -122,7 +123,6 @@ pub fn claim_room(room_name: String) -> String {
                     StructureObject::StructureTower(tower) if !tower.my() => tower.destroy(),
                     StructureObject::StructureSpawn(s) if !s.my() => s.destroy(),
                     StructureObject::StructureExtension(e) if !e.my() => e.destroy(),
-                    // StructureObject::StructureFactory(f) if !f.my() => f.destroy(),
                     StructureObject::StructureLink(link) if !link.my() => link.destroy(),
                     StructureObject::StructureLab(lab) if !lab.my() => lab.destroy(),
                     StructureObject::StructureObserver(o) if !o.my() => o.destroy(),

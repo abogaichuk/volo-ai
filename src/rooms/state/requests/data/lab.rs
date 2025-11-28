@@ -3,7 +3,7 @@ use serde::{Serialize, Deserialize};
 use screeps::{ResourceType, action_error_codes::RunReactionErrorCode, game};
 use smallvec::SmallVec;
 use crate::{
-    rooms::{RoomEvent, shelter::{Labs, Shelter}, state::requests::{Meta, Status}},
+    rooms::{RoomEvent, shelter::Shelter, state::requests::{Meta, Status}},
     utils::constants::MIN_CARRY_REQUEST_AMOUNT
 };
 
@@ -30,7 +30,7 @@ pub(in crate::rooms::state::requests) fn lab_handler(
     let mut events: SmallVec<[RoomEvent; 3]> = SmallVec::new();
 
     //split production labs by inputs and otputs
-    let Labs { inputs, outputs, boosts: _ } = home.labs();
+    let (inputs, outputs)= home.production_labs();
 
     if !events.is_empty() || inputs.len() != 2 {
         warn!("{} labs didn't set!", home.name());
@@ -48,7 +48,7 @@ pub(in crate::rooms::state::requests) fn lab_handler(
                 } else if let Some(unload_event) = home.unload(input2, &[res2]) {
                     events.push(unload_event);
                 } else {
-                    for output in outputs.into_iter()
+                    for output in outputs.iter()
                         .filter(|o| o.cooldown() == 0)
                     {
                         match output.run_reaction(input1, input2) {

@@ -1,135 +1,42 @@
 use log::*;
-use screeps::{HasId, ResourceType, StructureLab};
-use std::{cmp, collections::HashSet};
+use screeps::{HasId, HasPosition, ObjectId, ResourceType, StructureLab};
+use std::{cmp, collections::{HashMap, HashSet}};
 use itertools::Itertools;
 use crate::{
     commons::find_container_with, rooms::{
-        RoomEvent, shelter::Labs, state::{
-            RoomState, constructions::{LabStatus, RoomStructure},
-            requests::{CarryData, Request, RequestKind, assignment::Assignment, meta::Status}
+        RoomEvent, state::{
+            BoostReason, constructions::{LabStatus, PlannedCell, RoomPlan, RoomStructure}, requests::{CarryData, Request, RequestKind, assignment::Assignment, meta::Status}
         }, wrappers::claimed::Claimed
     }
 };
-
 
 const MIN_ENERGY_AMOUNT: u32 = 1000;
 const MIN_RESOURCE_AMOUNT: u32 = 2000;
 const LAB_PRODUCTION: u32 = 5;
 
 impl Claimed {
-    // pub(crate) fn run_labs(
-    //     &self,
-    //     requests: &HashSet<Request>,
-    //     room_memory: &RoomState) -> impl Iterator<Item = RoomEvent>
-    // {
-    //     debug!("{} running labs", self.get_name());
-    //     None.into_iter()
-    //     //update lab statuses to current boosts
-    //     // let mut out = self.update_lab_state(room_memory);
-    //     // if !out.is_empty() {
-    //     //     return out.into_iter();
-    //     // }
-
-    //     // let Some(storage) = self.storage() else {
-    //     //     return out.into_iter();
-    //     // };
-    //     // //split labs by boost or production purposes
-    //     // let (for_boost, others):(_, Vec<_>) = self.labs.iter()
-    //     //     .map(|lab| {
-    //     //         let boost_resource = room_memory.labs.get(&lab.id())
-    //     //             .and_then(|status| {
-    //     //                 match status {
-    //     //                     LabStatus::Boost(resource) => Some(*resource),
-    //     //                     _ => None
-    //     //                 }
-    //     //             });
-    //     //         (lab, boost_resource)
-    //     //     })
-    //     //     .partition(|(_, res)| res.is_some());
-
-    //     // // keep boost labs ready to boost by creating carry requests
-    //     // let boost_events = for_boost.into_iter()
-    //     //     .flat_map(|(lab, resource)|
-    //     //         self.keep_boost_ready(lab, resource.expect("expect boosted resources")));
-    //     // out.extend(boost_events);
-
-
-    //     // let in_progress = requests.iter()
-    //     //     .any(|r| matches!(r.kind, RequestKind::Lab(_)) &&
-    //     //         matches!(r.status(), Status::InProgress | Status::OnHold));
-
-    //     // if !in_progress {
-    //     //     if let Some(mut request) = new_request(requests) {
-    //     //         if let RequestKind::Lab(data) = &request.kind {
-    //     //             let events: Vec<RoomEvent> = data.resource.reaction_components()
-    //     //                 .iter()
-    //     //                 .flat_map(|components| components.iter()
-    //     //                     .filter_map(|component| {
-    //     //                         let capacity = storage.store().get_used_capacity(Some(*component));
-    //     //                         if capacity < LAB_PRODUCTION {
-    //     //                             Some(RoomEvent::Lack(*component, data.amount - capacity))
-    //     //                         } else {
-    //     //                             None
-    //     //                         }
-    //     //                     }))
-    //     //                     .collect();
-
-    //     //             if events.is_empty() {
-    //     //                 request.join(None, None);
-    //     //                 out.push(RoomEvent::ReplaceRequest(request));
-    //     //             } else {
-    //     //                 out.extend(events);
-    //     //             }
-    //     //         } else {
-    //     //             error!("{} incorrect request kind: {:?}", self.get_name(), request);
-    //     //         }
-    //     //     } else {
-    //     //         out.extend(others.into_iter()
-    //     //             .filter_map(|(lab, _)| self.unload(lab, &[])));
-    //     //     }
-    //     // }
-
-    //     // out.into_iter()
-    // }
     pub(crate) fn run_labs(
         &self,
         requests: &HashSet<Request>,
-        labs: Labs,
-        room_memory: &RoomState) -> impl Iterator<Item = RoomEvent>
-    {
+        boosts: &HashMap<BoostReason, u32>
+    ) -> impl Iterator<Item = RoomEvent> {
         debug!("{} running labs", self.get_name());
         //update lab statuses to current boosts
-        let mut out = self.update_lab_state(room_memory);
-        if !out.is_empty() {
-            return out.into_iter();
-        }
+        let mut out = Vec::new();
 
         let Some(storage) = self.storage() else {
             return out.into_iter();
         };
 
-        //split labs by boost or production purposes
-        let Labs { inputs, outputs, boosts } = labs;
+        if let Some(event) = self.update_lab_state(boosts) {
+            out.push(event);
+            return out.into_iter();
+        }
 
-        // let (for_boost, others):(_, Vec<_>) = self.labs.iter()
-        //     .map(|lab| {
-        //         let boost_resource = room_memory.labs.get(&lab.id())
-        //             .and_then(|status| {
-        //                 match status {
-        //                     LabStatus::Boost(resource) => Some(*resource),
-        //                     _ => None
-        //                 }
-        //             });
-        //         (lab, boost_resource)
-        //     })
-        //     .partition(|(_, res)| res.is_some());
-
-
-
-
+        let mut out = Vec::new();
         // keep boost labs ready to boost by creating carry requests
-        let boost_events = boosts.into_iter()
-            .flat_map(|(lab, resource)| self.keep_boost_ready(lab, resource));
+        let boost_events = self.labs.boosts().iter()
+            .flat_map(|(res, lab)| self.keep_boost_ready(res, lab));
         out.extend(boost_events);
 
 
@@ -145,11 +52,8 @@ impl Claimed {
                         .flat_map(|components| components.iter()
                             .filter_map(|component| {
                                 let capacity = storage.store().get_used_capacity(Some(*component));
-                                if capacity < LAB_PRODUCTION {
-                                    Some(RoomEvent::Lack(*component, data.amount - capacity))
-                                } else {
-                                    None
-                                }
+                                (capacity < LAB_PRODUCTION)
+                                    .then(|| RoomEvent::Lack(*component, data.amount - capacity))
                             }))
                             .collect();
 
@@ -163,7 +67,8 @@ impl Claimed {
                     error!("{} incorrect request kind: {:?}", self.get_name(), request);
                 }
             } else {
-                out.extend(inputs.into_iter().chain(outputs.into_iter())
+                out.extend(self.labs.inputs().iter()
+                    .chain(self.labs.outputs().iter())
                     .filter_map(|lab| self.unload(lab, &[])));
             }
         }
@@ -171,91 +76,37 @@ impl Claimed {
         out.into_iter()
     }
 
-    fn update_lab_state(&self, room_memory: &RoomState) -> Vec<RoomEvent> {
-        if let Some(plan) = room_memory.plan.as_ref() {
-            //all unique resources needed for boosts
-            let mut boost_resources: Vec<ResourceType> = room_memory.boosts.iter()
-                .flat_map(|boost_reason| boost_reason.0.value())
-                .unique()
-                .collect();
+    fn update_lab_state(&self, boosts: &HashMap<BoostReason, u32>) -> Option<RoomEvent> {
+        //all unique resources needed for boosts
+        let boost_resources: Vec<ResourceType> = boosts.iter()
+            .flat_map(|boost_reason| boost_reason.0.value())
+            .unique()
+            .collect();
 
-            let in_use:HashSet<ResourceType> = plan.boosts_in_use();
-
-            plan.get_labs()
-                .filter_map(|cell| match cell.structure {
-                    RoomStructure::Lab(status) => {
-                        match status {
-                            LabStatus::Boost(resource) => {
-                                (!boost_resources.contains(&resource))
-                                    .then(|| {
-                                        let mut new_cell = cell.clone();
-                                        new_cell.structure = RoomStructure::Lab(LabStatus::Output);
-                                        RoomEvent::ReplaceCell(new_cell)
-                                    })
-                            }
-                            LabStatus::Output if !boost_resources.is_empty() => {
-                                let resource = boost_resources.swap_remove(0);
-                                (!in_use.contains(&resource))
-                                    .then(|| {
-                                        let mut new_cell = cell.clone();
-                                        new_cell.structure = RoomStructure::Lab(LabStatus::Boost(resource));
-                                        RoomEvent::ReplaceCell(new_cell)
-                                    })
-                            }
-                            _ => None
-                        }
-                    }
-                    _ => { None }
-                })
-                .collect()
-        } else {
-            Vec::new()
-        }
+        boost_resources.iter()
+            .find_map(|res| (!self.labs.boosts().contains_key(res))
+                .then(|| self.labs.outputs.first()
+                    .map(|lab| {
+                        let cell = PlannedCell::searchable(
+                            lab.pos().xy(),
+                            RoomStructure::Lab(LabStatus::Boost(*res)));
+                        RoomEvent::ReplaceCell(cell)
+                    })))
+            .flatten()
+            .or_else(|| self.labs.boosts.iter()
+                .find_map(|(res, lab)| (!boost_resources.contains(res))
+                    .then(|| {
+                        let cell = PlannedCell::searchable(
+                            lab.pos().xy(),
+                            RoomStructure::Lab(LabStatus::Output));
+                        RoomEvent::ReplaceCell(cell)
+                    })))
     }
 
-    // fn update_lab_state(&self, room_memory: &RoomState) -> Vec<RoomEvent> {
-    //     //all unique resources needed for boosts
-    //     let mut boost_resources: Vec<ResourceType> = room_memory.boosts.iter()
-    //         .flat_map(|boost_reason| boost_reason.0.value())
-    //         .unique()
-    //         .collect();
-
-    //     let in_use:HashSet<ResourceType> = room_memory.labs.iter()
-    //         .filter_map(|(_, state)| {
-    //             match state {
-    //                 LabStatus::Boost(resource) => Some(*resource),
-    //                 _ => None
-    //             }
-    //         })
-    //         .collect();
-
-    //     self.labs.iter()
-    //         .filter_map(|lab| match room_memory.labs.get(&lab.id()) {
-    //             None => Some(RoomEvent::UpdateLab(lab.id(), LabStatus::Output)),
-    //             Some(LabStatus::Boost(resource)) if !boost_resources.contains(resource) => {
-    //                 if !boost_resources.contains(resource) {
-    //                     Some(RoomEvent::UpdateLab(lab.id(), LabStatus::Output))
-    //                 } else {
-    //                     None
-    //                 }
-    //             },
-    //             Some(LabStatus::Output) if !boost_resources.is_empty() => {
-    //                 let resource = boost_resources.swap_remove(0);
-    //                 if !in_use.contains(&resource) {
-    //                     Some(RoomEvent::UpdateLab(lab.id(), LabStatus::Boost(resource)))
-    //                 } else {
-    //                     None
-    //                 }
-    //             },
-    //             _ => None
-    //         })
-    //         .collect()
-    // }
-
-    fn keep_boost_ready(&self, lab: &StructureLab, resource: ResourceType) -> impl Iterator<Item = RoomEvent> {
+    fn keep_boost_ready(&self, resource: &ResourceType, lab: &StructureLab) -> impl Iterator<Item = RoomEvent> {
         let supply_energy = self.load_lab(lab, (ResourceType::Energy, MIN_ENERGY_AMOUNT));
-        let supply_resource = self.unload(lab, &[resource])
-            .or_else(|| self.load_lab(lab, (resource, MIN_RESOURCE_AMOUNT)));
+        let supply_resource = self.unload(lab, &[*resource])
+            .or_else(|| self.load_lab(lab, (*resource, MIN_RESOURCE_AMOUNT)));
 
         supply_energy.into_iter().chain(supply_resource)
     }
@@ -286,14 +137,55 @@ fn new_request(requests: &HashSet<Request>) -> Option<Request> {
         .cloned()
 }
 
-// fn get_request(requests: &HashSet<Request>) -> Option<Request> {
-//     let active = requests.iter()
-//         .any(|r| matches!(r.kind, RequestKind::Lab(_)) &&
-//             matches!(r.status(), Status::InProgress | Status::OnHold));
+#[derive(Default)]
+pub(crate) struct Labs {
+    inputs: Vec<StructureLab>,
+    outputs: Vec<StructureLab>,
+    boosts: HashMap<ResourceType, StructureLab>
+}
 
-//     (!active)
-//         .then(|| requests.iter()
-//             .find(|r| matches!(r.kind, RequestKind::Lab(_)) &&
-//                 matches!(r.status(), Status::Created))
-//             .cloned())?
-// }
+impl Labs {
+    pub fn new(labs: Vec<StructureLab>, plan: Option<&RoomPlan>) -> Self {
+        let Some(plan) = plan else {
+            return Labs::default();
+        };
+
+        let mut inputs = Vec::new();
+        let mut outputs = Vec::new();
+        let mut boosts = HashMap::new();
+
+        //split labs by boost or production purposes
+        for lab in labs.into_iter() {
+            let cell = PlannedCell::searchable(
+                    lab.pos().xy(),
+                    RoomStructure::Lab(LabStatus::Output));
+            if let Some(planned_cell) = plan.get_cell(cell) {
+                match planned_cell.structure {
+                    RoomStructure::Lab(LabStatus::Input) => inputs.push(lab),
+                    RoomStructure::Lab(LabStatus::Output) => outputs.push(lab),
+                    RoomStructure::Lab(LabStatus::Boost(r)) => { boosts.insert(r, lab); },
+                    _ => {}
+                }
+            }
+        }
+
+        Labs { inputs, outputs, boosts }
+    }
+
+    pub(crate) fn inputs(&self) -> &[StructureLab] {
+        &self.inputs
+    }
+
+    pub(crate) fn outputs(&self) -> &[StructureLab] {
+        &self.outputs
+    }
+
+    pub(crate) fn boosts(&self) -> &HashMap<ResourceType, StructureLab> {
+        &self.boosts
+    }
+
+    pub(crate) fn boost_lab(&self, resource: &ResourceType) -> Option<ObjectId<StructureLab>> {
+        self.boosts.get(resource)
+            .map(|lab| lab.id())
+    }
+}

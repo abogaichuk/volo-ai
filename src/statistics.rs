@@ -53,8 +53,8 @@ pub struct RoomStats {
     #[serde(default)]
     energy_capacity: u32,
     resources: HashMap<ResourceType, u32>,
-    #[serde(default)]
-    perimetr: Perimetr,
+    // #[serde(default)]
+    // perimetr: Perimetr,
     #[serde(default)]
     storage_used_capacity: Option<u32>,
     #[serde(default)]
@@ -89,7 +89,7 @@ impl RoomStats {
             requests: room_memory.requests.len(),
             creeps_number,
             last_intrusion: room_memory.last_intrusion,
-            perimetr: Perimetr::new(&room_memory.perimetr)
+            // perimetr: Perimetr::new(&room_memory.perimetr)
         }
     }
 }

@@ -2,36 +2,33 @@ use log::*;
 use std::collections::{HashMap, HashSet};
 use itertools::Itertools;
 use screeps::{
-    game, game::market::Order, OrderType, ResourceType, RoomName, Room, Position,
-    PowerType, StructureRampart, StructureLink, StructureStorage, StructureController,
-    StructureLab, StructureTerminal, StructurePowerSpawn, StructureFactory, HasHits,
-    Mineral, Source, ObjectId,  RawObjectId, Creep, Part, HasStore, HasId, HasPosition,
-    Effect, EffectType, RoomObjectProperties, StructureSpawn, StructureTower
+    Creep, Effect, EffectType, HasHits, HasId, HasPosition, HasStore, Mineral, ObjectId, OrderType, Part, Position, PowerType, RawObjectId, ResourceType, Room, RoomName, RoomObjectProperties, Source, StructureController, StructureFactory, StructureLab, StructureLink, StructureObject, StructurePowerSpawn, StructureRampart, StructureSpawn, StructureStorage, StructureTerminal, StructureTower, game::{self, market::Order}
 };
 use crate::{
     colony::ColonyEvent, commons::find_roles,
     rooms::{
-        RoomEvent, state::{RoomState, TradeData, constructions::{LabStatus, PlannedCell, RoomStructure},
+        RoomEvent, state::{RoomState, TradeData,
             requests::{CreepHostile, DefendData, Request, RequestKind, assignment::Assignment}
         },
-        wrappers::claimed::Claimed
+        wrappers::{Fillable, claimed::Claimed, farm::Farm}
     },
     units::{Memory, roles::Role}
 };
 
 pub struct Shelter<'s> {
-    pub(crate) state: &'s mut RoomState,
     pub(crate) base: Claimed,
+    pub(crate) state: &'s mut RoomState,
     pub(crate) white_list: &'s HashSet<String>
 }
 
 impl <'s> Shelter<'s> {
     pub(crate) fn new(
+        base_room: Room,
+        farms: Vec<Farm>,
         state: &'s mut RoomState,
-        base: Claimed,
         white_list: &'s HashSet<String>
     ) -> Self {
-        Shelter { state, base, white_list }
+        Shelter { base: Claimed::new(base_room, farms, state), state, white_list }
     }
 
     pub fn run_shelter(&mut self, creeps: &mut HashMap<String, Memory>, orders: &[Order]) -> Vec<ColonyEvent> {
@@ -40,17 +37,17 @@ impl <'s> Shelter<'s> {
         //     //todo Request as updateable?
         //     //find better abstraction for request handler, sequential\parallel or implement task runner for factory, terminal and labs
 
-        self.base.run_towers(&self.state.perimetr);
+        self.base.run_towers();
         let security_events = self.base.security_check(self.state, creeps);
 
-        self.base.run_links(self.state.plan.as_ref());
+        self.base.run_links();
         self.base.run_observer();
 
         let requests: HashSet<Request> = self.state.requests.drain().collect();
 
-        // lab terminal or factory just switch request status to InProgress
+        // lab, terminal and factory switch request status to InProgress only
         // because only one request can be correctly handled at one tick
-        let manufacture_events = self.base.run_labs(&requests, self.labs(), self.state)
+        let manufacture_events = self.base.run_labs(&requests, &self.state.boosts)
             .chain(self.base.run_factory(&requests, self.state))
             .chain(self.base.run_terminal(&requests, self.state, orders));
 
@@ -120,10 +117,10 @@ impl <'s> Shelter<'s> {
                     self.state.powers.remove(&power);
                 }
                 RoomEvent::AddBoost(reason, timeout) => {
-                    self.state.add_boost(reason, self.base.time + timeout);
+                    self.state.add_boost(reason, game::time() + timeout);
                 }
                 RoomEvent::RetainBoosts => {
-                    self.state.update_expired_boosts(self.base.time);
+                    self.state.update_expired_boosts();
                 }
                 RoomEvent::ReplaceCell(cell) => {
                     if let Some(plan) = self.state.plan.as_mut() {
@@ -182,7 +179,7 @@ impl <'s> Shelter<'s> {
                 RoomEvent::Intrusion(message) => {
                     if let Some(message) = message {
                         self.state.intrusion = true;
-                        self.state.last_intrusion = self.base.time;
+                        self.state.last_intrusion = game::time();
                         colony_events.push(ColonyEvent::Notify(message, Some(30)));
                     } else {
                         self.state.intrusion = false
@@ -195,7 +192,6 @@ impl <'s> Shelter<'s> {
                 }
                 RoomEvent::AddPlans(plans) => {
                     for (name, additional) in plans {
-                        // info!("{} additional plan: {:?}", name, additional.planned_cells());
                         if name == self.name() {
                             self.state.set_plan(additional);
                         } else {
@@ -258,30 +254,23 @@ impl <'s> Shelter<'s> {
         self.state.powers.contains(power)
     }
 
-    pub fn lowest_perimetr_hits(&self) -> Option<&StructureRampart> {
-        let perimeter = self.state.plan.as_ref()
-            .map(|plan| plan.perimeter())
-            .unwrap_or_default();
+    pub fn closest_empty_structure(&self, to: &dyn HasPosition) -> Option<Box<dyn Fillable>> {
+        self.base.closest_empty_structure(to)
+    }
 
-        self.base.ramparts.iter()
-            .filter(|r| perimeter.contains(&r.pos().xy()))
+    pub fn lowest_perimetr_hits(&self) -> Option<&StructureRampart> {
+        self.base.ramparts.perimeter()
             .sorted_by_key(|r| r.hits())
             .next()
     }
 
     pub fn empty_sender(&self) -> Option<&StructureLink> {
-        self.state.plan.as_ref()
-            .and_then(|plan| plan.sender_xy())
-            .and_then(|xy| self.base.links.iter()
-                .find(|link| xy == link.pos().xy()))
+        self.base.links.sender()
             .filter(|link| link.store().get_free_capacity(Some(ResourceType::Energy)) > 0)
     }
 
     pub fn full_receiver(&self) -> Option<&StructureLink> {
-        self.state.plan.as_ref()
-            .and_then(|plan| plan.receiver_xy())
-            .and_then(|xy| self.base.links.iter()
-                .find(|link| xy == link.pos().xy()))
+        self.base.links.receiver()
             .filter(|link| link.store().get_used_capacity(Some(ResourceType::Energy)) > 0)
     }
 
@@ -336,41 +325,13 @@ impl <'s> Shelter<'s> {
         self.base.terminal()
     }
 
-    //split labs by boost or production purposes
-    pub fn labs(&self) -> Labs {
-        let mut inputs: Vec<&StructureLab> = Vec::new();
-        let mut outputs: Vec<&StructureLab> = Vec::new();
-        let mut boosts: Vec<(&StructureLab, ResourceType)> = Vec::new();
-
-        if let Some(plan) = self.state.plan.as_ref() {
-            for lab in self.base.labs.iter() {
-                if let Some(cell) = plan.get_cell(
-                    PlannedCell::searchable(
-                        lab.pos().xy(),
-                        RoomStructure::Lab(LabStatus::Output)))
-                {
-                    match cell.structure {
-                        RoomStructure::Lab(LabStatus::Input) => inputs.push(lab),
-                        RoomStructure::Lab(LabStatus::Output) => outputs.push(lab),
-                        RoomStructure::Lab(LabStatus::Boost(r)) => boosts.push((lab, r)),
-                        _ => {}
-                    }
-                }
-            }
-        }
-
-        Labs { inputs, outputs, boosts }
+    pub fn production_labs(&self) -> (&[StructureLab], &[StructureLab]) {
+        (self.base.labs.inputs(), self.base.labs.outputs())
     }
 
     pub fn lab_for_boost(&self, resources: &[ResourceType; 2]) -> Option<ObjectId<StructureLab>> {
-        self.state.plan.as_ref()
-            .and_then(|plan| plan.get_labs()
-                .find(|cell| match cell.structure {
-                    RoomStructure::Lab(status) => matches!(status, LabStatus::Boost(r) if resources.contains(&r)),
-                    _ => false
-                })
-                .and_then(|cell| self.base.find_lab_by_xy(cell.xy)))
-            .map(|lab| lab.id())
+        resources.iter()
+            .find_map(|res| self.base.labs.boost_lab(res))
     }
 
     pub fn mineral(&self) -> &Mineral {
@@ -398,19 +359,13 @@ impl <'s> Shelter<'s> {
     }
 
     pub fn find_container_in_range(&self, pos: Position, range: u32) -> Option<(RawObjectId, Position)> {
-        //todo 1 interface for containers and links?
-        self.base.containers.iter()
-            .find_map(|c| {
-                if pos.get_range_to(c.pos()) <= range {
-                    Some((c.raw_id(), c.pos()))
-                } else {
-                    None
-                }
-            })
-            .or_else(|| self.base.links.iter()
-                .find_map(|l| {
-                    if pos.get_range_to(l.pos()) <= range {
-                        Some((l.raw_id(), l.pos()))
+        //todo 1 trait for containers and links?
+        self.base.links.ctrl()
+            .map(|link| (link.raw_id(), link.pos()))
+            .or_else(|| self.base.containers.iter()
+                .find_map(|c| {
+                    if pos.get_range_to(c.pos()) <= range {
+                        Some((c.raw_id(), c.pos()))
                     } else {
                         None
                     }
@@ -503,10 +458,4 @@ impl <'s> Shelter<'s> {
                     }
                 }))
     }
-}
-
-pub struct Labs<'a> {
-    pub inputs: Vec<&'a StructureLab>,
-    pub outputs: Vec<&'a StructureLab>,
-    pub boosts: Vec<(&'a StructureLab, ResourceType)>
 }
