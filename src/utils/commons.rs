@@ -348,27 +348,6 @@ pub fn find_walkable_positions_near_by(position: Position, exclude_edge: bool) -
         .collect::<Vec<Position>>()
 }
 
-pub fn get_in_room_bank(room: &Room) -> Option<StructureObject> {
-    if let Some(storage) = room.storage() {
-        if storage.store().get_free_capacity(None) >= 5000 {
-            return Some(storage.into())
-        }
-    }
-
-    if let Some(terminal) = room.terminal() {
-        if terminal.store().get_free_capacity(None) >= 5000 {
-            return Some(terminal.into())
-        }
-    }
-
-    room.find(find::STRUCTURES, None)
-        .into_iter()
-        .find(|s| {
-            let s_type = s.as_structure().structure_type();
-            s_type == StructureType::Container
-        })
-}
-
 pub fn is_walkable(position: &Position) -> bool {
     match position.look() {
         Ok(results) => results.iter()
