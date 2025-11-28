@@ -15,7 +15,7 @@ use crate::{
         RoomEvent, RoomState, is_extractor, missed_buildings,
         state::{BoostReason, FarmInfo, constructions::{RoomPlan, RoomPlannerError},
         requests::{BodyPart, BuildData, CarryData, CreepHostile, PickupData,
-            RepairData, Request, RequestKind, WithdrawData, assignment::Assignment}}, wrappers::{Fillable, claimed::structures::{labs::Labs, links::Links, ramparts::{Rampart, Ramparts}}}
+            RepairData, Request, RequestKind, WithdrawData, assignment::Assignment}}, wrappers::{Fillable, claimed::structures::{labs::Labs, links::Links, ramparts::Ramparts}}
     },
     units::{
         Memory,
@@ -333,9 +333,15 @@ impl Claimed {
     }
 
     pub(crate) fn closest_empty_structure(&self, to: &dyn HasPosition) -> Option<Box<dyn Fillable>> {
-        self.extensions.iter().cloned().map(|e| Box::new(e) as Box<dyn Fillable>)
-            .chain(self.towers.iter().cloned().map(|t| Box::new(t) as Box<dyn Fillable>))
-            .chain(self.spawns.iter().cloned().map(|s| Box::new(s) as Box<dyn Fillable>))
+        self.extensions.iter()
+            .filter(|e| e.store().get_free_capacity(Some(ResourceType::Energy)) > 0).cloned()
+            .map(|e| Box::new(e) as Box<dyn Fillable>)
+            .chain(self.towers.iter()
+                .filter(|t| t.store().get_free_capacity(Some(ResourceType::Energy)) > 0).cloned()
+                .map(|t| Box::new(t) as Box<dyn Fillable>))
+            .chain(self.spawns.iter()
+                .filter(|s| s.store().get_free_capacity(Some(ResourceType::Energy)) > 0).cloned()
+                .map(|s| Box::new(s) as Box<dyn Fillable>))
             .min_by_key(|f| to.pos().get_range_to(f.position()))
     }
 

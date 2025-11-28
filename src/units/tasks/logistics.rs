@@ -3,12 +3,12 @@ use std::cmp;
 use wasm_bindgen::JsCast;
 use screeps::{
     Creep, HasId, HasPosition, HasStore, ObjectId, Position, RawObjectId,
-    Resource, ResourceType, RoomName, SharedCreepProperties, StructureContainer,
+    Resource, ResourceType, SharedCreepProperties, StructureContainer,
     StructureController, action_error_codes::WithdrawErrorCode, game
 };
 use crate::{
     movement::walker::Walker, rooms::wrappers::Fillable, units::{Task, TaskResult, roles::Role}, utils::{
-        commons::{extension_capacity, find_closest_empty_structure, find_walkable_positions_near_by, get_in_room_bank},
+        commons::{find_walkable_positions_near_by, get_in_room_bank},
         constants::CLOSE_RANGE_ACTION}
 };
 

@@ -7,7 +7,6 @@ use std::fmt;
 use crate::{
     movement::MovementProfile,
     rooms::{shelter::Shelter, state::requests::{Request, RequestKind, meta::Status}},
-    commons::{find_empty_structures, extension_capacity}
 };
 use arrayvec::ArrayVec;
 use super::{Kind, Task, can_scale, default_parts_priority};
@@ -70,7 +69,7 @@ impl Kind for Hauler {
                         .expect("expect resource in a creep!");
 
                     if let Some(structure) = home.closest_empty_structure(creep) {
-                        if structure.free_capacity() < creep.store().get_used_capacity(Some(ResourceType::Energy)) as i32 {
+                        if can_fill(structure.free_capacity() as u32, creep) {
                             return Task::FillStructure(structure);
                         } 
                     }
@@ -84,19 +83,6 @@ impl Kind for Hauler {
                         let _ = creep.drop(resource, None);
                         Task::Idle(1)
                     }
-                    // if creep.store().get_used_capacity(Some(ResourceType::Energy)) >= extension_capacity(home.room()) &&
-                    //     find_empty_structures(home.room()).count() > 0
-                    // {
-                    //     Task::FillStructures(home.name())
-                    // } else if let Some(storage) = home.storage()
-                    //     .filter(|storage| storage.store().get_free_capacity(None) > 10000)
-                    // {
-                    //     Task::DeliverToStructure(storage.pos(), storage.raw_id(), resource, None)
-                    // } else {
-                        // warn!("{} {} there is no place to store! drop?", home.name(), creep.name());
-                        // let _ = creep.drop(resource, None);
-                        // Task::Idle(1)
-                    // }
                 })
                 .or_else(|| get_new_job(home)
                     .and_then(|req| home.take_request(&req))
@@ -107,13 +93,18 @@ impl Kind for Hauler {
                         req.kind.into()
                     }))
                 )
-                .or_else(|| try_fill(home))
+                .or_else(|| take_energy(home, creep))
             .unwrap_or_default()
     }
 }
 
-fn try_fill(home: &Shelter) -> Option<Task> {
-    (find_empty_structures(home.room()).count() > 0)
+fn can_fill(str_free_capacity: u32, creep: &Creep) -> bool {
+    let energy_in_store = creep.store().get_used_capacity(Some(ResourceType::Energy));
+    str_free_capacity < energy_in_store || energy_in_store == creep.store().get_capacity(None)
+}
+
+fn take_energy(home: &Shelter, creep: &Creep) -> Option<Task> {
+    (home.closest_empty_structure(creep).is_some())
         .then(|| home.storage()
             .filter(|storage| storage.store().get_used_capacity(Some(ResourceType::Energy)) > 2000)
             .map(|storage| Task::TakeFromStructure(storage.pos(), storage.raw_id(), ResourceType::Energy, None))

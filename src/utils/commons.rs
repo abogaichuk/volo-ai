@@ -92,45 +92,45 @@ pub fn extension_capacity(room: &Room) -> u32 {
     }
 }
 
-pub fn find_closest_empty_structure(base: &Room, creep: &Creep) -> Option<StructureObject> {
-    find_empty_structures(base)
-        .min_by_key(|str| str.pos().get_range_to(creep.pos()))
-}
+// pub fn find_closest_empty_structure(base: &Room, creep: &Creep) -> Option<StructureObject> {
+//     find_empty_structures(base)
+//         .min_by_key(|str| str.pos().get_range_to(creep.pos()))
+// }
 
-pub fn find_empty_structures(room: &Room) -> impl Iterator<Item = StructureObject> {
-    room.find(find::MY_STRUCTURES, None)
-        .into_iter()
-        .filter(is_structure_empty)
-}
+// pub fn find_empty_structures(room: &Room) -> impl Iterator<Item = StructureObject> {
+//     room.find(find::MY_STRUCTURES, None)
+//         .into_iter()
+//         .filter(is_structure_empty)
+// }
 
-fn is_structure_empty(structure: &StructureObject) -> bool {
-    is_empty_extension(structure) || is_empty_spawn(structure) || is_empty_tower(structure)
-}
+// fn is_structure_empty(structure: &StructureObject) -> bool {
+//     is_empty_extension(structure) || is_empty_spawn(structure) || is_empty_tower(structure)
+// }
 
-fn is_empty_extension(structure: &StructureObject) -> bool {
-    if let StructureObject::StructureExtension(extension) = structure {
-        if extension.store().get_free_capacity(Some(ResourceType::Energy)) > 0 {
-            return true
-        }
-    }
-    false
-}
+// fn is_empty_extension(structure: &StructureObject) -> bool {
+//     if let StructureObject::StructureExtension(extension) = structure {
+//         if extension.store().get_free_capacity(Some(ResourceType::Energy)) > 0 {
+//             return true
+//         }
+//     }
+//     false
+// }
 
-fn is_empty_spawn(structure: &StructureObject) -> bool {
-    if let StructureObject::StructureSpawn(spawn) = structure {
-        if spawn.store().get_free_capacity(Some(ResourceType::Energy)) > 0 {
-            return true
-        }
-    }
-    false
-}
+// fn is_empty_spawn(structure: &StructureObject) -> bool {
+//     if let StructureObject::StructureSpawn(spawn) = structure {
+//         if spawn.store().get_free_capacity(Some(ResourceType::Energy)) > 0 {
+//             return true
+//         }
+//     }
+//     false
+// }
 
-fn is_empty_tower(structure: &StructureObject) -> bool {
-    if let StructureObject::StructureTower(tower) = structure {
-        return tower.store().get_used_capacity(Some(ResourceType::Energy)) < 800
-    }
-    false
-}
+// fn is_empty_tower(structure: &StructureObject) -> bool {
+//     if let StructureObject::StructureTower(tower) = structure {
+//         return tower.store().get_used_capacity(Some(ResourceType::Energy)) < 800
+//     }
+//     false
+// }
 
 pub fn get_random(from: usize, to: usize) -> usize {
     rand::thread_rng().gen_range(from..to)
