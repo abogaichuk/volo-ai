@@ -100,7 +100,7 @@ impl Kind for Hauler {
 
 fn can_fill(str_free_capacity: u32, creep: &Creep) -> bool {
     let energy_in_store = creep.store().get_used_capacity(Some(ResourceType::Energy));
-    str_free_capacity < energy_in_store || energy_in_store == creep.store().get_capacity(None)
+    str_free_capacity <= energy_in_store || energy_in_store == creep.store().get_capacity(None)
 }
 
 fn take_energy(home: &Shelter, creep: &Creep) -> Option<Task> {

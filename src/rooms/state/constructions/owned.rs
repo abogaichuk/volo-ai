@@ -281,7 +281,7 @@ impl Perimeter {
         self.rect
     }
 
-    fn ramparts(&self) -> &Vec<RoomXY> {
+    fn ramparts(&self) -> &[RoomXY] {
         &self.ramparts
     }
 

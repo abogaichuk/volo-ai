@@ -46,8 +46,8 @@ pub(in crate::rooms::state::requests) fn factory_handler(
                         component.0,
                         min(request_amount - factory_amount, MAX_CARRY_REQUEST_AMOUNT))
                     {
-                        meta.update(Status::OnHold);
                         events.push(load_event);
+                        meta.update(Status::OnHold);
                     } else {
                         let storage_amount = home.storage()
                             .map(|storage| storage.store().get_used_capacity(Some(component.0)))
@@ -55,6 +55,7 @@ pub(in crate::rooms::state::requests) fn factory_handler(
 
                         let lack = request_amount - factory_amount - storage_amount;
                         events.push(RoomEvent::Lack(component.0, lack));
+                        meta.update(Status::Created);
                     }
                 } else if recipe.level.is_some() && !home.is_power_enabled(&screeps::PowerType::OperateFactory) {
                     events.push(RoomEvent::AddPower(screeps::PowerType::OperateFactory));
@@ -92,7 +93,7 @@ pub(in crate::rooms::state::requests) fn factory_handler(
             }
         }
         Status::OnHold => {
-            if meta.updated_at + 10 < game::time() {
+            if meta.updated_at + 15 < game::time() {
                 meta.update(Status::InProgress);
             }
         }

@@ -1,4 +1,4 @@
-#![feature(extend_one, let_chains, if_let_guard, iter_next_chunk)]
+#![feature(extend_one, let_chains, if_let_guard, iter_next_chunk, int_roundings)]
 use log::*;
 use std::cell::RefCell;
 

@@ -15,9 +15,9 @@ pub(crate) use withdraw::WithdrawOrder;
 use serde::{Deserialize, Serialize};
 use std::hash::{Hash, Hasher};
 
-//todo different flows for send boost resources forced or not(for instanced when base is attacked or not)
+//todo different flows for send boost resources forced or not(for instance when base is attacked or not)
 // initially check for excess resources - if not for compressed resources if not - craft by yourself, if need urgently - send what it has
-#[derive(Debug, Serialize, Deserialize, Eq)]
+#[derive(Debug, Serialize, Deserialize)]
 pub(crate) enum ColonyOrder {
     Powerbank(PowerbankOrder),
     Deposit(DepositOrder),
@@ -56,6 +56,7 @@ impl Hash for ColonyOrder {
     }
 }
 
+impl Eq for ColonyOrder {}
 impl PartialEq for ColonyOrder {
     fn eq(&self, other: &ColonyOrder) -> bool {
         match self {

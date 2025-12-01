@@ -20,7 +20,7 @@ impl ProtectOrder {
             room: None,
             target,
             ctrl_lvl,
-            timeout: game::time() + 2000,
+            timeout: game::time() + 1500,
         }
     }
 }

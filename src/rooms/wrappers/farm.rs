@@ -330,21 +330,12 @@ impl Farm {
 }
 
 fn get_central_room_name(sk_name: RoomName, f_num: u32, s_num: u32) -> Option<RoomName> {
-    let fr = round_last_digit_to_5(f_num);
-    let sr = round_last_digit_to_5(s_num);
+    let fr = f_num.div_floor(10) * 10 + 5;
+    let sr = s_num.div_floor(10) * 10 + 5;
 
     let central_room_str = sk_name.to_string()
         .replace(&f_num.to_string(), &fr.to_string())
         .replace(&s_num.to_string(), &sr.to_string());
 
     RoomName::from_str(&central_room_str).ok()
-}
-
-fn round_last_digit_to_5(n: u32) -> u32 {
-    if n <= 10 {
-        5
-    } else {
-        let last_digit = n % 10;
-        n - last_digit + 5
-    }
 }

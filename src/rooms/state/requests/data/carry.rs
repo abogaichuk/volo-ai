@@ -1,3 +1,5 @@
+use std::fmt::{Display, Formatter};
+
 use serde::{Serialize, Deserialize};
 use screeps::{game, RawObjectId, ResourceType};
 use smallvec::{smallvec, SmallVec};
@@ -14,6 +16,12 @@ pub struct CarryData {
 impl CarryData {
     pub fn new(from: RawObjectId, to: RawObjectId, resource: ResourceType, amount: u32) -> Self {
         Self { from, to, resource, amount }
+    }
+}
+
+impl Display for CarryData {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        write!(f, "res: {}, amount: {}, from: {}, to: {}", self.resource, self.amount, self.from, self.to)
     }
 }
 

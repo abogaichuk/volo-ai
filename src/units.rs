@@ -68,6 +68,16 @@ impl<'m, 'h, 's> Unit<'m, 'h, 's> {
         let task = self.memory.task.take()
             .unwrap_or_else(|| self.memory.role.get_task(&self.creep, self.home));
 
+        // let name = self.name();
+        // if let Task::Carry(a, b, c, d, _) = &task {
+        //     let t = Task::Carry(*a, *b, *c, *d, None);
+        //     if let Ok(req) = Request::try_from(t) {
+        //         if let Some(found) = self.home.get_request(&req) {
+        //             info!("{} is working on: {}", name, found);
+        //         }
+        //     }
+        // };
+
         match task.run_task(&self.creep, &self.memory.role) {
             TaskResult::StillWorking(task, movement_goal) => {
                 self.memory.task = Some(task);

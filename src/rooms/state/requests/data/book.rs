@@ -1,3 +1,4 @@
+use log::warn;
 use serde::{Serialize, Deserialize};
 use screeps::{game, ObjectId, StructureController, Position, RoomName};
 use smallvec::SmallVec;
@@ -19,6 +20,7 @@ impl BookData {
 }
 
 pub(in crate::rooms::state::requests) fn book_handler(
+    data: &BookData,
     meta: &mut Meta,
     assignment: &mut Assignment,
     home_name: RoomName
@@ -29,6 +31,7 @@ pub(in crate::rooms::state::requests) fn book_handler(
             meta.update(Status::Spawning);
             let booker = Role::Booker(Booker::new(Some(home_name)));
             events.push(RoomEvent::Spawn(booker, 1));
+            warn!("{} spawned booker for: {:?}", home_name, data);
         }
         Status::InProgress if !assignment.has_alive_members() => {
             meta.update(Status::Aborted);

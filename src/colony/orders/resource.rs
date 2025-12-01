@@ -3,7 +3,7 @@ use std::hash::{Hash, Hasher};
 use serde::{Deserialize, Serialize};
 use screeps::{game, ResourceType, RoomName};
 
-#[derive(Debug, Serialize, Deserialize, Eq, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub(crate) struct ResourceOrder {
     pub(crate) from: RoomName,
     pub(crate) to: Option<RoomName>,
@@ -12,6 +12,7 @@ pub(crate) struct ResourceOrder {
     pub(crate) timeout: u32,
 }
 
+impl Eq for ResourceOrder {}
 impl PartialEq for ResourceOrder {
     fn eq(&self, other: &Self) -> bool {
         self.from == other.from && self.resource == other.resource
@@ -32,7 +33,7 @@ impl ResourceOrder {
             to: None,
             resource,
             amount,
-            timeout: game::time() + 5000,
+            timeout: game::time() + 1500,
         }
     }
 }

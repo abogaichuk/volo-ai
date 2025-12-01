@@ -1,11 +1,6 @@
 use log::*;
 use screeps::{
-    ConstructionSite, Creep, Event, HasHits, HasId, HasPosition, HasStore, INVADER_USERNAME,
-    MaybeHasId, Mineral, Nuke, Part, PowerCreep, RawObjectId, Resource, ResourceType, Room,
-    RoomName, RoomXY, SharedCreepProperties, Source, StructureContainer, StructureController,
-    StructureExtension, StructureFactory, StructureNuker, StructureObject, StructureObserver,
-    StructurePowerSpawn, StructureRoad, StructureSpawn, StructureStorage, StructureTerminal,
-    StructureTower, StructureType, StructureWall, Tombstone, find, game
+    ConstructionSite, Creep, Event, HasHits, HasId, HasPosition, HasStore, INVADER_USERNAME, MaybeHasId, Mineral, Nuke, Part, PowerCreep, RawObjectId, Resource, ResourceType, Room, RoomName, RoomXY, SharedCreepProperties, Source, StructureContainer, StructureController, StructureExtension, StructureFactory, StructureLab, StructureNuker, StructureObject, StructureObserver, StructurePowerSpawn, StructureRoad, StructureSpawn, StructureStorage, StructureTerminal, StructureTower, StructureType, StructureWall, Tombstone, find, game
 };
 use smallvec::SmallVec;
 use std::{cmp::min, collections::HashMap, iter::once};
@@ -216,6 +211,7 @@ impl Claimed {
         }
     }
 
+    //todo withdrawrequest instead of carry
     pub fn unload<T>(&self, obj: &T, allowed: &[ResourceType]) -> Option<RoomEvent>
         where T: HasStore + HasId
     {
@@ -314,6 +310,10 @@ impl Claimed {
 
     pub fn factory(&self) -> Option<&StructureFactory> {
         self.factory.as_ref()
+    }
+
+    pub fn production_labs(&self) -> (&[StructureLab], &[StructureLab]) {
+        (self.labs.inputs(), self.labs.outputs())
     }
 
     pub fn energy_available(&self) -> u32 {
@@ -489,13 +489,9 @@ impl Claimed {
 
     //todo logic close to logic for towers
     pub fn security_check(&self, room_memory: &RoomState, creeps: &HashMap<String, Memory>) -> impl Iterator<Item = RoomEvent> {
-        let mut events = self.invasion_check(room_memory, creeps);
-        events.extend(self.perimetr_check());
-
-        if !self.nukes.is_empty() {
-            events.push(RoomEvent::NukeFalling);
-        }
-        events.into_iter()
+        self.invasion_check(room_memory, creeps).into_iter()
+            .chain(self.perimetr_check())
+            .chain((!self.nukes.is_empty()).then(|| RoomEvent::NukeFalling))
     }
 
     pub fn invasion_check(&self, room_memory: &RoomState, creeps: &HashMap<String, Memory>) -> SmallVec<[RoomEvent; 4]> {

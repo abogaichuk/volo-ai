@@ -24,7 +24,7 @@ impl WithdrawOrder {
             pos,
             resource,
             amount,
-            timeout: game::time() + 5000,
+            timeout: game::time() + 2000,
         }
     }
 }

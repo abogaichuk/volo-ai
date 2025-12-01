@@ -2,7 +2,11 @@ use log::*;
 use std::collections::{HashMap, HashSet};
 use itertools::Itertools;
 use screeps::{
-    Creep, Effect, EffectType, HasHits, HasId, HasPosition, HasStore, Mineral, ObjectId, OrderType, Part, Position, PowerType, RawObjectId, ResourceType, Room, RoomName, RoomObjectProperties, Source, StructureController, StructureFactory, StructureLab, StructureLink, StructureObject, StructurePowerSpawn, StructureRampart, StructureSpawn, StructureStorage, StructureTerminal, StructureTower, game::{self, market::Order}
+    Creep, Effect, EffectType, HasHits, HasId, HasPosition, HasStore, Mineral, ObjectId,
+    OrderType, Part, Position, PowerType, RawObjectId, ResourceType, Room, RoomName,
+    RoomObjectProperties, Source, StructureController, StructureFactory, StructureLab,
+    StructureLink, StructurePowerSpawn, StructureRampart, StructureSpawn,
+    StructureStorage, StructureTerminal, StructureTower, game::{self, market::Order}
 };
 use crate::{
     colony::ColonyEvent, commons::find_roles,
@@ -37,21 +41,9 @@ impl <'s> Shelter<'s> {
         //     //todo Request as updateable?
         //     //find better abstraction for request handler, sequential\parallel or implement task runner for factory, terminal and labs
 
-        self.base.run_towers();
-        let security_events = self.base.security_check(self.state, creeps);
-
-        self.base.run_links();
-        self.base.run_observer();
-
-        let requests: HashSet<Request> = self.state.requests.drain().collect();
-
-        // lab, terminal and factory switch request status to InProgress only
-        // because only one request can be correctly handled at one tick
-        let manufacture_events = self.base.run_labs(&requests, &self.state.boosts)
-            .chain(self.base.run_factory(&requests, self.state))
-            .chain(self.base.run_terminal(&requests, self.state, orders));
-
-        let mut events: Vec<RoomEvent> = requests.into_iter()
+        let mut events = Vec::new();
+        for mut request in self.state.requests.drain()
+            .filter(|req| !req.meta.is_finished())
             .chain(self.base.run_ramparts())
             .chain(self.base.run_power())
             .chain(self.base.run_nuker())
@@ -61,32 +53,49 @@ impl <'s> Shelter<'s> {
             .chain(self.base.tomb_requests())
             .chain(self.base.pickup_requests())
             .chain(self.base.build_requests())
-            .flat_map(|request| request.handle(self, creeps))
-            .chain(manufacture_events)
-            .chain(security_events)
+            .collect::<Vec<_>>()
+        {
+            events.extend(request.handle(self, creeps));
+            self.add_request(request);
+        }
+
+        self.base.run_towers();
+        self.base.run_links();
+        self.base.run_observer();
+        // lab, terminal and factory toogle request status to InProgress only
+        // because only one request can be correctly handled at one tick
+        events.extend(
+            self.base.run_labs(self.state).into_iter()
+            .chain(self.base.run_factory(self.state))
+            .chain(self.base.run_terminal(self.state, orders))
+            .chain(self.base.security_check(self.state, creeps))
             .chain(self.base.run_spawns(self.state))
             .chain(self.base.time_based_events(self.state, creeps))
-            .collect();
-        
-        events.extend(self.base.farms.iter()
-            .flat_map(|farm| farm.run_farm(self.state.farms.entry(farm.get_name()).or_default())));
+            .chain(self.base.farms.iter()
+            .flat_map(|farm| {
+                self.state.farms.get(&farm.get_name())
+                    .map(|info| farm.run_farm(info))
+                    .unwrap_or_default()
+                    .into_iter()
+            }))
+        );
 
         let mut colony_events = Vec::new();
         for event in events {
             match event {
                 RoomEvent::Request(request) => {
-                    self.state.requests.insert(request);
+                    self.add_request(request);
                 },
                 RoomEvent::Defend(farm_name, hostiles) => {
                     let hostiles: Vec<CreepHostile> = hostiles.into_iter()
                         .filter(|ch| !self.white_list.contains(&ch.name))
                         .collect();
-                    self.state.requests.insert(Request::new(
+                    self.add_request(Request::new(
                         RequestKind::Defend(DefendData::with_hostiles(farm_name, hostiles)),
                         Assignment::Multi(HashSet::new())));
                 },
                 RoomEvent::ReplaceRequest(request) => {
-                    self.state.requests.replace(request);
+                    self.replace_request(request);
                 },
                 RoomEvent::Spawned(name, role, index) => {
                     self.state.spawns.remove(index);
@@ -284,15 +293,20 @@ impl <'s> Shelter<'s> {
     }
 
     pub fn replace_request(&mut self, request: Request) {
-        self.state.requests.replace(request);
+        let replaced = self.state.requests.replace(request);
+        debug!("replaced request: {:?}", replaced);
     }
 
-    pub fn add_request(&mut self, request: Request) {
-        self.state.requests.insert(request);
+    pub fn add_request(&mut self, request: Request) -> bool {
+        self.state.requests.insert(request)
     }
 
     pub fn take_request(&mut self, request: &Request) -> Option<Request> {
         self.state.requests.take(request)
+    }
+
+    pub fn get_request(&mut self, request: &Request) -> Option<&Request> {
+        self.state.requests.get(request)
     }
 
     pub fn add_to_spawn(&mut self, role: Role, times: usize) {
@@ -388,10 +402,6 @@ impl <'s> Shelter<'s> {
         where T: HasStore + HasId
     {
         self.base.unload(obj, allowed)
-    }
-
-    pub fn load_lab(&self, lab: &StructureLab, component: (ResourceType, u32)) -> Option<RoomEvent> {
-        self.base.load_lab(lab, component)
     }
 
     pub fn supply_resources(&self, to: RawObjectId, resource: ResourceType, amount: u32) -> Option<RoomEvent> {
