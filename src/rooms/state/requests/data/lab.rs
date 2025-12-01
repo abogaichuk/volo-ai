@@ -54,7 +54,7 @@ pub(in crate::rooms::state::requests) fn lab_handler(
                         match output.run_reaction(input1, input2) {
                             Ok(_) => {
                                 if LAB_PRODUCTION > data.amount {
-                                    meta.update(Status::Finished);
+                                    meta.update(Status::Finishing);
                                     break;
                                 } else {
                                     data.amount -= LAB_PRODUCTION;
@@ -111,7 +111,7 @@ pub(in crate::rooms::state::requests) fn lab_handler(
         //todo instead of this create the Resource struct for each claimed room
         //so each home has an info about resource amount.
         //what about resources in a creeps store?
-        Status::Finished if meta.updated_at + 50 < game::time() => {
+        Status::Finishing if meta.updated_at + 50 < game::time() => {
             meta.update(Status::Resolved);
         }
         _ => {}

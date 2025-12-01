@@ -16,6 +16,10 @@ impl Meta {
         self.status = status;
         self.updated_at = game::time();
     }
+
+    pub fn is_finished(&self) -> bool {
+        matches!(self.status, Status::Resolved | Status::Aborted)
+    }
 }
 
 impl Default for Meta {
@@ -38,7 +42,7 @@ pub enum Status {
     Boosting,
     Carry,
     Aborted,
-    Finished,
+    Finishing,
     Resolved,
     Review,
 }

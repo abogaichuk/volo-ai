@@ -1,6 +1,6 @@
 use log::*;
 use serde::{Serialize, Deserialize};
-use std::{collections::{HashMap, HashSet}, hash::{Hash, Hasher}};
+use std::{collections::{HashMap, HashSet}, fmt::{Display, Formatter}, hash::{Hash, Hasher}};
 use screeps::Part;
 use smallvec::SmallVec;
 use thiserror::Error;
@@ -54,41 +54,73 @@ impl Request {
     }
 
     pub fn status(&self) -> &Status { &self.meta.status }
-    pub fn assigned_to(&self, name: &String) -> bool { self.assignment.has_member(name) }
+    pub fn assigned_to(&self, name: &str) -> bool { self.assignment.has_member(name) }
     pub fn created_at(&self) -> u32 { self.meta.created_at }
 
-    pub fn handle(self, home: &Shelter, creeps: &HashMap<String, Memory>) -> SmallVec<[RoomEvent; 3]> {
-        let (mut meta, mut assignment, mut kind) = (self.meta, self.assignment, self.kind);
+    pub fn handle(&mut self, home: &Shelter, creeps: &HashMap<String, Memory>) -> SmallVec<[RoomEvent; 3]> {
+        let (meta, assignment, kind) = (
+            &mut self.meta,
+            &mut self.assignment,
+            &mut self.kind,
+        );
 
-        let mut events = match &mut kind {
+        match kind {
             RequestKind::Destroy(_) => destroy_handler(),
-            RequestKind::Protect(d) => protect_handler(d, &mut meta, home.name()),
-            RequestKind::Defend(d) => defend_handler(d, &mut meta, &mut assignment, home, creeps),
-            RequestKind::Transfer(d) => transfer_handler(d, &mut meta, home),
-            RequestKind::Factory(d) => factory_handler(d, &mut meta, home),
-            RequestKind::Lab(d) => lab_handler(d, &mut meta, &home.base),
-            RequestKind::Powerbank(d) => powerbank_handler(d, &mut meta, &mut assignment, home),
-            RequestKind::Deposit(d) => deposit_handler(d, &mut meta, &mut assignment, home.name()),
-            RequestKind::Caravan(d) => caravan_handler(d, &mut meta, home.name()),
-            RequestKind::Build(_) => build_handler(&mut meta, &mut assignment),
-            RequestKind::Repair(_) => repair_handler(&mut meta, &mut assignment),
-            RequestKind::Claim(_) => claim_handler(&mut meta, &mut assignment, home.name()),
-            RequestKind::Book(_) => book_handler(&mut meta, &mut assignment, home.name()),
-            RequestKind::Dismantle(d) => dismantle_handler(d, &mut meta, &mut assignment, home.name()),
-            RequestKind::Crash(_) => crash_handler(&mut meta, &mut assignment, home, creeps),
-            RequestKind::SafeMode(_) => sm_handler(&mut meta, &mut assignment, home.name()),
+            RequestKind::Protect(d) => protect_handler(d, meta, home.name()),
+            RequestKind::Defend(d) => defend_handler(d, meta, assignment, home, creeps),
+            RequestKind::Transfer(d) => transfer_handler(d, meta, home),
+            RequestKind::Factory(d) => factory_handler(d, meta, home),
+            RequestKind::Lab(d) => lab_handler(d, meta, &home.base),
+            RequestKind::Powerbank(d) => powerbank_handler(d, meta, assignment, home),
+            RequestKind::Deposit(d) => deposit_handler(d, meta, assignment, home.name()),
+            RequestKind::Caravan(d) => caravan_handler(d, meta, home.name()),
+            RequestKind::Build(_) => build_handler(meta, assignment),
+            RequestKind::Repair(_) => repair_handler(meta, assignment),
+            RequestKind::Claim(_) => claim_handler(meta, assignment, home.name()),
+            RequestKind::Book(b) => book_handler(b, meta, assignment, home.name()),
+            RequestKind::Dismantle(d) => dismantle_handler(d, meta, assignment, home.name()),
+            RequestKind::Crash(_) => crash_handler(meta, assignment, home, creeps),
+            RequestKind::SafeMode(_) => sm_handler(meta, assignment, home.name()),
             RequestKind::Pull(_) => pull_handler(),
-            RequestKind::Pickup(_) => pickup_handler(&mut meta),
-            RequestKind::Withdraw(_) => withdraw_handler(&mut meta, &mut assignment),
-            RequestKind::Carry(_) => carry_handler(&mut meta, &mut assignment),
-            RequestKind::LongRangeWithdraw(_) => lrw_handler(&mut meta, &mut assignment, home.name())
-        };
-
-        if !matches!(meta.status, Status::Aborted | Status::Resolved) {
-            events.extend_one(RoomEvent::Request(Request::with_meta(kind, assignment, meta)));
+            RequestKind::Pickup(_) => pickup_handler(meta),
+            RequestKind::Withdraw(_) => withdraw_handler(meta, assignment),
+            RequestKind::Carry(_) => carry_handler(meta, assignment),
+            RequestKind::LongRangeWithdraw(_) => lrw_handler(meta, assignment, home.name())
         }
-        events
     }
+
+    // pub fn handle(self, home: &Shelter, creeps: &HashMap<String, Memory>) -> SmallVec<[RoomEvent; 3]> {
+    //     let (mut meta, mut assignment, mut kind) = (self.meta, self.assignment, self.kind);
+
+    //     let mut events = match &mut kind {
+    //         RequestKind::Destroy(_) => destroy_handler(),
+    //         RequestKind::Protect(d) => protect_handler(d, &mut meta, home.name()),
+    //         RequestKind::Defend(d) => defend_handler(d, &mut meta, &mut assignment, home, creeps),
+    //         RequestKind::Transfer(d) => transfer_handler(d, &mut meta, home),
+    //         RequestKind::Factory(d) => factory_handler(d, &mut meta, home),
+    //         RequestKind::Lab(d) => lab_handler(d, &mut meta, &home.base),
+    //         RequestKind::Powerbank(d) => powerbank_handler(d, &mut meta, &mut assignment, home),
+    //         RequestKind::Deposit(d) => deposit_handler(d, &mut meta, &mut assignment, home.name()),
+    //         RequestKind::Caravan(d) => caravan_handler(d, &mut meta, home.name()),
+    //         RequestKind::Build(_) => build_handler(&mut meta, &mut assignment),
+    //         RequestKind::Repair(_) => repair_handler(&mut meta, &mut assignment),
+    //         RequestKind::Claim(_) => claim_handler(&mut meta, &mut assignment, home.name()),
+    //         RequestKind::Book(b) => book_handler(b, &mut meta, &mut assignment, home.name()),
+    //         RequestKind::Dismantle(d) => dismantle_handler(d, &mut meta, &mut assignment, home.name()),
+    //         RequestKind::Crash(_) => crash_handler(&mut meta, &mut assignment, home, creeps),
+    //         RequestKind::SafeMode(_) => sm_handler(&mut meta, &mut assignment, home.name()),
+    //         RequestKind::Pull(_) => pull_handler(),
+    //         RequestKind::Pickup(_) => pickup_handler(&mut meta),
+    //         RequestKind::Withdraw(_) => withdraw_handler(&mut meta, &mut assignment),
+    //         RequestKind::Carry(_) => carry_handler(&mut meta, &mut assignment),
+    //         RequestKind::LongRangeWithdraw(_) => lrw_handler(&mut meta, &mut assignment, home.name())
+    //     };
+
+    //     if !matches!(meta.status, Status::Aborted | Status::Resolved) {
+    //         events.extend_one(RoomEvent::Request(Request::with_meta(kind, assignment, meta)));
+    //     }
+    //     events
+    // }
 
     pub fn join(
         &mut self,
@@ -284,6 +316,12 @@ impl PartialEq for Request {
     }
 }
 
+impl Display for Request {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        write!(f, "data: {}, assign: {}, meta: {:?}", self.kind, self.assignment, self.meta)
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(tag = "type")]
 pub enum RequestKind {
@@ -308,6 +346,34 @@ pub enum RequestKind {
     Factory(FactoryData),
     Lab(LabData),
     Transfer(TransferData),
+}
+
+impl Display for RequestKind {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        match self {
+            RequestKind::Pickup(d)          => write!(f, "Pickup({:?})", d),
+            RequestKind::Withdraw(d)      => write!(f, "Withdraw({:?})", d),
+            RequestKind::Carry(d)            => write!(f, "Carry({:?})", d),
+            RequestKind::LongRangeWithdraw(d)  => write!(f, "LongRangeWithdraw({:?})", d),
+            RequestKind::SafeMode(d)            => write!(f, "SafeMode({:?})", d),
+            RequestKind::Caravan(d)        => write!(f, "Caravan({:?})", d),
+            RequestKind::Repair(d)          => write!(f, "Repair({:?})", d),
+            RequestKind::Dismantle(d)    => write!(f, "Dismantle({:?})", d),
+            RequestKind::Build(d)            => write!(f, "Build({:?})", d),
+            RequestKind::Claim(d)            => write!(f, "Claim({:?})", d),
+            RequestKind::Book(d)              => write!(f, "Book({:?})", d),
+            RequestKind::Pull(d)              => write!(f, "Pull({:?})", d),
+            RequestKind::Defend(d)          => write!(f, "Defend({:?})", d),
+            RequestKind::Protect(d)        => write!(f, "Protect({:?})", d), 
+            RequestKind::Destroy(d)        => write!(f, "Destroy({:?})", d),
+            RequestKind::Crash(d)            => write!(f, "Crash({:?})", d),
+            RequestKind::Powerbank(d)    => write!(f, "Powerbank({:?})", d),
+            RequestKind::Deposit(d)        => write!(f, "Deposit({:?})", d),
+            RequestKind::Factory(d)        => write!(f, "Factory({:?})", d),
+            RequestKind::Lab(d)                => write!(f, "Lab({:?})", d),
+            RequestKind::Transfer(d)      => write!(f, "Transfer({:?})", d),
+        }
+    }
 }
 
 #[derive(Error, Debug)]

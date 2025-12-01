@@ -67,7 +67,7 @@ impl Kind for DepositMiner {
     }
 }
 
-fn get_request(home: &Shelter, squad_id: &String) -> Option<Request> {
+fn get_request(home: &Shelter, squad_id: &str) -> Option<Request> {
     home.requests()
         .find(|r| matches!(&r.kind, RequestKind::Deposit(_) if
             matches!(*r.status(), Status::InProgress | Status::Carry) && r.assigned_to(squad_id)))

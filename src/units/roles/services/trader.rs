@@ -96,6 +96,7 @@ impl Kind for Trader {
                     .map(|mut req| {
                         req.join(Some(creep.name()), None);
                         home.add_request(req.clone());
+                        debug!("{}: {} got_new_job: {}", home.name(), creep.name(), req);
                         req.kind.into()
                     }))
                     .flatten())

@@ -16,7 +16,6 @@ use crate::{
 impl Claimed {
     pub(crate) fn run_terminal(
         &self,
-        requests: &HashSet<Request>,
         room_memory: &RoomState,
         orders: &[Order]) -> Option<RoomEvent>
     {
@@ -24,7 +23,7 @@ impl Claimed {
             return None
         };
 
-        let is_active_request = requests.iter()
+        let is_active_request = room_memory.requests.iter()
             .any(|r| matches!(r.kind, RequestKind::Transfer(_)) &&
                 matches!(r.status(), Status::InProgress | Status::OnHold));
 
@@ -33,7 +32,7 @@ impl Claimed {
             .flatten()
             .or_else(|| (!is_active_request)
                 .then(|| {
-                    get_request(requests)
+                    get_request(&room_memory.requests)
                         .map(|mut request| {
                             request.join(None, None);
                             RoomEvent::ReplaceRequest(request)
@@ -57,39 +56,83 @@ impl Claimed {
                 })
                 .flatten()
             )
-        
-        // if terminal.cooldown() == 0 &&
-        //     let Some(event) = self.try_trade(terminal, &room_memory.trades, orders)
-        // {
-        //     Some(event)
-        // } else if !is_active_request {
-        //     if let Some(mut request) = get_request(requests) && *request.status() == Status::Created {
-        //         request.join(None, None);
-        //         Some(RoomEvent::ReplaceRequest(request))
-        //     } else if let Some(unload_event) =
-        //         self.unload(
-        //             terminal,
-        //             //todo remove mineral when implemented sell minerals
-        //             &once(self.mineral.mineral_type())
-        //                 .chain(trade_resources(&room_memory.trades))
-        //                 .collect::<Vec<ResourceType>>()
-        //             )
-        //     {
-        //         Some(unload_event)
-        //     } else {
-        //         let energy = terminal.store().get_used_capacity(Some(ResourceType::Energy));
-        //         if energy < 10000 && let Some(load_event) = self.supply_resources(
-        //             terminal.raw_id(), ResourceType::Energy, 10000 - energy)
-        //         {
-        //             Some(load_event)
-        //         } else {
-        //             None
-        //         }
-        //     }
-        // } else {
-        //     None
-        // }
     }
+    // pub(crate) fn run_terminal(
+    //     &self,
+    //     requests: &HashSet<Request>,
+    //     room_memory: &RoomState,
+    //     orders: &[Order]) -> Option<RoomEvent>
+    // {
+    //     let Some(terminal) = &self.terminal else {
+    //         return None
+    //     };
+
+    //     let is_active_request = requests.iter()
+    //         .any(|r| matches!(r.kind, RequestKind::Transfer(_)) &&
+    //             matches!(r.status(), Status::InProgress | Status::OnHold));
+
+    //     (terminal.cooldown() == 0)
+    //         .then(|| self.try_trade(terminal, &room_memory.trades, orders))
+    //         .flatten()
+    //         .or_else(|| (!is_active_request)
+    //             .then(|| {
+    //                 get_request(requests)
+    //                     .map(|mut request| {
+    //                         request.join(None, None);
+    //                         RoomEvent::ReplaceRequest(request)
+    //                     })
+    //                     .or_else(|| self.unload(
+    //                         terminal,
+    //                         //todo remove mineral when implemented sell minerals
+    //                         &once(self.mineral.mineral_type())
+    //                             .chain(trade_resources(&room_memory.trades))
+    //                             .collect::<Vec<ResourceType>>()
+    //                         ))
+    //                     .or_else(|| {
+    //                         let energy = terminal.store().get_used_capacity(Some(ResourceType::Energy));
+    //                         (energy < 10000)
+    //                             .then(|| self.supply_resources(
+    //                                 terminal.raw_id(),
+    //                                 ResourceType::Energy,
+    //                                 10000 - energy))
+    //                             .flatten()
+    //                     })
+    //             })
+    //             .flatten()
+    //         )
+        
+    //     // if terminal.cooldown() == 0 &&
+    //     //     let Some(event) = self.try_trade(terminal, &room_memory.trades, orders)
+    //     // {
+    //     //     Some(event)
+    //     // } else if !is_active_request {
+    //     //     if let Some(mut request) = get_request(requests) && *request.status() == Status::Created {
+    //     //         request.join(None, None);
+    //     //         Some(RoomEvent::ReplaceRequest(request))
+    //     //     } else if let Some(unload_event) =
+    //     //         self.unload(
+    //     //             terminal,
+    //     //             //todo remove mineral when implemented sell minerals
+    //     //             &once(self.mineral.mineral_type())
+    //     //                 .chain(trade_resources(&room_memory.trades))
+    //     //                 .collect::<Vec<ResourceType>>()
+    //     //             )
+    //     //     {
+    //     //         Some(unload_event)
+    //     //     } else {
+    //     //         let energy = terminal.store().get_used_capacity(Some(ResourceType::Energy));
+    //     //         if energy < 10000 && let Some(load_event) = self.supply_resources(
+    //     //             terminal.raw_id(), ResourceType::Energy, 10000 - energy)
+    //     //         {
+    //     //             Some(load_event)
+    //     //         } else {
+    //     //             None
+    //     //         }
+    //     //     }
+    //     // } else {
+    //     //     None
+    //     // }
+    // }
 
     fn try_trade(&self, terminal: &StructureTerminal, trades: &HashSet<TradeData>, orders: &[Order]) -> Option<RoomEvent> {
         trades.iter()

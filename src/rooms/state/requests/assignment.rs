@@ -19,7 +19,7 @@ pub enum Assignment {
 impl Assignment {
 
     //creep name or squad name
-    pub(super) fn has_member(&self, name: &String) -> bool {
+    pub(super) fn has_member(&self, name: &str) -> bool {
         match self {
             Assignment::None => false,
             Assignment::Single(slot) => slot.as_ref().is_some_and(|doer| doer == name),
@@ -48,7 +48,7 @@ impl Assignment {
         }
     }
 
-    pub fn squads_members(&self, squad_id: &String) -> Option<HashSet<String>> {
+    pub fn squads_members(&self, squad_id: &str) -> Option<HashSet<String>> {
         match self {
             Assignment::Squads(squads) => squads.iter()
                 .find(|squad| squad.id == *squad_id)

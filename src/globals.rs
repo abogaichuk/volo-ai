@@ -151,7 +151,7 @@ pub fn requests(room_name: String) -> String {
                     Some(claimed) => {
                         let mut result = format!("room: {} requests: \n", room_name);
                         for (i, request) in claimed.requests.iter().enumerate() {
-                            result.extend_one(format!("{}: {:?} \n", i, request));
+                            result.extend_one(format!("{}: {} \n", i, request));
                         }
                         result
                     },

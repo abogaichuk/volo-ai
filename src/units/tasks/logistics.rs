@@ -37,7 +37,7 @@ pub fn take_resource(id: ObjectId<Resource>, creep: &Creep, role: &Role, enemies
 
 pub fn take_from_structure(pos: Position, id: RawObjectId, resource: ResourceType, amount: Option<u32>, creep: &Creep, role: &Role, enemies: Vec<Creep>) -> TaskResult {
     //todo handle case if creep is full!
-    //todo if creep_mem.goal.len() > tick_to_live -> drop request
+    //todo if creep_mem.goal.path.len() > tick_to_live -> drop request
     if let Some(room_obj) = game::get_object_by_id_erased(&id) {
         let container = room_obj.unchecked_ref::<StructureContainer>();
         if amount.is_none_or(|amount| container.store().get_used_capacity(Some(resource)) >= amount) {
@@ -221,8 +221,10 @@ pub fn carry(from: RawObjectId, to: RawObjectId, resource: ResourceType, amount:
             match deliver_to_structure(room_obj.pos(), to, resource, Some(current_amount), creep, role, enemies) {
                 TaskResult::Completed => {
                     if current_amount >= amount {
+                        debug!("{} complete carry task: from: {}, to: {}, resource: {}, amount: {}", creep.name(), from, to, resource, amount);
                         TaskResult::ResolveRequest(Task::Carry(from, to, resource, 0, None), false)
                     } else {
+                        debug!("{} update carry task: from: {}, to: {}, resource: {}, amount: {}", creep.name(), from, to, resource, amount);
                         TaskResult::UpdateRequest(Task::Carry(from, to, resource, amount - current_amount, None))
                     }
                 }
@@ -251,6 +253,9 @@ pub fn carry(from: RawObjectId, to: RawObjectId, resource: ResourceType, amount:
             TaskResult::Abort => {
                 error!("{} carry got abort from take_from_structure {}, res: {}, amount: {}", creep.name(), from, resource, amount);
                 TaskResult::ResolveRequest(Task::Carry(from, to, resource, amount, None), false)
+            }
+            TaskResult::StillWorking(_, movement_goal) => {
+                TaskResult::StillWorking(Task::Carry(from, to, resource, amount, None), movement_goal)
             }
             another => another
         }

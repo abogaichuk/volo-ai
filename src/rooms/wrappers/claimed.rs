@@ -211,6 +211,7 @@ impl Claimed {
         }
     }
 
+    //todo withdrawrequest instead of carry
     pub fn unload<T>(&self, obj: &T, allowed: &[ResourceType]) -> Option<RoomEvent>
         where T: HasStore + HasId
     {
