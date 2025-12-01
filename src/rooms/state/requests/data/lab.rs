@@ -5,7 +5,7 @@ use serde::{Serialize, Deserialize};
 use screeps::{ResourceType, action_error_codes::RunReactionErrorCode, game};
 use smallvec::SmallVec;
 use crate::{
-    rooms::{RoomEvent, shelter::Shelter, state::requests::{Meta, Status}, wrappers::claimed::Claimed},
+    rooms::{RoomEvent, state::requests::{Meta, Status}, wrappers::claimed::Claimed},
     utils::constants::MIN_CARRY_REQUEST_AMOUNT
 };
 
@@ -102,11 +102,6 @@ pub(in crate::rooms::state::requests) fn lab_handler(
                 warn!("{} can't get reagents for lab request: {:?}", home.get_name(), data);
             }
         }
-        // Status::OnHold => {
-        //     if meta.updated_at + 25 < game::time() {
-        //         meta.update(Status::InProgress);
-        //     }
-        // }
         //wait 50 tick to prevent duplication request creatation
         //todo instead of this create the Resource struct for each claimed room
         //so each home has an info about resource amount.

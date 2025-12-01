@@ -2,13 +2,17 @@ use log::*;
 use std::collections::{HashMap, HashSet};
 use itertools::Itertools;
 use screeps::{
-    Creep, Effect, EffectType, HasHits, HasId, HasPosition, HasStore, Mineral, ObjectId, OrderType, Part, Position, PowerType, RawObjectId, ResourceType, Room, RoomName, RoomObjectProperties, Source, StructureController, StructureFactory, StructureLab, StructureLink, StructureObject, StructurePowerSpawn, StructureRampart, StructureSpawn, StructureStorage, StructureTerminal, StructureTower, game::{self, market::Order}
+    Creep, Effect, EffectType, HasHits, HasId, HasPosition, HasStore, Mineral, ObjectId,
+    OrderType, Part, Position, PowerType, RawObjectId, ResourceType, Room, RoomName,
+    RoomObjectProperties, Source, StructureController, StructureFactory, StructureLab,
+    StructureLink, StructurePowerSpawn, StructureRampart, StructureSpawn,
+    StructureStorage, StructureTerminal, StructureTower, game::{self, market::Order}
 };
 use crate::{
     colony::ColonyEvent, commons::find_roles,
     rooms::{
         RoomEvent, state::{RoomState, TradeData,
-            requests::{CreepHostile, DefendData, Request, RequestKind, assignment::Assignment, meta::Status}
+            requests::{CreepHostile, DefendData, Request, RequestKind, assignment::Assignment}
         },
         wrappers::{Fillable, claimed::Claimed, farm::Farm}
     },
@@ -37,29 +41,6 @@ impl <'s> Shelter<'s> {
         //     //todo Request as updateable?
         //     //find better abstraction for request handler, sequential\parallel or implement task runner for factory, terminal and labs
 
-        self.base.run_towers();
-
-        self.base.run_links();
-        self.base.run_observer();
-
-        // lab, terminal and factory toogle request status to InProgress only
-        // because only one request can be correctly handled at one tick
-        // let mut events = self.base.run_labs(self.state).into_iter()
-        //     .chain(self.base.run_factory(self.state))
-        //     .chain(self.base.run_terminal(self.state, orders))
-        //     .chain(self.base.security_check(self.state, creeps))
-        //     .chain(self.base.run_spawns(self.state))
-        //     .chain(self.base.time_based_events(self.state, creeps))
-        //     .chain(self.base.farms.iter()
-        //     .flat_map(|farm| {
-        //         self.state.farms.get(&farm.get_name())
-        //             .map(|info| farm.run_farm(info))
-        //             .unwrap_or_default()
-        //             .into_iter()
-        //     }))
-        //     .collect::<Vec<_>>();
-
-
         let mut events = Vec::new();
         for mut request in self.state.requests.drain()
             .filter(|req| !req.meta.is_finished())
@@ -78,6 +59,9 @@ impl <'s> Shelter<'s> {
             self.add_request(request);
         }
 
+        self.base.run_towers();
+        self.base.run_links();
+        self.base.run_observer();
         // lab, terminal and factory toogle request status to InProgress only
         // because only one request can be correctly handled at one tick
         events.extend(
@@ -95,72 +79,11 @@ impl <'s> Shelter<'s> {
                     .into_iter()
             }))
         );
-        // let requests = self.state.requests.drain()
-        //     .filter(|req| !req.meta.is_finished());
-        
-        // let old_requests = self.state.requests.drain()
-            // .chain(self.base.run_ramparts())
-            // .chain(self.base.run_power())
-            // .chain(self.base.run_nuker())
-            // .chain(self.base.run_containers())
-            // .chain(self.base.repair_roads(self.state.plan.as_ref()))
-            // .chain(self.base.repair_walls())
-            // .chain(self.base.tomb_requests())
-            // .chain(self.base.pickup_requests())
-            // .chain(self.base.build_requests())
-        //     .collect::<Vec<_>>();
-
-        // let mut handled: HashSet<Request> = HashSet::new();
-        // let mut events: Vec<RoomEvent> = Vec::new();
-        // for mut request in old_requests {
-        //     if !request.meta.is_finished() {
-        //         events.extend(request.handle(self, creeps));
-        //         handled.insert(request);
-        //     }
-        // }
-
-        // events.extend(self.base.farms.iter()
-        //     .flat_map(|farm| farm.run_farm(self.state.farms.entry(farm.get_name()).or_default()))
-        // );
-        
-        // self.state.requests
-        //     .retain(|req| !matches!(req.meta.status, Status::Aborted | Status::Resolved));
-        // self.state.requests
-
-        // let requests: HashSet<Request> = self.state.requests.drain().collect();
-
-
-        // let manufacture_events = self.base.run_labs(&requests, &self.state.boosts).into_iter()
-        //     .chain(self.base.run_factory(&requests, self.state))
-        //     .chain(self.base.run_terminal(&requests, self.state, orders));
-
-        // let mut events: Vec<RoomEvent> = requests.into_iter()
-        //     .chain(self.base.run_ramparts())
-        //     .chain(self.base.run_power())
-        //     .chain(self.base.run_nuker())
-        //     .chain(self.base.run_containers())
-        //     .chain(self.base.repair_roads(self.state.plan.as_ref()))
-        //     .chain(self.base.repair_walls())
-        //     .chain(self.base.tomb_requests())
-        //     .chain(self.base.pickup_requests())
-        //     .chain(self.base.build_requests())
-        //     .flat_map(|request| request.handle(self, creeps))
-        //     // .chain(manufacture_events)
-        //     .chain(security_events)
-        //     .chain(self.base.run_spawns(self.state))
-        //     .chain(self.base.time_based_events(self.state, creeps))
-        //     .collect();
-        
-        // events.extend(self.base.farms.iter()
-        //     .flat_map(|farm| farm.run_farm(self.state.farms.entry(farm.get_name()).or_default()))
-        //     .chain(manufacture_events)
-        // );
 
         let mut colony_events = Vec::new();
         for event in events {
             match event {
                 RoomEvent::Request(request) => {
-                    // self.state.requests.insert(request);
                     self.add_request(request);
                 },
                 RoomEvent::Defend(farm_name, hostiles) => {
@@ -170,13 +93,9 @@ impl <'s> Shelter<'s> {
                     self.add_request(Request::new(
                         RequestKind::Defend(DefendData::with_hostiles(farm_name, hostiles)),
                         Assignment::Multi(HashSet::new())));
-                    // self.state.requests.insert(Request::new(
-                    //     RequestKind::Defend(DefendData::with_hostiles(farm_name, hostiles)),
-                    //     Assignment::Multi(HashSet::new())));
                 },
                 RoomEvent::ReplaceRequest(request) => {
                     self.replace_request(request);
-                    // self.state.requests.replace(request);
                 },
                 RoomEvent::Spawned(name, role, index) => {
                     self.state.spawns.remove(index);
@@ -484,10 +403,6 @@ impl <'s> Shelter<'s> {
     {
         self.base.unload(obj, allowed)
     }
-
-    // pub fn load_lab(&self, lab: &StructureLab, component: (ResourceType, u32)) -> Option<RoomEvent> {
-    //     self.base.load_lab(lab, component)
-    // }
 
     pub fn supply_resources(&self, to: RawObjectId, resource: ResourceType, amount: u32) -> Option<RoomEvent> {
         self.base.supply_resources(to, resource, amount)

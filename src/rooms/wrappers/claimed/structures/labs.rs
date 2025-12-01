@@ -4,7 +4,7 @@ use std::{cmp, collections::{HashMap, HashSet}};
 use itertools::Itertools;
 use crate::{
     commons::find_container_with, rooms::{
-        RoomEvent, shelter::Shelter, state::{
+        RoomEvent, state::{
             BoostReason, RoomState, constructions::{LabStatus, PlannedCell, RoomPlan, RoomStructure}, requests::{CarryData, Request, RequestKind, assignment::Assignment, meta::Status}
         }, wrappers::claimed::Claimed
     }
@@ -52,123 +52,6 @@ impl Claimed {
             )
     }
 
-    // pub(crate) fn run_labs(
-    //     &self,
-    //     requests: &HashSet<Request>,
-    //     boosts: &HashMap<BoostReason, u32>
-    // ) -> Option<RoomEvent> {
-    //     debug!("{} running labs", self.get_name());
-
-    //     self.storage()
-    //         .and_then(|storage|
-    //             //update lab statuses to current boosts
-    //             self.update_lab_state(boosts)
-    //                 .or_else(|| self.labs.boosts().iter()
-    //                     //load resources for boost
-    //                     .find_map(|(res, lab)| self.keep_boost_ready(res, lab)))
-    //                 .or_else(|| {
-    //                     let in_progress = requests.iter()
-    //                         .any(|r| matches!(r.kind, RequestKind::Lab(_)) &&
-    //                             matches!(r.status(), Status::InProgress | Status::OnHold));
-                        
-    //                     //if no in progress request
-    //                     if !in_progress {
-    //                         //take a new one
-    //                         if let Some(mut request) = new_request(requests) {
-    //                             if let RequestKind::Lab(data) = &request.kind {
-    //                                 data.resource.reaction_components().iter()
-    //                                     .find_map(|components| components.iter()
-    //                                         .find_map(|component| {
-    //                                             //if not enough components -> create Lack event!
-    //                                             //todo update the request?
-    //                                             let capacity = storage.store().get_used_capacity(Some(*component));
-    //                                             (capacity < LAB_PRODUCTION)
-    //                                                 .then(|| RoomEvent::Lack(*component, data.amount - capacity))
-    //                                         }))
-    //                                     .or_else(|| {
-    //                                         // if enough resources -> begin
-    //                                         request.join(None, None);
-    //                                         Some(RoomEvent::ReplaceRequest(request))
-    //                                     })
-    //                             } else {
-    //                                 error!("{} incorrect request kind: {:?}", self.get_name(), request);
-    //                                 None
-    //                             }
-    //                         } else {
-    //                             //no requests found, clear the labs
-    //                             self.labs.inputs().iter()
-    //                                 .chain(self.labs.outputs.iter())
-    //                                 .find_map(|lab| self.unload(lab, &[]))
-    //                         }
-    //                     } else {
-    //                         None
-    //                     }
-    //                 })
-    //         )
-    // }
-
-
-    // pub(crate) fn run_labs(
-    //     &self,
-    //     requests: &HashSet<Request>,
-    //     boosts: &HashMap<BoostReason, u32>
-    // ) -> impl Iterator<Item = RoomEvent> {
-    //     debug!("{} running labs", self.get_name());
-    //     //update lab statuses to current boosts
-    //     let mut out = Vec::new();
-
-    //     let Some(storage) = self.storage() else {
-    //         return out.into_iter();
-    //     };
-
-    //     if let Some(event) = self.update_lab_state(boosts) {
-    //         out.push(event);
-    //         return out.into_iter();
-    //     }
-
-    //     let mut out = Vec::new();
-    //     // keep boost labs ready to boost by creating carry requests
-    //     let boost_events = self.labs.boosts().iter()
-    //         .flat_map(|(res, lab)| self.keep_boost_ready(res, lab));
-    //     out.extend(boost_events);
-
-
-    //     let in_progress = requests.iter()
-    //         .any(|r| matches!(r.kind, RequestKind::Lab(_)) &&
-    //             matches!(r.status(), Status::InProgress | Status::OnHold));
-
-    //     if !in_progress {
-    //         if let Some(mut request) = new_request(requests) {
-    //             if let RequestKind::Lab(data) = &request.kind {
-    //                 let events: Vec<RoomEvent> = data.resource.reaction_components()
-    //                     .iter()
-    //                     .flat_map(|components| components.iter()
-    //                         .filter_map(|component| {
-    //                             let capacity = storage.store().get_used_capacity(Some(*component));
-    //                             (capacity < LAB_PRODUCTION)
-    //                                 .then(|| RoomEvent::Lack(*component, data.amount - capacity))
-    //                         }))
-    //                         .collect();
-
-    //                 if events.is_empty() {
-    //                     request.join(None, None);
-    //                     out.push(RoomEvent::ReplaceRequest(request));
-    //                 } else {
-    //                     out.extend(events);
-    //                 }
-    //             } else {
-    //                 error!("{} incorrect request kind: {:?}", self.get_name(), request);
-    //             }
-    //         } else {
-    //             out.extend(self.labs.inputs().iter()
-    //                 .chain(self.labs.outputs().iter())
-    //                 .filter_map(|lab| self.unload(lab, &[])));
-    //         }
-    //     }
-
-    //     out.into_iter()
-    // }
-
     fn update_lab_state(&self, boosts: &HashMap<BoostReason, u32>) -> Option<RoomEvent> {
         //all unique boostable resources
         let boost_resources: Vec<ResourceType> = boosts.iter()
@@ -202,14 +85,6 @@ impl Claimed {
                 .or_else(|| self.load_lab(lab, (*resource, MIN_RESOURCE_AMOUNT)))) //load boost resource
     }
 
-    // fn keep_boost_ready(&self, resource: &ResourceType, lab: &StructureLab) -> impl Iterator<Item = RoomEvent> {
-    //     let supply_energy = self.load_lab(lab, (ResourceType::Energy, MIN_ENERGY_AMOUNT));
-    //     let supply_resource = self.unload(lab, &[*resource])
-    //         .or_else(|| self.load_lab(lab, (*resource, MIN_RESOURCE_AMOUNT)));
-
-    //     supply_energy.into_iter().chain(supply_resource)
-    // }
-
     pub fn load_lab(&self, lab: &StructureLab, component: (ResourceType, u32)) -> Option<RoomEvent> {
         (lab.store().get_used_capacity(Some(component.0)) < component.1)
             .then(|| find_container_with(component.0, None, self.storage(), self.terminal(), self.factory())
@@ -239,13 +114,6 @@ fn new_request(requests: &HashSet<Request>, storage: &StructureStorage) -> Optio
         })
         .cloned()
 }
-
-// fn new_request(requests: &HashSet<Request>) -> Option<Request> {
-//     requests.iter()
-//         .find(|r| matches!(r.kind, RequestKind::Lab(_)) &&
-//             matches!(r.status(), Status::Created))
-//         .cloned()
-// }
 
 #[derive(Default)]
 pub(crate) struct Labs {
