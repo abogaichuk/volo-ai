@@ -1,6 +1,6 @@
 use log::*;
 use screeps::{
-    CostMatrix, LocalRoomTerrain, Position, RoomCoordinate, RoomXY, Terrain,
+    CostMatrix, LocalRoomTerrain, Position, RoomXY, Terrain,
     constants::StructureType, enums::StructureObject, find, game,
     local::{LocalCostMatrix, RoomName}, pathfinder::{MultiRoomCostResult, SingleRoomCostResult},
     prelude::*

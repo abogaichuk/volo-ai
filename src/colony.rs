@@ -6,20 +6,18 @@ use screeps::{
 };
 use crate::{
     movement::Movement,
-    resources::{kinds, Kinds},
+    resources::{Kinds, kinds},
     rooms::{
         register_rooms,
         state::{
-            requests::{
-                assignment::Assignment, CaravanData, DepositData, LRWData, PowerbankData, ProtectData, Request,
-                RequestKind, TransferData,
-            },
-            FarmStatus, RoomState, TradeData,
+            FarmStatus, RoomState, TradeData, requests::{
+                CaravanData, DepositData, LRWData, PowerbankData, ProtectData, Request, RequestKind, TransferData, assignment::Assignment
+            }
         },
         wrappers::claimed::Claimed,
     },
     statistics::Statistic,
-    units::{roles::Kind, run_creeps, run_power_creeps, Memory},
+    units::{creeps::{CreepMemory, run_creeps}, power_creep::{PowerCreepMemory, run_power_creeps}, roles::Kind},
     utils::constants::MAX_POWER_CAPACITY,
 };
 use std::{collections::{HashMap, HashSet}, iter::once};
@@ -39,7 +37,9 @@ pub struct GlobalState {
     #[serde(default)]
     pub rooms: HashMap<RoomName, RoomState>,
     #[serde(default)]
-    pub creeps: HashMap<String, Memory>,
+    pub creeps: HashMap<String, CreepMemory>,
+    #[serde(default)]
+    pub power_creeps: HashMap<String, PowerCreepMemory>,
     #[serde(skip, default = "game::time")]
     pub global_init_time: u32, // the tick when this state was created
     #[serde(default = "HashMap::new")]
@@ -62,6 +62,7 @@ impl Default for GlobalState {
             global_init_time: game::time(),
             rooms: HashMap::new(),
             creeps: HashMap::new(),
+            power_creeps: HashMap::new(),
             avoid_rooms: HashMap::new(),
             postponed_farms: HashSet::new(),
             orders: HashSet::new(),
@@ -99,12 +100,14 @@ impl GlobalState {
         //creeps are running after rooms to avoid case when creep has solved and removed a room request
         // but the room doesn't know it yet and creates a new one
         let cpu_start = game::cpu::get_used();
-        run_power_creeps(&homes);
+        run_power_creeps(&mut self.power_creeps, &mut homes, &mut movement);
         debug!("run_power_creeps {} cpu!", game::cpu::get_used() - cpu_start);
 
         let cpu_start = game::cpu::get_used();
         run_creeps(&mut self.creeps, &mut homes, &mut movement);
         debug!("finished run creeps {} cpu!", game::cpu::get_used() - cpu_start);
+
+        movement.swap_move();
 
         let bases: HashMap<RoomName, Claimed> = homes.into_iter()
             .map(|(name, home)| (name, home.base()))
@@ -215,7 +218,7 @@ impl GlobalState {
                 } else if !mem.respawned && mem.role.respawn_timeout(None).is_some() {
                     mem.respawned = true;
                     let _ = mem.role.get_home()
-                        .map(|home| self.rooms.entry(home)
+                        .map(|home| self.rooms.entry(*home)
                             .and_modify(|room_state|
                                 room_state.add_to_spawn(mem.role.clone(), 1)));
                     false

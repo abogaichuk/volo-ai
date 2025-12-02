@@ -13,7 +13,7 @@ use crate::{
             RepairData, Request, RequestKind, WithdrawData, assignment::Assignment}}, wrappers::{Fillable, claimed::structures::{labs::Labs, links::Links, ramparts::Ramparts}}
     },
     units::{
-        Memory,
+        creeps::CreepMemory,
         roles::{Role, combat::guard::Guard, miners::mineral_miner::MineralMiner, services::upgrader::Upgrader}
     },
     utils::constants::{
@@ -259,7 +259,7 @@ impl Claimed {
     pub fn time_based_events<'a>(
         &'a self,
         room_memory: &'a RoomState,
-        creeps: &'a HashMap<String, Memory>) -> impl Iterator<Item = RoomEvent> + 'a
+        creeps: &'a HashMap<String, CreepMemory>) -> impl Iterator<Item = RoomEvent> + 'a
     {
         (game::time() % 100 == 0)
             .then(|| {
@@ -391,7 +391,7 @@ impl Claimed {
     fn manage_mineral_miner<'a>(
         &'a self,
         room_memory: &'a RoomState,
-        creeps: &'a HashMap<String, Memory>,
+        creeps: &'a HashMap<String, CreepMemory>,
     ) -> Option<RoomEvent> {
         if self.mineral.ticks_to_regeneration().is_none() && is_extractor(&self.mineral) {
             if let Some(container) =
@@ -411,7 +411,7 @@ impl Claimed {
     fn manage_controller(
         &self,
         room_memory: &RoomState,
-        creeps: &HashMap<String, Memory>) -> impl Iterator<Item = RoomEvent>
+        creeps: &HashMap<String, CreepMemory>) -> impl Iterator<Item = RoomEvent>
     {
         self.storage()
             .map(|storage| {
@@ -431,7 +431,7 @@ impl Claimed {
         &self,
         storage: &StructureStorage,
         room_memory: &RoomState,
-        creeps: &HashMap<String, Memory>) -> Option<RoomEvent>
+        creeps: &HashMap<String, CreepMemory>) -> Option<RoomEvent>
     {
         let upgrader = Role::Upgrader(Upgrader::new(Some(self.get_name())));
         let is_alive = room_memory.find_roles(&upgrader, creeps).next().is_some();
@@ -488,13 +488,13 @@ impl Claimed {
     }
 
     //todo logic close to logic for towers
-    pub fn security_check(&self, room_memory: &RoomState, creeps: &HashMap<String, Memory>) -> impl Iterator<Item = RoomEvent> {
+    pub fn security_check(&self, room_memory: &RoomState, creeps: &HashMap<String, CreepMemory>) -> impl Iterator<Item = RoomEvent> {
         self.invasion_check(room_memory, creeps).into_iter()
             .chain(self.perimetr_check())
             .chain((!self.nukes.is_empty()).then(|| RoomEvent::NukeFalling))
     }
 
-    pub fn invasion_check(&self, room_memory: &RoomState, creeps: &HashMap<String, Memory>) -> SmallVec<[RoomEvent; 4]> {
+    pub fn invasion_check(&self, room_memory: &RoomState, creeps: &HashMap<String, CreepMemory>) -> SmallVec<[RoomEvent; 4]> {
         let mut events: SmallVec<[RoomEvent; 4]> = SmallVec::new();
         match self.controller.level() {
             ..=3 => {

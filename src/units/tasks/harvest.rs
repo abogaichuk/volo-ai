@@ -11,7 +11,7 @@ use crate::{
 };
 
 pub fn harvest_energy_forever(workplace: Position, id: ObjectId<Source>, creep: &Creep, role: &Role, enemies:Vec<Creep>) -> TaskResult {
-    if role.get_home().is_some_and(|home| home != workplace.room_name()) && need_escape(&enemies) {
+    if role.get_home().is_some_and(|home| *home != workplace.room_name()) && need_escape(&enemies) {
         transfer_or_drop(workplace, creep);
         if let Some(closest_exit) = find_closest_exit(creep, None) {
             let goal = Walker::Exploring(false).walk(closest_exit, 0, creep, role, enemies);

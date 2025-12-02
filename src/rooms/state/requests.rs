@@ -7,7 +7,7 @@ use thiserror::Error;
 
 use crate::{
     rooms::{RoomEvent, shelter::Shelter},
-    units::{Memory, tasks::Task}
+    units::{creeps::CreepMemory, tasks::Task}
 };
 use self::{
     meta::{Meta, Status}, assignment::Assignment,
@@ -57,7 +57,7 @@ impl Request {
     pub fn assigned_to(&self, name: &str) -> bool { self.assignment.has_member(name) }
     pub fn created_at(&self) -> u32 { self.meta.created_at }
 
-    pub fn handle(&mut self, home: &Shelter, creeps: &HashMap<String, Memory>) -> SmallVec<[RoomEvent; 3]> {
+    pub fn handle(&mut self, home: &Shelter, creeps: &HashMap<String, CreepMemory>) -> SmallVec<[RoomEvent; 3]> {
         let (meta, assignment, kind) = (
             &mut self.meta,
             &mut self.assignment,

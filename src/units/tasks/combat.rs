@@ -118,8 +118,9 @@ pub fn defend_home(creep: &Creep, role: &Role, hostiles: Vec<Creep>) -> TaskResu
     {
         let _ = creep.attack(in_range);
     }
+    //todo use shelter instead
     let home_room = role.get_home()
-        .and_then(|home| game::rooms().get(home))
+        .and_then(|home| game::rooms().get(*home))
         .expect("expect role has a home!");
 
     let goal = get_closest_walkable_rampart(creep.pos(), &home_room, &hostiles)
@@ -207,7 +208,7 @@ pub fn protect(room_name: RoomName, target_pos: Option<Position>, creep: &Creep,
                 .unwrap_or(Position::new(
                     unsafe { RoomCoordinate::unchecked_new(25) },
                     unsafe { RoomCoordinate::unchecked_new(25) },
-                    role.get_home().expect("expect home room")));
+                    *role.get_home().expect("expect home room")));
             
             if let Some(any) = any_in_range_structure(creep, &structures) {
                 let _ = creep.ranged_attack(any);

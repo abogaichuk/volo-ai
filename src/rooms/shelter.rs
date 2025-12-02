@@ -16,7 +16,7 @@ use crate::{
         },
         wrappers::{Fillable, claimed::Claimed, farm::Farm}
     },
-    units::{Memory, roles::Role}
+    units::{creeps::CreepMemory, roles::Role}
 };
 
 pub struct Shelter<'s> {
@@ -35,7 +35,7 @@ impl <'s> Shelter<'s> {
         Shelter { base: Claimed::new(base_room, farms, state), state, white_list }
     }
 
-    pub fn run_shelter(&mut self, creeps: &mut HashMap<String, Memory>, orders: &[Order]) -> Vec<ColonyEvent> {
+    pub fn run_shelter(&mut self, creeps: &mut HashMap<String, CreepMemory>, orders: &[Order]) -> Vec<ColonyEvent> {
         //     //todo proportial perimetr security check
         //     //todo room_memory for requests excess, only room_memory spawns in use for dismantle or combats and room_memory.boost for factory
         //     //todo Request as updateable?
@@ -99,7 +99,7 @@ impl <'s> Shelter<'s> {
                 },
                 RoomEvent::Spawned(name, role, index) => {
                     self.state.spawns.remove(index);
-                    creeps.insert(name, Memory::new(role));
+                    creeps.insert(name, CreepMemory::new(role));
                 }
                 RoomEvent::Spawn(role, times) => {
                     self.state.add_to_spawn(role, times);

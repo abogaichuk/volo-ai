@@ -25,7 +25,7 @@ impl Statistic {
             .map(|(room_name, room_memory)| {
                 let creeps_number = state.creeps.iter()
                     .filter(|(_, memory)| memory.role.get_home()
-                        .is_some_and(|home| home == *room_name))
+                        .is_some_and(|home| home == room_name))
                     .count();
                 let room = game::rooms().get(*room_name).expect("expect room is valid");
                 RoomStats::new(&room, room_memory, creeps_number)
