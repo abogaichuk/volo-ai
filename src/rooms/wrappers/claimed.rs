@@ -1,11 +1,11 @@
 use log::*;
 use screeps::{
-    ConstructionSite, Creep, Event, HasHits, HasId, HasPosition, HasStore, INVADER_USERNAME, MaybeHasId, Mineral, Nuke, Part, PowerCreep, RawObjectId, Resource, ResourceType, Room, RoomName, RoomXY, SharedCreepProperties, Source, StructureContainer, StructureController, StructureExtension, StructureFactory, StructureLab, StructureNuker, StructureObject, StructureObserver, StructurePowerSpawn, StructureRoad, StructureSpawn, StructureStorage, StructureTerminal, StructureTower, StructureType, StructureWall, Tombstone, find, game
+    ConstructionSite, Creep, Event, HasHits, HasId, HasPosition, HasStore, INVADER_USERNAME, MaybeHasId, Mineral, Nuke, Part, PowerCreep, RESOURCES_ALL, RawObjectId, Resource, ResourceType, Room, RoomName, RoomXY, SharedCreepProperties, Source, StructureContainer, StructureController, StructureExtension, StructureFactory, StructureLab, StructureNuker, StructureObject, StructureObserver, StructurePowerSpawn, StructureRoad, StructureSpawn, StructureStorage, StructureTerminal, StructureTower, StructureType, StructureWall, Tombstone, find, game
 };
 use smallvec::SmallVec;
 use std::{cmp::min, collections::HashMap, iter::once};
 use crate::{
-    commons::{find_container_near_by, has_part, is_cpu_on_low}, resources,
+    commons::{find_container_near_by, has_part, is_cpu_on_low}, resources::{self, Resources},
     rooms::{
         RoomEvent, RoomState, is_extractor, missed_buildings,
         state::{BoostReason, FarmInfo, constructions::{RoomPlan, RoomPlannerError},
@@ -53,6 +53,7 @@ pub(crate) struct Claimed {
     pub(crate) tombs: Vec<Tombstone>,
     pub(crate) cs: Vec<ConstructionSite>,
     pub(crate) dropped: Vec<Resource>,
+    pub(crate) resources: Resources,
     pub(crate) events: Vec<Event>
 }
 
@@ -105,6 +106,29 @@ impl Claimed {
             }
         }
 
+        let amounts = if game::time() % 100 == 0 {
+            RESOURCES_ALL.iter()
+                .map(|res| {
+                    let mut total: u32 = 0;
+                    if let Some(storage) = storage.as_ref() {
+                        total += storage.store().get_used_capacity(Some(*res));
+                    }
+                    if let Some(terminal) = terminal.as_ref() {
+                        total += terminal.store().get_used_capacity(Some(*res));
+                    }
+                    if let Some(factory) = factory.as_ref() {
+                        total += factory.store().get_used_capacity(Some(*res));
+                    }
+                    for lab in labs.iter() {
+                        total += lab.store().get_used_capacity(Some(*res));
+                    }
+                    (*res, total)
+                })
+                .collect()
+        } else {
+            HashMap::new()
+        };
+
         Self {
             room,
             controller,
@@ -134,6 +158,7 @@ impl Claimed {
             cs,
             dropped,
             events,
+            resources: Resources::new(amounts)
         }
     }
 

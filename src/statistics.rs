@@ -1,7 +1,7 @@
 use std::{collections::HashMap};
 use serde::{Serialize, Deserialize, Serializer, Deserializer};
 use screeps::{game, HasHits, ObjectId, ResourceType, Room, RoomName, StructureController, StructureRampart, RESOURCES_ALL};
-use crate::{GlobalState, rooms::state::RoomState};
+use crate::{GlobalState, rooms::{state::RoomState, wrappers::claimed::Claimed}};
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct Statistic {
@@ -20,7 +20,7 @@ pub struct Statistic {
 }
 
 impl Statistic {
-    pub fn new(state: &GlobalState) -> Self {
+    pub(crate) fn new(state: &GlobalState, bases: &HashMap<RoomName, Claimed>) -> Self {
         let rooms = state.rooms.iter()
             .map(|(room_name, room_memory)| {
                 let creeps_number = state.creeps.iter()
@@ -52,7 +52,7 @@ pub struct RoomStats {
     energy_in_use: u32,
     #[serde(default)]
     energy_capacity: u32,
-    resources: HashMap<ResourceType, u32>,
+    // resources: HashMap<ResourceType, u32>,
     // #[serde(default)]
     // perimetr: Perimetr,
     #[serde(default)]
@@ -76,14 +76,14 @@ impl RoomStats {
             controller: ControllerStats::new(controller),
             energy_in_use: room.energy_available(),
             energy_capacity: room.energy_capacity_available(),
-            resources: RESOURCES_ALL
-                .iter()
-                .map(|resource| {
-                    let amount = get_resource_amount(room, *resource);
-                    (*resource, amount)
-                })
-                .filter(|(_, amount)| *amount > 100)
-                .collect(),
+            // resources: RESOURCES_ALL
+            //     .iter()
+            //     .map(|resource| {
+            //         let amount = get_resource_amount(room, *resource);
+            //         (*resource, amount)
+            //     })
+            //     .filter(|(_, amount)| *amount > 100)
+            //     .collect(),
             storage_used_capacity: room.storage().map(|storage| storage.store().get_used_capacity(None)),
             terminal_used_capacity: room.terminal().map(|terminal| terminal.store().get_used_capacity(None)),
             requests: room_memory.requests.len(),

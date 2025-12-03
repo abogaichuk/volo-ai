@@ -26,14 +26,14 @@ pub enum ColonyEvent {
     BlackList(String)
 }
 
-pub struct EventContext {
+pub struct EventContext<'a> {
     movement: Movement,
-    bases: HashMap<RoomName, Claimed>,
+    bases: &'a HashMap<RoomName, Claimed>,
     warehouse: Option<RoomName>,
 }
 
-impl EventContext {
-    pub(super) fn new(movement: Movement, bases: HashMap<RoomName, Claimed>) -> Self {
+impl <'a> EventContext<'a> {
+    pub(super) fn new(movement: Movement, bases: &'a HashMap<RoomName, Claimed>) -> Self {
         let warehouse = bases
             .values()
             .filter(|base| base.factory().is_some_and(|f| f.level() > 0))

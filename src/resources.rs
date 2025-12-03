@@ -1,4 +1,5 @@
-use std::cmp;
+use std::{cmp, collections::HashMap};
+use log::info;
 use screeps::{HasId, ResourceType};
 use smallvec::{smallvec, SmallVec};
 
@@ -46,6 +47,21 @@ pub fn kinds(rt: ResourceType) -> Kinds {
 }
 
 const MIN_LAB_PRODUCTION: u32 = 5;
+
+pub struct Resources {
+    amounts: HashMap<ResourceType, u32>
+}
+
+impl Resources {
+    pub fn new(amounts: HashMap<ResourceType, u32>) -> Self {
+        Self { amounts }
+    }
+
+    pub fn amount(&self, res: ResourceType) -> u32 {
+        *self.amounts.get(&res).unwrap_or(&0)
+    }
+}
+
 pub(crate) trait ResourceHandler {
     fn handle(&self, base: &Claimed) -> SmallVec<[RoomEvent; 2]>;
 }
@@ -178,26 +194,49 @@ impl ResourceHandler for EnergyHandler {
 struct BatteryHandler;
 impl ResourceHandler for BatteryHandler {
     fn handle(&self, base: &Claimed) -> SmallVec<[RoomEvent; 2]> {
-        base.storage()
-            .and_then(|storage| {
-                let amount = storage.store().get_used_capacity(Some(ResourceType::Battery));
-                if base.controller.level() < 8 {
-                    return None;
-                }
+        let mut events = SmallVec::new();
 
-                if amount > 50000 {
-                    Some(RoomEvent::Excess(ResourceType::Battery, amount - 50000))
-                } else if amount < 20000 && storage.store().get_used_capacity(Some(ResourceType::Energy)) > 200000 {
-                    Some(RoomEvent::Request(Request::new(
-                        RequestKind::Factory(FactoryData::new(ResourceType::Battery, 1000)),
-                        Assignment::None)))
-                } else if amount < 10000 {
-                    Some(RoomEvent::Lack(ResourceType::Battery, 10000 - amount))
-                } else {
-                    None
-                }
-            })
-            .into_iter().collect()
+        let amount = base.resources.amount(ResourceType::Battery);
+        info!("{} battery amount: {}", base.get_name(), amount);
+        let energy_amount = base.resources.amount(ResourceType::Energy);
+
+        if base.controller.level() < 8 {
+            return events;
+        }
+
+        let event = if amount > 50000 {
+            Some(RoomEvent::Excess(ResourceType::Battery, amount - 50000))
+        } else if amount < 20000 && energy_amount > 200000 {
+            Some(RoomEvent::Request(Request::new(
+                RequestKind::Factory(FactoryData::new(ResourceType::Battery, 1000)),
+                Assignment::None)))
+        } else if amount < 10000 {
+            Some(RoomEvent::Lack(ResourceType::Battery, 10000 - amount))
+        } else {
+            None
+        };
+        events.extend(event);
+        events
+        // base.storage()
+        //     .and_then(|storage| {
+        //         let amount = storage.store().get_used_capacity(Some(ResourceType::Battery));
+        //         if base.controller.level() < 8 {
+        //             return None;
+        //         }
+
+        //         if amount > 50000 {
+        //             Some(RoomEvent::Excess(ResourceType::Battery, amount - 50000))
+        //         } else if amount < 20000 && storage.store().get_used_capacity(Some(ResourceType::Energy)) > 200000 {
+        //             Some(RoomEvent::Request(Request::new(
+        //                 RequestKind::Factory(FactoryData::new(ResourceType::Battery, 1000)),
+        //                 Assignment::None)))
+        //         } else if amount < 10000 {
+        //             Some(RoomEvent::Lack(ResourceType::Battery, 10000 - amount))
+        //         } else {
+        //             None
+        //         }
+        //     })
+        //     .into_iter().collect()
     }
 }
 

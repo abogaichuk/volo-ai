@@ -5,9 +5,7 @@ use screeps::{
     raw_memory, OrderType, ResourceType, RoomName,
 };
 use crate::{
-    movement::Movement,
-    resources::{Kinds, kinds},
-    rooms::{
+    movement::Movement, resources::{Kinds, kinds}, rooms::{
         register_rooms,
         state::{
             FarmStatus, RoomState, TradeData, requests::{
@@ -15,10 +13,7 @@ use crate::{
             }
         },
         wrappers::claimed::Claimed,
-    },
-    statistics::Statistic,
-    units::{creeps::{CreepMemory, run_creeps}, power_creep::{PowerCreepMemory, run_power_creeps}, roles::Kind},
-    utils::constants::MAX_POWER_CAPACITY,
+    }, statistics::Statistic, units::{creeps::{CreepMemory, run_creeps}, power_creep::{PowerCreepMemory, run_power_creeps}, roles::Kind}, utils::constants::MAX_POWER_CAPACITY
 };
 use std::{collections::{HashMap, HashSet}, iter::once};
 use js_sys::JsString;
@@ -113,16 +108,16 @@ impl GlobalState {
             .map(|(name, home)| (name, home.base()))
             .collect();
 
-        let event_context = EventContext::new(movement, bases);
+        let event_context = EventContext::new(movement, &bases);
         for event in events {
             event.handle(self, &event_context);
         }
 
         let time = game::time();
-        if time % 75 == 0 {
+        if time % 100 == 0 {
             self.update_avoid_rooms();
             self.orders.retain(|order| time < order.timeout());
-            self.update_statistics(Statistic::new(self));
+            self.update_statistics(Statistic::new(self, &bases));
         }
         self.gc();
     }
