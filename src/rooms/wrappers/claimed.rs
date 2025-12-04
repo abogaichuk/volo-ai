@@ -5,7 +5,7 @@ use screeps::{
 use smallvec::SmallVec;
 use std::{cmp::min, collections::HashMap, iter::once};
 use crate::{
-    commons::{find_container_near_by, has_part, is_cpu_on_low}, resources::{self, Resources},
+    commons::{find_container_near_by, has_part, is_cpu_on_low}, resources::{self, Resources, RoomContext},
     rooms::{
         RoomEvent, RoomState, is_extractor, missed_buildings,
         state::{BoostReason, FarmInfo, constructions::{RoomPlan, RoomPlannerError},
@@ -28,7 +28,7 @@ mod structures;
 pub(crate) struct Claimed {
     pub(crate) room: Room,
     pub(crate) controller: StructureController,
-    pub(crate) farms: Vec<Farm>,
+    pub(crate) farms: Vec<Farm>, //todo move to shelter
     pub(crate) mineral: Mineral,
     pub(crate) sources: Vec<Source>,
     pub(crate) spawns: Vec<StructureSpawn>,
@@ -298,10 +298,17 @@ impl Claimed {
     }
 
     fn resource_handler(&self) -> impl Iterator<Item = RoomEvent> + use<'_> {
+        //todo create resource handler here because:
+        // 1. the same time check
+        // 2. easy to create RoomStats because creeps len is here
+        // 3. easy pass to colony by throwing colonyevent
         if self.controller.level() > 6 {
-            Some(resources::handlers(self.mineral.mineral_type())
-                .into_iter()
-                .flat_map(|handler| handler.handle(self)))
+            let context = RoomContext::new(
+                self.controller.level(),
+                self.terminal.as_ref().map(|t| t.raw_id()),
+                self.storage.as_ref().map(|s| s.raw_id()),
+                self.factory.as_ref().map(|f| f.level()).unwrap_or_default());
+            Some(self.resources.events(context))
         } else {
             None
         }.into_iter().flatten()
@@ -412,7 +419,7 @@ impl Claimed {
             .collect()
     }
 
-    //spawn mineral miner if need only, he does suicide when finished his job
+    //spawn mineral miner if needed, he does suicide when finished his job
     fn manage_mineral_miner<'a>(
         &'a self,
         room_memory: &'a RoomState,
@@ -443,7 +450,7 @@ impl Claimed {
                 let boost_amount = storage.store().get_used_capacity(Some(ResourceType::CatalyzedGhodiumAcid));
 
                 if boost_amount > 500 && !room_memory.boosts.contains_key(&BoostReason::Upgrade) {
-                    Some(RoomEvent::AddBoost(BoostReason::Upgrade, 5000))
+                    Some(RoomEvent::AddBoost(BoostReason::Upgrade, 1500))
                 } else {
                     None
                 }.into_iter()

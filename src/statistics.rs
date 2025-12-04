@@ -21,16 +21,16 @@ pub struct Statistic {
 
 impl Statistic {
     pub(crate) fn new(state: &GlobalState, bases: &HashMap<RoomName, Claimed>) -> Self {
-        let rooms = state.rooms.iter()
-            .map(|(room_name, room_memory)| {
-                let creeps_number = state.creeps.iter()
-                    .filter(|(_, memory)| memory.role.get_home()
-                        .is_some_and(|home| home == room_name))
-                    .count();
-                let room = game::rooms().get(*room_name).expect("expect room is valid");
-                RoomStats::new(&room, room_memory, creeps_number)
-            })
-            .collect();
+        // let rooms = state.rooms.iter()
+        //     .map(|(room_name, room_memory)| {
+        //         let creeps_number = state.creeps.iter()
+        //             .filter(|(_, memory)| memory.role.get_home()
+        //                 .is_some_and(|home| home == room_name))
+        //             .count();
+        //         let room = game::rooms().get(*room_name).expect("expect room is valid");
+        //         RoomStats::new(&room, room_memory, creeps_number)
+        //     })
+        //     .collect();
 
         Statistic {
             tick: game::time(),
@@ -38,7 +38,7 @@ impl Statistic {
             cpu_limit: game::cpu::limit(),
             cpu_used: game::cpu::get_used(),
             last_restart: state.global_init_time,
-            rooms,
+            rooms: Vec::new(),
         }
     }
 }
@@ -68,14 +68,13 @@ pub struct RoomStats {
 }
 
 impl RoomStats {
-    pub fn new(room: &Room, room_memory: &RoomState, creeps_number: usize) -> Self {
-        let controller = room.controller().expect("expect controller in claimed room");
+    pub fn new(base: &Claimed, room_memory: &RoomState, creeps_number: usize) -> Self {
         
         Self {
-            name: room.name(),
-            controller: ControllerStats::new(controller),
-            energy_in_use: room.energy_available(),
-            energy_capacity: room.energy_capacity_available(),
+            name: base.get_name(),
+            controller: ControllerStats::new(&base.controller),
+            energy_in_use: base.energy_available(),
+            energy_capacity: base.energy_capacity_available(),
             // resources: RESOURCES_ALL
             //     .iter()
             //     .map(|resource| {
@@ -84,14 +83,38 @@ impl RoomStats {
             //     })
             //     .filter(|(_, amount)| *amount > 100)
             //     .collect(),
-            storage_used_capacity: room.storage().map(|storage| storage.store().get_used_capacity(None)),
-            terminal_used_capacity: room.terminal().map(|terminal| terminal.store().get_used_capacity(None)),
+            storage_used_capacity: base.storage().map(|storage| storage.store().get_used_capacity(None)),
+            terminal_used_capacity: base.terminal().map(|terminal| terminal.store().get_used_capacity(None)),
             requests: room_memory.requests.len(),
             creeps_number,
             last_intrusion: room_memory.last_intrusion,
             // perimetr: Perimetr::new(&room_memory.perimetr)
         }
     }
+    // pub fn new(room: &Room, room_memory: &RoomState, creeps_number: usize) -> Self {
+    //     let controller = room.controller().expect("expect controller in claimed room");
+        
+    //     Self {
+    //         name: room.name(),
+    //         controller: ControllerStats::new(controller),
+    //         energy_in_use: room.energy_available(),
+    //         energy_capacity: room.energy_capacity_available(),
+    //         // resources: RESOURCES_ALL
+    //         //     .iter()
+    //         //     .map(|resource| {
+    //         //         let amount = get_resource_amount(room, *resource);
+    //         //         (*resource, amount)
+    //         //     })
+    //         //     .filter(|(_, amount)| *amount > 100)
+    //         //     .collect(),
+    //         storage_used_capacity: room.storage().map(|storage| storage.store().get_used_capacity(None)),
+    //         terminal_used_capacity: room.terminal().map(|terminal| terminal.store().get_used_capacity(None)),
+    //         requests: room_memory.requests.len(),
+    //         creeps_number,
+    //         last_intrusion: room_memory.last_intrusion,
+    //         // perimetr: Perimetr::new(&room_memory.perimetr)
+    //     }
+    // }
 }
 
 fn get_resource_amount(room: &Room, resource: ResourceType) -> u32 {
@@ -108,7 +131,7 @@ pub struct ControllerStats {
 }
 
 impl ControllerStats {
-    pub fn new(controller: StructureController) -> Self {
+    pub fn new(controller: &StructureController) -> Self {
         Self {
             level: controller.level(),
             ticks_to_downgrade: controller.ticks_to_downgrade(),

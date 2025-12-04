@@ -113,10 +113,9 @@ impl GlobalState {
             event.handle(self, &event_context);
         }
 
-        let time = game::time();
-        if time % 100 == 0 {
+        if game::time() % 100 == 0 {
             self.update_avoid_rooms();
-            self.orders.retain(|order| time < order.timeout());
+            self.orders.retain(|order| game::time() < order.timeout());
             self.update_statistics(Statistic::new(self, &bases));
         }
         self.gc();
