@@ -1,10 +1,12 @@
 use log::*;
+use screeps::StructureStorage;
 use std::collections::HashSet;
 use crate::rooms::{
     RoomEvent, wrappers::claimed::Claimed,
     state::{RoomState, requests::{Request, RequestKind, meta::Status}},
 };
 
+//todo impl Shelter
 impl Claimed {
     pub(crate) fn run_factory(&self, room_memory: &RoomState) -> Option<RoomEvent> {
         let Some(factory) = &self.factory else {
@@ -18,19 +20,30 @@ impl Claimed {
 
         (!in_progress)
             .then(|| {
-                if let Some(mut request) = new_request(&room_memory.requests) {
-                    request.join(None, None);
-                    Some(RoomEvent::ReplaceRequest(request))
-                } else {
-                    self.unload(factory, &[])
-                }
+                self.storage()
+                    .and_then(|storage| {
+                        if let Some(mut request) = new_request(&room_memory.requests, storage) {
+                            request.join(None, None);
+                            Some(RoomEvent::ReplaceRequest(request))
+                        } else if room_memory.powers.contains(&screeps::PowerType::OperateFactory) {
+                            Some(RoomEvent::DeletePower(screeps::PowerType::OperateFactory))
+                        } else {
+                            self.unload(factory, &[])
+                        }
+                    })
             })?
     }
 }
 
-fn new_request(requests: &HashSet<Request>) -> Option<Request> {
+fn new_request(requests: &HashSet<Request>, storage: &StructureStorage) -> Option<Request> {
     requests.iter()
-        .filter(|r| matches!(r.kind, RequestKind::Factory(_)))
-        .min_by_key(|r| r.meta.updated_at)
+        .find(|r| match &r.kind {
+            RequestKind::Factory(d) => {
+                d.resource.commodity_recipe()
+                    .is_some_and(|recipe| recipe.components.iter()
+                        .all(|(res, amount)| storage.store().get_used_capacity(Some(*res)) >= *amount))
+            }
+            _ => false
+        })
         .cloned()
 }

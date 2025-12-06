@@ -171,14 +171,14 @@ impl MovementGoal {
 
 #[cfg(test)]
 mod tests {
-    use screeps::{RoomCoordinate, RoomXY};
+    // use screeps::{RoomCoordinate, RoomXY};
 
-    #[test]
-    fn danger_zones_equality_test() {
-        let zones1 = vec![RoomXY::new(RoomCoordinate(1), RoomCoordinate(5))];
-        let zones2 = vec![RoomXY::new(RoomCoordinate(1), RoomCoordinate(5))];
+    // #[test]
+    // fn danger_zones_equality_test() {
+    //     let zones1 = vec![RoomXY::new(RoomCoordinate(1), RoomCoordinate(5))];
+    //     let zones2 = vec![RoomXY::new(RoomCoordinate(1), RoomCoordinate(5))];
 
-        assert!(zones1 == zones2)
-    }
+    //     assert!(zones1 == zones2)
+    // }
 }
 

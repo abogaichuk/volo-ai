@@ -8,8 +8,8 @@ use screeps::{
     StructureType, Terrain, find, game, look::{LookResult, STRUCTURES}
 };
 use crate::{
-    units::{Memory, roles::Role},
-    utils::constants::{ROOM_NUMBER_RE, HIGH_CPU_THRESHOLD, LOW_BUCKET_THRESHOLD}
+    units::{creeps::CreepMemory, roles::Role},
+    utils::constants::{HIGH_CPU_THRESHOLD, LOW_BUCKET_THRESHOLD, ROOM_NUMBER_RE}
 };
 use std::{cmp::Ordering, str::FromStr, iter::{Iterator, Empty, Once}};
 use rand::Rng;
@@ -446,7 +446,7 @@ pub fn find_closest_injured(to: &Creep) -> Option<Creep> {
         })
 }
 
-pub fn find_roles(role: &Role, in_spawn: &[Role], alive: &HashMap<String, Memory>) -> usize {
+pub fn find_roles(role: &Role, in_spawn: &[Role], alive: &HashMap<String, CreepMemory>) -> usize {
     in_spawn
         .iter()
         .filter(|future_creep| *future_creep == role)

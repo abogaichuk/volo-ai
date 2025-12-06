@@ -38,8 +38,9 @@ pub fn deposit_mine(pos: Position, id: ObjectId<Deposit>, creep: &Creep, role: &
 }
 
 pub fn deposit_carry(pos: Position, creep: &Creep, role: &Role, enemies:Vec<Creep>) -> TaskResult {
+    //todo use shelter instead
     let home_room = role.get_home()
-        .and_then(|home| game::rooms().get(home))
+        .and_then(|home| game::rooms().get(*home))
         .expect("expect role has a home!");
     
     if is_full(creep) || (creep.ticks_to_live().is_some_and(|ticks| ticks < 200) && creep.store().get_used_capacity(None) > 0) {

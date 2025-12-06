@@ -49,17 +49,14 @@ pub(in crate::rooms::state::requests) fn factory_handler(
                         events.push(load_event);
                         meta.update(Status::OnHold);
                     } else {
-                        let storage_amount = home.storage()
-                            .map(|storage| storage.store().get_used_capacity(Some(component.0)))
-                            .unwrap_or_default();
-
-                        let lack = request_amount - factory_amount - storage_amount;
-                        events.push(RoomEvent::Lack(component.0, lack));
-                        meta.update(Status::Created);
+                        debug!("{} can't find missing component: {} for request: {:?}", home.name(), component.0, data);
+                        meta.update(Status::Aborted);
                     }
-                } else if recipe.level.is_some() && !home.is_power_enabled(&screeps::PowerType::OperateFactory) {
-                    events.push(RoomEvent::AddPower(screeps::PowerType::OperateFactory));
-                } else if recipe.level.is_none() && home.is_power_enabled(&screeps::PowerType::OperateFactory) {
+                }
+                // else if recipe.level.is_some() && !home.is_power_enabled(&screeps::PowerType::OperateFactory) {
+                //     events.push(RoomEvent::AddPower(screeps::PowerType::OperateFactory));
+                // }
+                else if recipe.level.is_none() && home.is_power_enabled(&screeps::PowerType::OperateFactory) {
                     events.push(RoomEvent::DeletePower(screeps::PowerType::OperateFactory));
                 } else if factory.cooldown() == 0 {
                     match factory.produce(data.resource) {
@@ -76,7 +73,9 @@ pub(in crate::rooms::state::requests) fn factory_handler(
                         Err(err) => {
                             match err {
                                 //if busy wait for powercreep effect
-                                ProduceErrorCode::Busy => {},
+                                ProduceErrorCode::Busy => {
+                                    events.push(RoomEvent::AddPower(screeps::PowerType::OperateFactory));
+                                },
                                 _ => {
                                     meta.update(Status::Aborted);
                                     error!("{} factory error: {:?}, request: {:?}", home.name(), err, data)
@@ -85,7 +84,7 @@ pub(in crate::rooms::state::requests) fn factory_handler(
                         }
                     }
                 }
-            } else if let Some(unload_event) = home.unload(factory, &[]) {
+            } else if let Some(unload_event) = home.unload(factory, &recipe.components.keys().cloned().collect::<Vec<_>>()) {
                 events.push(unload_event);
             } else {
                 meta.update(Status::Aborted);
@@ -93,11 +92,15 @@ pub(in crate::rooms::state::requests) fn factory_handler(
             }
         }
         Status::OnHold => {
-            if meta.updated_at + 15 < game::time() {
+            if recipe.components.iter()
+                .all(|(res, amount)| factory.store().get_used_capacity(Some(*res)) >= *amount)
+            {
                 meta.update(Status::InProgress);
+            } else if meta.updated_at + 25 < game::time() {
+                meta.update(Status::Aborted);
             }
         }
-        //wait 20 tick to prevent duplication request creatation
+        //todo wait 20 tick to prevent duplication request creatation
         // Status::Resolved if meta.updated_at + 20 > game::time() => {
         //     events.push(RoomEvent::Request(RoomRequest::Factory(self)));
         // }

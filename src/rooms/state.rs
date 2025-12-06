@@ -5,8 +5,8 @@ use std::{collections::{HashMap, HashSet}, hash::{Hash, Hasher}, iter::Iterator}
 use ordered_float::OrderedFloat;
 
 use crate::{
-    rooms::state::{requests::Request, constructions::RoomPlan},
-    units::{Memory, roles::Role}
+    rooms::state::{constructions::RoomPlan, requests::Request},
+    units::{creeps::CreepMemory, roles::Role}
 };
 
 pub mod requests;
@@ -101,7 +101,7 @@ impl RoomState {
             .or_insert(time);
     }
 
-    pub fn find_roles<'a>(&'a self, role: &'a Role, creeps: &'a HashMap<String, Memory>) -> impl Iterator<Item = &'a Role> {
+    pub fn find_roles<'a>(&'a self, role: &'a Role, creeps: &'a HashMap<String, CreepMemory>) -> impl Iterator<Item = &'a Role> {
         self.in_spawn(role)
             .chain(creeps.values()
                 .map(|mem| &mem.role)

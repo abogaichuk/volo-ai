@@ -1,14 +1,14 @@
 use log::*;
 use serde::{Deserialize, Serialize};
 use std::{cmp::Reverse, collections::{BTreeMap, HashMap}};
-use screeps::{Deposit, ObjectId, OrderType, Position, RawObjectId, ResourceType, RoomName, StructurePowerBank, game};
+use screeps::{Deposit, ObjectId, Position, RawObjectId, ResourceType, RoomName, StructurePowerBank, game};
 
-use crate::{colony::orders::{CaravanOrder, DepositOrder, PowerbankOrder, ProtectOrder, ResourceOrder, WithdrawOrder}, utils::constants::AVOID_HOSTILE_ROOM_TIMEOUT};
+use crate::{colony::orders::{CaravanOrder, DepositOrder, PowerbankOrder, ProtectOrder, ResourceOrder, WithdrawOrder}, resources::{chain_config::factory_chain_config, lack_handler_for}, statistics::RoomStats, utils::constants::AVOID_HOSTILE_ROOM_TIMEOUT};
 
 use super::{
-    kinds, less_cga, less_power, most_ctrl_lvl, most_money, prefered_room, Assignment, CaravanData, Claimed,
-    ColonyOrder, DepositData, GlobalState, Kinds, LRWData, Movement, PowerbankData, ProtectData, Request,
-    RequestKind, TransferData, MAX_FACTORY_LEVEL,
+    less_cga, less_power, most_ctrl_lvl, most_money, prefered_room, Assignment, CaravanData, Claimed,
+    ColonyOrder, DepositData, GlobalState, LRWData, Movement, PowerbankData, ProtectData, Request,
+    RequestKind, TransferData,
 };
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -23,22 +23,24 @@ pub enum ColonyEvent {
     Deposit(ObjectId<Deposit>, Position, usize),
     Withdraw(RawObjectId, Position, ResourceType, u32),
     Notify(String, Option<u32>),
+    Stats(RoomName, RoomStats),
     BlackList(String)
 }
 
-pub struct EventContext {
+pub(crate) struct ColonyContext<'a> {
     movement: Movement,
-    bases: HashMap<RoomName, Claimed>,
-    warehouse: Option<RoomName>,
+    bases: &'a HashMap<RoomName, Claimed>,
+    warehouse: Option<(RoomName, u8)>,
 }
 
-impl EventContext {
-    pub(super) fn new(movement: Movement, bases: HashMap<RoomName, Claimed>) -> Self {
+impl <'a> ColonyContext<'a> {
+    pub(super) fn new(movement: Movement, bases: &'a HashMap<RoomName, Claimed>) -> Self {
         let warehouse = bases
             .values()
-            .filter(|base| base.factory().is_some_and(|f| f.level() > 0))
-            .min_by_key(|base| Reverse(base.factory().map(|f| f.level()).unwrap_or_default()))
-            .map(Claimed::get_name);
+            .map(|base| (base.get_name(), base.factory()
+                .map(|f| f.level())
+                .unwrap_or_default()))
+            .min_by_key(|(_, lvl)| Reverse(*lvl));
 
         Self {
             movement,
@@ -46,13 +48,29 @@ impl EventContext {
             warehouse,
         }
     }
+
+    pub fn bases(&self) -> &HashMap<RoomName, Claimed> {
+        self.bases
+    }
+
+    fn find_base_by_factory_level(&self, res: ResourceType) -> Option<RoomName> {
+        factory_chain_config(res)
+            .map(|config| config.random_chain().f_lvl)
+            .and_then(|f_lvl| self.bases.iter()
+                .find_map(|(room_name, base)| {
+                    if base.factory().is_some_and(|f| f.level() == f_lvl) {
+                        Some(*room_name)
+                    } else {
+                        None
+                    }
+                }))
+    }
 }
 
 impl ColonyEvent {
-    pub fn handle(self, state: &mut GlobalState, context: &EventContext) {
+    pub(super) fn assign(self, state: &mut GlobalState, context: &ColonyContext) {
         let movement = &context.movement;
         let bases = &context.bases;
-        let warehouse = context.warehouse;
 
         match self {
             ColonyEvent::AvoidRoom(room_name, timeout) => {
@@ -164,43 +182,23 @@ impl ColonyEvent {
             ColonyEvent::Excess(from, resource, amount) => {
                 let mut excess_order = ResourceOrder::new(from, resource, amount);
                 if !state.orders.contains(&ColonyOrder::Excess(excess_order.clone())) {
-                    let f_lvl = factory_level_for(resource);
-                    let kinds = kinds(resource);
-
-                    if kinds.intersects(Kinds::TRADEABLE) && let Some(warehouse_room) = warehouse {
-                        if warehouse_room != from {
-                            excess_order.to = Some(warehouse_room);
-                            let transfer_request = Request::new(
-                                RequestKind::Transfer(TransferData::new(
-                                    resource,
-                                    amount,
-                                    warehouse_room,
-                                    Some(format!("colony assigned from: {}", from)))),
-                                Assignment::None);
-                            info!("{} added excess TRADEABLE: {:?} by colony", from, transfer_request);
-                            state.add_request(from, transfer_request);   
-                        } else {
-                            warn!("{} try selling {}:{}", from, resource, amount);
-                            state.trade(from, OrderType::Sell, resource, amount);
-                        }
-                    } else if kinds.intersects(Kinds::PRODUCEABLE) &&
-                        let Some(to) = find_base_by_factory_lvl(bases, f_lvl) &&
-                        to.get_name() != from
+                    if let Some(to_room) = context.find_base_by_factory_level(resource)
+                        .or_else(|| context.warehouse.map(|w| w.0))
+                        .filter(|rn| *rn != from)
                     {
-                        excess_order.to = Some(to.get_name());
-
+                        excess_order.to = Some(to_room);
                         let transfer_request = Request::new(
                             RequestKind::Transfer(TransferData::new(
                                 resource,
                                 amount,
-                                to.get_name(),
-                                Some(format!("colony assigned from: {}", from)))),
+                                to_room,
+                                Some(format!("colony assigned from: {}, to: {}", from, to_room)))),
                             Assignment::None);
-                        info!("{} added excess PRODUCEABLE: {:?} by colony", from, transfer_request);
+                        info!("{} excess {}:{} transfer_to: {}", from, resource, amount, to_room);
                         state.add_request(from, transfer_request);
                     } else {
                         excess_order.to = Some(from);
-                        info!("resource: {}:{} warehouse not found", resource, amount);
+                        info!("{} excess {}:{} alredy in warehouse!", from, resource, amount);
                     }
                     state.orders.insert(ColonyOrder::Excess(excess_order));
                 }
@@ -208,36 +206,21 @@ impl ColonyEvent {
             ColonyEvent::Lack(from, resource, amount) => {
                 let mut lack_order = ResourceOrder::new(from, resource, amount);
                 if !state.orders.contains(&ColonyOrder::Lack(lack_order.clone())) {
-                    let kinds = kinds(resource);
-                    if kinds.intersects(Kinds::PRODUCEABLE) &&
-                        let Some((room_name, found)) = find_resource(bases, from, resource)
+                    if let Some(lack_result) =
+                        lack_handler_for(resource)(resource, amount, context)
                     {
-                        lack_order.to = Some(room_name);
+                        lack_order.to = Some(lack_result.room_name());
                         let transfer_request = Request::new(
                             RequestKind::Transfer(TransferData::new(
                                 resource,
-                                std::cmp::min(amount, found),
+                                lack_result.amount(),
                                 from,
-                                Some(format!("colony assigned from: {}", from)))),
+                                Some(format!("colony assigned, sender: {} dest: {}", lack_result.room_name(), from)))),
                             Assignment::None);
-                        //todo bug here
-                        //added lack PRODUCEABLE: Transfer(TransferRequest with 0 resource
-                        info!("{} added lack PRODUCEABLE: {:?} by colony", room_name, transfer_request);
-                        state.add_request(room_name, transfer_request);
-                    } else if kinds.intersects(Kinds::STOREABLE) &&
-                        let Some((room_name, found)) = find_resource(bases, from, resource) &&
-                        found > amount && found > 6000
-                    {
-                        lack_order.to = Some(room_name);
-                        let transfer_request = Request::new(
-                            RequestKind::Transfer(TransferData::new(
-                                resource,
-                                amount,
-                                from,
-                                Some(format!("colony assigned from: {}", room_name)))),
-                            Assignment::None);
-                        info!("{} added lack STOREABLE: {:?} by colony", room_name, transfer_request);
-                        state.add_request(room_name, transfer_request);
+                        info!("sender: {}, res {}:{} to: {}", lack_result.room_name(), resource, lack_result.amount(), from);
+                        state.add_request(lack_result.room_name(), transfer_request);
+                    } else {
+                        info!("{} on low: {}:{}", from, resource, amount);
                     }
                     state.orders.insert(ColonyOrder::Lack(lack_order));
                 }
@@ -248,6 +231,9 @@ impl ColonyEvent {
             ColonyEvent::BlackList(username) => {
                 state.black_list.insert(username);
             }
+            ColonyEvent::Stats(name, stats) => {
+                let _ = state.statistic.update(name, stats);
+            }
         }
     }
 }
@@ -255,28 +241,4 @@ impl ColonyEvent {
 fn notify_me(message: &str, interval: Option<u32>) {
     warn!("{}", message);
     game::notify(message, interval);
-}
-
-fn factory_level_for(resource: ResourceType) -> u8 {
-    match resource {
-        ResourceType::Cell | ResourceType::Wire | ResourceType::Alloy | ResourceType::Condensate => 1,
-        ResourceType::Phlegm | ResourceType::Switch | ResourceType::Tube | ResourceType::Concentrate => 2,
-        ResourceType::Tissue | ResourceType::Transistor | ResourceType::Fixtures | ResourceType::Extract => 3,
-        ResourceType::Muscle | ResourceType::Microchip | ResourceType::Frame | ResourceType::Spirit => 4,
-        _ => MAX_FACTORY_LEVEL,
-    }
-}
-
-fn find_resource(homes: &HashMap<RoomName, Claimed>, ignore: RoomName, resource: ResourceType) -> Option<(RoomName, u32)> {
-    homes
-        .values()
-        .filter(|base| base.get_name() != ignore)
-        .map(|base| (base.get_name(), base.resource_amount(resource)))
-        .max_by_key(|(_, amount)| *amount)
-}
-
-fn find_base_by_factory_lvl(bases: &HashMap<RoomName, Claimed>, f_lvl: u8) -> Option<&Claimed> {
-    bases
-        .values()
-        .find(|base| base.factory().is_some_and(|f| f.level() == f_lvl))
 }

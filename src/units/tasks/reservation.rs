@@ -27,7 +27,7 @@ pub fn claim(id: ObjectId<StructureController>, position: Position, creep: &Cree
 }
 
 pub fn book(id: ObjectId<StructureController>, position: Position, creep: &Creep, role: &Role, enemies: Vec<Creep>) -> TaskResult {
-    if role.get_home().is_some_and(|home| home != creep.pos().room_name()) && !enemies.is_empty() {
+    if role.get_home().is_some_and(|home| *home != creep.pos().room_name()) && !enemies.is_empty() {
         if let Some(closest_exit) = find_closest_exit(creep, None) {
             let goal = Walker::Exploring(false).walk(closest_exit, 0, creep, role, enemies);
             TaskResult::StillWorking(Task::Escape(closest_exit), Some(goal))

@@ -2,14 +2,23 @@ use std::cmp;
 
 use log::*;
 use serde::{Serialize, Deserialize};
-use screeps::{ResourceType, action_error_codes::RunReactionErrorCode, game};
+use screeps::{ResourceType, StructureLab, action_error_codes::RunReactionErrorCode, game};
 use smallvec::SmallVec;
 use crate::{
     rooms::{RoomEvent, state::requests::{Meta, Status}, wrappers::claimed::Claimed},
     utils::constants::MIN_CARRY_REQUEST_AMOUNT
 };
+use thiserror::Error;
 
 const LAB_PRODUCTION: u32 = 5;
+
+#[derive(Error, Debug, Eq, PartialEq)]
+pub enum LabError {
+    #[error("not found: {0}")]
+    NotFound(ResourceType),
+    #[error("is not empty")]
+    IsNotEmpty
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct LabData {
@@ -54,7 +63,7 @@ pub(in crate::rooms::state::requests) fn lab_handler(
                         match output.run_reaction(input1, input2) {
                             Ok(_) => {
                                 if LAB_PRODUCTION > data.amount {
-                                    meta.update(Status::Finishing);
+                                    meta.update(Status::Resolved);
                                     break;
                                 } else {
                                     data.amount -= LAB_PRODUCTION;
@@ -64,25 +73,43 @@ pub(in crate::rooms::state::requests) fn lab_handler(
                             Err(err) => {
                                 match err {
                                     RunReactionErrorCode::NotEnoughResources => {
-                                        let (res, lab) = if input1.store().get_used_capacity(Some(res1)) < LAB_PRODUCTION {
-                                            (res1, input1)
-                                        } else {
-                                            (res2, input2)
+
+                                        let event1 = match try_supply(
+                                            home,
+                                            input1,
+                                            res1,
+                                            cmp::min(data.amount, MIN_CARRY_REQUEST_AMOUNT))
+                                        {
+                                            Ok(event) => Some(event),
+                                            Err(err) => match err {
+                                                LabError::IsNotEmpty => None,
+                                                LabError::NotFound(res) => {
+                                                    warn!("{} not found resource: {}", home.get_name(), res);
+                                                    meta.update(Status::Aborted);
+                                                    break;
+                                                }
+                                            }
+                                        };
+                                        let event2 = match try_supply(
+                                            home,
+                                            input2,
+                                            res2,
+                                            cmp::min(data.amount, MIN_CARRY_REQUEST_AMOUNT))
+                                        {
+                                            Ok(event) => Some(event),
+                                            Err(err) => match err {
+                                                LabError::IsNotEmpty => None,
+                                                LabError::NotFound(res) => {
+                                                    warn!("{} not found resource: {}", home.get_name(), res);
+                                                    meta.update(Status::Aborted);
+                                                    break;
+                                                }
+                                            }
                                         };
 
-                                        let in_lab_amount = lab.store().get_used_capacity(Some(res));
-                                        let amount = cmp::min(data.amount, MIN_CARRY_REQUEST_AMOUNT)
-                                            .saturating_sub(in_lab_amount);
-
-                                        if let Some(load_event) = home.load_lab(lab, (res, amount)) {
-                                            meta.update(Status::InProgress);
-                                            events.push(load_event);
-                                        } else if meta.updated_at + 15 < game::time() {
-                                            //15 ticks to deliver resources to the lab
-                                            debug!("{} can't find missing component: {} for request: {:?}", home.get_name(), res, data);
-                                            meta.update(Status::Aborted);
-                                            events.push(RoomEvent::Lack(res, data.amount - in_lab_amount));
-                                        }
+                                        events.extend(event1);
+                                        events.extend(event2);
+                                        meta.update(Status::OnHold);
                                     }
                                     RunReactionErrorCode::Full | RunReactionErrorCode::InvalidArgs => {
                                         events.extend(home.unload(output, &[]));
@@ -102,15 +129,28 @@ pub(in crate::rooms::state::requests) fn lab_handler(
                 warn!("{} can't get reagents for lab request: {:?}", home.get_name(), data);
             }
         }
-        //wait 50 tick to prevent duplication request creatation
-        //todo instead of this create the Resource struct for each claimed room
-        //so each home has an info about resource amount.
-        //what about resources in a creeps store?
-        Status::Finishing if meta.updated_at + 50 < game::time() => {
-            meta.update(Status::Resolved);
+        Status::OnHold => {
+            if  inputs.iter().all(|lab| data.resource.reaction_components()
+                .is_some_and(|components| components.iter()
+                    .any(|component| lab.store().get_used_capacity(Some(*component)) >= LAB_PRODUCTION)))
+            {
+                // if all labs loaded -> toogle to InProgress
+                meta.update(Status::InProgress);
+            } else if meta.updated_at + 50 < game::time() {
+                // if wait more then 50 ticks  -> Aborted
+                meta.update(Status::Aborted);
+            }
         }
         _ => {}
     }
 
     events
+}
+
+fn try_supply(home: &Claimed, lab: &StructureLab, res: ResourceType, amount: u32) -> Result<RoomEvent, LabError> {
+    if lab.store().get_used_capacity(Some(res)) < LAB_PRODUCTION {
+        home.load_lab(lab, (res, amount)).ok_or(LabError::NotFound(res))
+    } else {
+        Err(LabError::IsNotEmpty)
+    }
 }

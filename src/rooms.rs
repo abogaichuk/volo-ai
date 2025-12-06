@@ -49,6 +49,7 @@ pub enum RoomEvent {
     Defend(RoomName, Vec<CreepHostile>),
     ActivateSafeMode(String),
     BlackList(String),
+    UpdateStatistic
     // #[default]
     // Nothing
 }

@@ -13,7 +13,7 @@ use crate::{
         BoostReason, FarmInfo, RoomState, TradeData,
         constructions::{PlannedCell, RoomStructure}, requests::Request
     },
-    units::{Memory, roles::Role},
+    units::{creeps::CreepMemory, roles::Role},
 };
 
 #[wasm_bindgen]
@@ -196,7 +196,7 @@ pub fn resolve_request(room_name: String, request: JsValue) -> String {
 
 #[wasm_bindgen]
 pub fn ccm(creep_name: String, creep_memory: JsValue) -> String {
-    match serde_wasm_bindgen::from_value::<Memory>(creep_memory.clone()) {
+    match serde_wasm_bindgen::from_value::<CreepMemory>(creep_memory.clone()) {
         Ok(new_memory) => {
             GLOBAL_MEMORY.with(|shard_state| {
                 match shard_state.borrow_mut().creeps.entry(creep_name.clone()) {

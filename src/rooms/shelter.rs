@@ -9,14 +9,12 @@ use screeps::{
     StructureStorage, StructureTerminal, StructureTower, game::{self, market::Order}
 };
 use crate::{
-    colony::ColonyEvent, commons::find_roles,
-    rooms::{
+    colony::ColonyEvent, commons::find_roles, rooms::{
         RoomEvent, state::{RoomState, TradeData,
             requests::{CreepHostile, DefendData, Request, RequestKind, assignment::Assignment}
         },
         wrappers::{Fillable, claimed::Claimed, farm::Farm}
-    },
-    units::{Memory, roles::Role}
+    }, statistics::RoomStats, units::{creeps::CreepMemory, roles::Role}
 };
 
 pub struct Shelter<'s> {
@@ -35,7 +33,7 @@ impl <'s> Shelter<'s> {
         Shelter { base: Claimed::new(base_room, farms, state), state, white_list }
     }
 
-    pub fn run_shelter(&mut self, creeps: &mut HashMap<String, Memory>, orders: &[Order]) -> Vec<ColonyEvent> {
+    pub fn run_shelter(&mut self, creeps: &mut HashMap<String, CreepMemory>, orders: &[Order]) -> Vec<ColonyEvent> {
         //     //todo proportial perimetr security check
         //     //todo room_memory for requests excess, only room_memory spawns in use for dismantle or combats and room_memory.boost for factory
         //     //todo Request as updateable?
@@ -99,7 +97,7 @@ impl <'s> Shelter<'s> {
                 },
                 RoomEvent::Spawned(name, role, index) => {
                     self.state.spawns.remove(index);
-                    creeps.insert(name, Memory::new(role));
+                    creeps.insert(name, CreepMemory::new(role));
                 }
                 RoomEvent::Spawn(role, times) => {
                     self.state.add_to_spawn(role, times);
@@ -222,9 +220,21 @@ impl <'s> Shelter<'s> {
                     colony_events.push(ColonyEvent::BlackList(username));
                 }
                 RoomEvent::ActivateSafeMode(message) => {
-                    // let _ = self.controller.activate_safe_mode();
-                    warn!("{} activate safe mode!!", self.name());
+                    let _ = self.base.controller.activate_safe_mode();
+                    warn!("{} activated safe mode!!", self.name());
                     colony_events.push(ColonyEvent::Notify(message, Some(30)));
+                }
+                RoomEvent::UpdateStatistic => {
+                    let creeps_number = creeps.iter()
+                        .filter(|(_, memory)| memory.role.get_home()
+                            .is_some_and(|home| *home == self.name()))
+                        .count();
+                    let requests = self.state.requests.len();
+                    let last_intrusion = self.state.last_intrusion;
+
+                    colony_events.push(ColonyEvent::Stats(
+                        self.name(),
+                        RoomStats::new(&self.base, requests, last_intrusion, creeps_number)));
                 }
                 // RoomEvent::Sos => {
                 //     warn!("room event sos is not implemented yet!");

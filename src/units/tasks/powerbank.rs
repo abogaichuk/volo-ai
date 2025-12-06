@@ -99,8 +99,9 @@ pub fn pb_heal(pos: Position, id: ObjectId<StructurePowerBank>, members: HashSet
 }
 
 pub fn pb_carry(pos: Position, id: ObjectId<StructurePowerBank>, creep: &Creep, role: &Role, enemies: Vec<Creep>) -> TaskResult {
+    //todo use shelter instead
     let home_room = role.get_home()
-        .and_then(|home| game::rooms().get(home))
+        .and_then(|home| game::rooms().get(*home))
         .expect("expect role has a home!");
     if creep.store().get_used_capacity(Some(ResourceType::Power)) > 0 {
         if let Some(storage) = get_place_to_store(&home_room) {

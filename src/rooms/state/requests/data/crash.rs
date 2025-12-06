@@ -4,7 +4,7 @@ use smallvec::SmallVec;
 use std::collections::HashMap;
 use crate::{
     rooms::{Shelter, RoomEvent, state::requests::{Assignment, Meta, Status}},
-    units::{Memory, roles::{Role, combat::overseer::Overseer}},
+    units::{creeps::CreepMemory, roles::{Role, combat::overseer::Overseer}},
     commons::find_roles
 };
 
@@ -24,7 +24,7 @@ pub(in crate::rooms::state::requests) fn crash_handler(
     meta: &mut Meta,
     assignment: &mut Assignment,
     home: &Shelter,
-    creeps: &HashMap<String, Memory>
+    creeps: &HashMap<String, CreepMemory>
 ) -> SmallVec<[RoomEvent; 3]> {
     let mut events: SmallVec<[RoomEvent; 3]> = SmallVec::new();
 

@@ -1,12 +1,12 @@
 use log::*;
-use std::{collections::{HashMap, HashSet}, rc::Rc};
+use std::{collections::{HashMap, HashSet}, hash::Hash, rc::Rc};
 use serde::{Serialize, Deserialize};
 use screeps::{
-    constants::Direction, RoomPosition, Path, local::Position, Step,
-    game::map::FindRouteOptions, FindPathOptions, CostMatrix,
-    pathfinder::{MultiRoomCostResult, SearchOptions, SingleRoomCostResult, SearchGoal, SearchResults},
-    visual::{LineDrawStyle, PolyStyle, RoomVisual},
-    Creep, HasPosition, RoomName, RoomXY, SharedCreepProperties
+    CostMatrix, Creep, FindPathOptions, HasPosition, Path, PowerCreep, RoomName,
+    RoomPosition, RoomXY, Step, action_error_codes::SayErrorCode,
+    constants::Direction, game::map::FindRouteOptions, local::Position,
+    pathfinder::{MultiRoomCostResult, SearchGoal, SearchOptions, SearchResults, SingleRoomCostResult},
+    visual::{LineDrawStyle, PolyStyle, RoomVisual}
 };
 use crate::{
     movement::callback::{PathOptions, SingleRoomCallback},
@@ -81,7 +81,7 @@ impl MovementProfile {
 }
 
 pub struct Movement {
-    idle_creeps:HashMap<Position, Creep>,
+    idle_creeps:HashMap<Position, MovableUnit>,
     moving_creeps:HashMap<Position, Direction>,
     //store Fn instead of FnMut because Rc gives a cheap clones and shared (&) access
     room_callback: Rc<dyn Fn(RoomName, RoomName) -> f64 + 'static>,
@@ -104,8 +104,8 @@ impl Movement {
         FindRouteOptions::new().room_callback(route_cb)
     }
 
-    pub fn idle(&mut self, position: Position, creep: Creep) {
-        self.idle_creeps.insert(position, creep);
+    pub fn idle(&mut self, position: Position, unit: MovableUnit) {
+        self.idle_creeps.insert(position, unit);
     }
 
     pub fn swap_move(&self) {
@@ -113,14 +113,14 @@ impl Movement {
         for (dest_pos, moving_direction) in self.moving_creeps.iter() {
             if let Some(creep) = self.idle_creeps.get(dest_pos) {
                 let backward_direction = -*moving_direction;
-                let _ = creep.move_direction(backward_direction);
+                creep.move_direction(backward_direction);
                 let _ = creep.say(format!("{}", backward_direction).as_str(), true);
             }
         }
     }
 
-    pub fn move_creep(&mut self, creep: Creep, mut path_state: PathState) -> Option<PathState> {
-        let current_position = creep.pos();
+    pub fn move_creep(&mut self, unit: MovableUnit, mut path_state: PathState) -> Option<PathState> {
+        let current_position = unit.position();
 
         if cfg!(feature = "path-visuals") {
             let mut points = vec![];
@@ -145,11 +145,11 @@ impl Movement {
             );
         }
 
-        debug!("creep: {}, progress: {} path: {:?} ", creep.name(), path_state.path_progress, path_state.path);
+        // debug!("creep: {}, progress: {} path: {:?} ", creep.name(), path_state.path_progress, path_state.path);
         match path_state.path.get(path_state.path_progress) {
             Some(direction) => {
                 // do the actual move in the intended direction
-                let _ = creep.move_direction(*direction);
+                unit.move_direction(*direction);
                 // set next_direction so we can detect if this worked next tick
                 path_state.next_direction = *direction;
                 // insert a key of the position the creep intends to move to,
@@ -255,3 +255,48 @@ fn find_route_callback(avoid_rooms: &HashMap<RoomName, u32>, owned: Vec<RoomName
         }
     }
 }
+
+pub enum MovableUnit {
+    Creep(Creep),
+    Power(PowerCreep),
+}
+
+impl MovableUnit {
+    pub fn position(&self) -> Position {
+        match self {
+            MovableUnit::Creep(c) => c.pos(),
+            MovableUnit::Power(pc) => pc.pos(),
+        }
+    }
+
+    pub fn move_direction(&self, dir: Direction) {
+        match self {
+            MovableUnit::Creep(c) => {
+                let _ = Creep::move_direction(c, dir);
+            }
+            MovableUnit::Power(pc) => {
+                let _ = PowerCreep::move_direction(pc, dir);
+            }
+        }
+    }
+
+    pub fn say(&self, message: &str, public: bool) -> Result<(), SayErrorCode> {
+        match self {
+            MovableUnit::Creep(c) => c.say(message, public),
+            MovableUnit::Power(pc) => pc.say(message, public),
+        }
+    }
+}
+
+impl From<Creep> for MovableUnit {
+    fn from(c: Creep) -> Self {
+        MovableUnit::Creep(c)
+    }
+}
+
+impl From<PowerCreep> for MovableUnit {
+    fn from(pc: PowerCreep) -> Self {
+        MovableUnit::Power(pc)
+    }
+}
+
