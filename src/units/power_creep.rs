@@ -41,6 +41,10 @@ pub fn run_power_creeps<'s>(
             memory.home = get_home(&pc, homes).map(|s| s.name());
         }
     }
+
+    for (name, _) in p_creeps {
+        states.insert(name, PowerCreepMemory::default());
+    }
 }
 
 fn get_home<'a>(pc: &'a PowerCreep, homes: &'a HashMap<RoomName, Shelter>) -> Option<&'a Shelter<'a>> {

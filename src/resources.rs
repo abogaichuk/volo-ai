@@ -1,20 +1,17 @@
-use std::{cmp, collections::HashMap};
-use log::info;
-use screeps::{HasId, ObjectId, RawObjectId, ResourceType, StructureTerminal};
-use smallvec::{smallvec, SmallVec};
+use std::collections::HashMap;
+use screeps::{RawObjectId, ResourceType, RoomName};
 
 use crate::{
-    commons::get_compressed_resource, resources::handlers::{ResourceHandlers, room_handler_for}, rooms::{
-        RoomEvent, state::requests::{CarryData, FactoryData, LabData, Request, RequestKind, assignment::Assignment}, wrappers::claimed::Claimed
-    }
+    colony::events::ColonyContext, resources::handlers::get_handler_for, rooms::RoomEvent
 };
 
 // mod policy;
 mod handlers;
-mod chain_config;
+pub mod chain_config;
 
 const MIN_LAB_PRODUCTION: u32 = 5;
 
+//todo statistics and colony_events resource handlers
 pub struct RoomContext {
     pub rcl: u8,
     pub terminal: Option<RawObjectId>,
@@ -41,47 +38,76 @@ impl Resources {
         *self.amounts.get(&res).unwrap_or(&0)
     }
 
+    pub fn all(&self) -> &HashMap<ResourceType, u32> {
+        &self.amounts
+    }
+
     pub fn events<'a>(
         &'a self,
         ctx: RoomContext,
     ) -> impl Iterator<Item = RoomEvent> + 'a {
         self.amounts.iter()
-            .filter_map(move |(res, amount)| room_handler_for(*res) (*res, *amount, self, &ctx))
+            .filter_map(move |(res, amount)| get_handler_for(*res) (*res, *amount, self, &ctx))
     }
 }
 
+pub struct ResourceOnLowResult {
+    amount: u32,
+    room_name: RoomName
+}
 
-bitflags::bitflags! {
-    #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
-    pub struct Kinds: u32 {
-        const MINERAL   = 1 << 0;
-        const PRODUCEABLE = 1 << 1;
-        const TRADEABLE = 1 << 2;
-        const STOREABLE = 1 << 4;
+impl ResourceOnLowResult {
+    pub fn amount(&self) -> u32 {
+        self.amount
+    }
+
+    pub fn room_name(&self) -> RoomName {
+        self.room_name
     }
 }
 
-pub fn kinds(rt: ResourceType) -> Kinds {
-    match rt {
-        ResourceType::Keanium | ResourceType::Utrium | ResourceType::Zynthium |
-            ResourceType::Catalyst | ResourceType::Hydrogen | ResourceType::Oxygen |
-            ResourceType::Lemergium => Kinds::MINERAL | Kinds::STOREABLE,
+pub type ResourceOnLowHandlerFn =
+    fn(ResourceType, u32, &ColonyContext) -> Option<ResourceOnLowResult>;
 
-        // 0 factory lvl
-        ResourceType::UtriumBar | ResourceType::LemergiumBar | ResourceType::ZynthiumBar | ResourceType::KeaniumBar |
-        ResourceType::Oxidant | ResourceType::Reductant | ResourceType::Purifier | ResourceType::GhodiumMelt |
-        ResourceType::Wire | ResourceType::Cell | ResourceType::Alloy | ResourceType::Condensate |
-        // 1 factory lvl
-        ResourceType::Composite | ResourceType::Tube | ResourceType::Phlegm | ResourceType::Switch | ResourceType::Concentrate |
-        //2 factory lvl
-        ResourceType::Crystal | ResourceType::Fixtures | ResourceType::Tissue | ResourceType::Transistor | ResourceType::Extract |
-        //3 factory lvl
-        ResourceType::Liquid | ResourceType::Frame | ResourceType::Muscle | ResourceType::Spirit |
-        //4 factory lvl
-        ResourceType::Hydraulics | ResourceType::Circuit => Kinds::PRODUCEABLE,
+pub fn lack_handler_for(res: ResourceType) -> ResourceOnLowHandlerFn {
+    use ResourceType::*;
 
-
-        ResourceType::Microchip | ResourceType::Organoid | ResourceType::Emanation | ResourceType::Ops => Kinds::TRADEABLE,
-        _ => Kinds::STOREABLE
+    match res {
+        Energy | Battery | CatalyzedGhodiumAcid => contain_excessive,
+        _ => divide_by_half
     }
+}
+
+fn divide_by_half(
+    res: ResourceType,
+    amount: u32,
+    ctx: &ColonyContext,
+) -> Option<ResourceOnLowResult> {
+    find_room_with_high_amount(res, ctx)
+        .filter(|(_, available)| *available > 0)
+        .map(|(room_name, available)| {
+            if available > amount * 2 {
+                ResourceOnLowResult { room_name, amount }
+            } else if available >= amount {
+                ResourceOnLowResult { room_name, amount: amount / 2 }
+            } else {
+                ResourceOnLowResult { room_name, amount: available / 2 }
+            }
+        })
+}
+
+fn contain_excessive(
+    res: ResourceType,
+    amount: u32,
+    ctx: &ColonyContext,
+) -> Option<ResourceOnLowResult> {
+    find_room_with_high_amount(res, ctx)
+        .filter(|(_, available)| *available > amount * 2)
+        .map(|(room_name, _)| ResourceOnLowResult { room_name, amount })
+}
+
+fn find_room_with_high_amount(res: ResourceType, ctx: &ColonyContext) -> Option<(RoomName, u32)> {
+    ctx.bases().values()
+        .map(|b| (b.get_name(), b.resources.amount(res)))
+        .max_by_key(|(_, available)| *available)
 }

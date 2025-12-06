@@ -2,13 +2,13 @@ use log::*;
 use serde::{Deserialize, Serialize};
 use screeps::{
     game::{self, map::get_room_linear_distance},
-    raw_memory, OrderType, ResourceType, RoomName,
+    raw_memory, ResourceType, RoomName,
 };
 use crate::{
-    movement::Movement, resources::{Kinds, kinds}, rooms::{
+    movement::Movement, rooms::{
         register_rooms,
         state::{
-            FarmStatus, RoomState, TradeData, requests::{
+            FarmStatus, RoomState, requests::{
                 CaravanData, DepositData, LRWData, PowerbankData, ProtectData, Request, RequestKind, TransferData, assignment::Assignment
             }
         },
@@ -23,9 +23,7 @@ mod orders;
 
 pub use events::ColonyEvent;
 use crate::colony::orders::ColonyOrder;
-use events::EventContext;
-
-const MAX_FACTORY_LEVEL: u8 = 4;
+use events::ColonyContext;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct GlobalState {
@@ -108,27 +106,17 @@ impl GlobalState {
             .map(|(name, home)| (name, home.base()))
             .collect();
 
-        let event_context = EventContext::new(movement, &bases);
+        let context = ColonyContext::new(movement, &bases);
         for event in events {
-            event.handle(self, &event_context);
+            event.assign(self, &context);
         }
 
         if game::time() % 100 == 0 {
             self.update_avoid_rooms();
             self.orders.retain(|order| game::time() < order.timeout());
-            self.update_statistics(Statistic::new(self, &bases));
+            // self.update_statistics(Statistic::new(self, &bases));
         }
         self.gc();
-    }
-
-    fn trade(&mut self, room_name: RoomName, order_type: OrderType, resource: ResourceType, amount: u32) {
-        self.rooms.entry(room_name)
-            .and_modify(|room_state| {
-                if let Some(mut trade) = room_state.trades.take(&TradeData::new(order_type, resource)) {
-                    trade.amount += amount;
-                    room_state.trades.insert(trade);
-                }
-            });
     }
 
     pub fn begin_farm(&mut self, base: RoomName, farm: RoomName, with_central: Option<RoomName>) {

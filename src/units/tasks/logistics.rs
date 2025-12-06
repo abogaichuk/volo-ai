@@ -102,7 +102,7 @@ pub fn deliver_to_structure(pos: Position, id: RawObjectId, resource: ResourceTy
                     TaskResult::Completed
                 }
                 Err(err) => {
-                    error!("{} can't transfer resource: {} to: {}, error: {:?}", creep.name(), resource, id, err);
+                    error!("{} can't transfer resource {}:{:?} to: {}, error: {:?}", creep.name(), resource, amount, id, err);
                     TaskResult::Abort
                 }
             }

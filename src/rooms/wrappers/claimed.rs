@@ -5,7 +5,7 @@ use screeps::{
 use smallvec::SmallVec;
 use std::{cmp::min, collections::HashMap, iter::once};
 use crate::{
-    commons::{find_container_near_by, has_part, is_cpu_on_low}, resources::{self, Resources, RoomContext},
+    commons::{find_container_near_by, has_part, is_cpu_on_low}, resources::{Resources, RoomContext},
     rooms::{
         RoomEvent, RoomState, is_extractor, missed_buildings,
         state::{BoostReason, FarmInfo, constructions::{RoomPlan, RoomPlannerError},
@@ -108,7 +108,7 @@ impl Claimed {
 
         let amounts = if game::time() % 100 == 0 {
             RESOURCES_ALL.iter()
-                .map(|res| {
+                .filter_map(|res| {
                     let mut total: u32 = 0;
                     if let Some(storage) = storage.as_ref() {
                         total += storage.store().get_used_capacity(Some(*res));
@@ -122,7 +122,12 @@ impl Claimed {
                     for lab in labs.iter() {
                         total += lab.store().get_used_capacity(Some(*res));
                     }
-                    (*res, total)
+                    
+                    if total > 0 {
+                        Some((*res, total))
+                    } else {
+                        None
+                    }
                 })
                 .collect()
         } else {
@@ -279,6 +284,22 @@ impl Claimed {
                         Assignment::Single(None))))
                 }
             })
+            .or_else(|| self.factory()
+                .filter(|f| f.raw_id() != to)
+                .and_then(|f| {
+                    let f_capacity = f.store().get_used_capacity(Some(resource));
+                    if f_capacity < amount || ResourceType::Energy == resource && f_capacity < 10000 {
+                        None
+                    } else {
+                        Some(RoomEvent::Request(Request::new(
+                            RequestKind::Carry(CarryData::new(
+                                f.raw_id(),
+                                to,
+                                resource,
+                                amount)),
+                            Assignment::Single(None))))
+                    }
+                }))
     }
 
     pub fn time_based_events<'a>(
@@ -293,6 +314,7 @@ impl Claimed {
                     .chain(self.manage_controller(room_memory, creeps))
                     .chain(self.resource_handler())
                     .chain(self.constructions_check(room_memory))
+                    .chain(once(RoomEvent::UpdateStatistic))
             })
             .into_iter().flatten()
     }
@@ -354,14 +376,6 @@ impl Claimed {
 
     pub fn energy_capacity_available(&self) -> u32 {
         self.room.energy_capacity_available()
-    }
-
-    pub fn resource_amount(&self, resource: ResourceType) -> u32 {
-        self.storage()
-            .map(|storage| storage.store().get_used_capacity(Some(resource)))
-            .and_then(|in_storage| self.terminal()
-                .map(|terminal| terminal.store().get_used_capacity(Some(resource)) + in_storage))
-                .unwrap_or_default()
     }
 
     //todo the Box requires cloning, consider to avoid cloning by adding new lifetime to Task -> CreepMemory -> Unit
@@ -529,6 +543,7 @@ impl Claimed {
     pub fn invasion_check(&self, room_memory: &RoomState, creeps: &HashMap<String, CreepMemory>) -> SmallVec<[RoomEvent; 4]> {
         let mut events: SmallVec<[RoomEvent; 4]> = SmallVec::new();
         match self.controller.level() {
+            //todo create different claimed room types
             ..=3 => {
                 //any parts
                 if self.hostiles.iter()

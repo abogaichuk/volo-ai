@@ -1,42 +1,22 @@
-use std::{collections::HashMap, cmp::max};
-
+use std::cmp::max;
 use screeps::{ResourceType, game};
+use crate::{
+    resources::{MIN_LAB_PRODUCTION, Resources, RoomContext, chain_config::factory_chain_config},
+    rooms::{RoomEvent, state::requests::{CarryData, FactoryData, LabData, Request, RequestKind, assignment::Assignment}}
+};
 
-use crate::{resources::{MIN_LAB_PRODUCTION, Resources, RoomContext, chain_config::factory_chain_config}, rooms::{RoomEvent, state::requests::{CarryData, FactoryData, LabData, Request, RequestKind, assignment::Assignment}}};
-
-pub type ResourceHandlerFn =
+pub type ResourceRoomHandlerFn =
     fn(ResourceType, u32, &Resources, &RoomContext) -> Option<RoomEvent>;
 
-pub struct ResourceHandlers;
-impl ResourceHandlers {
-    pub fn handle(
-        &self,
-        res: ResourceType,
-        amount: u32,
-        room: &Resources,
-        ctx: &RoomContext,
-    ) -> Option<RoomEvent> {
-        let f = room_handler_for(res);
-        f(res, amount, room, ctx)
-    }
-    // pub fn handle(
-    //     &self,
-    //     res: ResourceType,
-    //     room: &Resources,
-    //     ctx: &RoomContext,
-    // ) -> Option<RoomEvent> {
-    //     let f = room_handler_for(res);
-    //     f(res, room, ctx)
-    // }
-}
-
-pub fn room_handler_for(res: ResourceType) -> ResourceHandlerFn {
+pub fn get_handler_for(res: ResourceType) -> ResourceRoomHandlerFn {
     use ResourceType::*;
 
     match res {
         Energy => energy_handler,
         Power => power_handler,
         Ops => ops_handler,
+        GhodiumMelt => ghodium_melt_handler,
+        Composite => composite_handler,
 
         Oxygen
         | Hydrogen
@@ -83,6 +63,14 @@ pub fn room_handler_for(res: ResourceType) -> ResourceHandlerFn {
         | CatalyzedZynthiumAcid
         | CatalyzedZynthiumAlkalide => reaction_third_tier,
 
+        Purifier
+        | UtriumBar
+        | LemergiumBar
+        | KeaniumBar
+        | ZynthiumBar
+        | Reductant
+        | Oxidant => compressed_commodities_handler,
+
         Metal
         | Alloy
         | Tube
@@ -122,7 +110,7 @@ fn sellable_handler(
 fn factory_chain_handler(
     res: ResourceType,
     amount: u32,
-    _resources: &Resources,
+    resources: &Resources,
     ctx: &RoomContext,
 ) -> Option<RoomEvent> {
     let cfg = factory_chain_config(res)?;
@@ -130,21 +118,35 @@ fn factory_chain_handler(
     (amount > cfg.limit)
         .then(|| {
             if ctx.fl == cfg.chain.f_lvl {
-                RoomEvent::Request(Request::new(
-                    RequestKind::Factory(FactoryData::new(cfg.chain.resource, cfg.chain.amount)),
-                    Assignment::None))
+                if let Some(missed) = get_missed_component(cfg.chain.resource, resources) {
+                    RoomEvent::Lack(missed.0, missed.1 * 10)
+                } else {
+                    RoomEvent::Request(Request::new(
+                        RequestKind::Factory(FactoryData::new(cfg.chain.resource, cfg.chain.amount)),
+                        Assignment::None))
+                }
             } else if let Some(other) = cfg.opt1
                 .filter(|other| ctx.fl == other.f_lvl)
                 .or(cfg.opt2)
                 .filter(|other| ctx.fl == other.f_lvl)
             {
-                RoomEvent::Request(Request::new(
-                    RequestKind::Factory(FactoryData::new(other.resource, other.amount)),
-                    Assignment::None))
+                if let Some(missed) = get_missed_component(other.resource, resources) {
+                    RoomEvent::Lack(missed.0, missed.1 * 10)
+                } else {
+                    RoomEvent::Request(Request::new(
+                        RequestKind::Factory(FactoryData::new(other.resource, other.amount)),
+                        Assignment::None))
+                }
             } else {
                 RoomEvent::Excess(res, cfg.limit)
             }
         })
+}
+
+fn get_missed_component(res: ResourceType, all: &Resources) -> Option<(ResourceType, u32)> {
+    res.commodity_recipe()
+        .and_then(|recipe| recipe.components.into_iter()
+            .find(|comp| all.amount(comp.0) < comp.1))
 }
 
 fn reaction_first_tier(
@@ -159,12 +161,10 @@ fn reaction_first_tier(
                 res,
                 max(MIN_LAB_PRODUCTION, 5_000 - amount))),
             Assignment::None)))
-    }
-    // else if GhodiumOxide && amount > 10000 {
-    //     //todo lab.reverseReaction(lab1, lab2)
-    //     None
-    // }
-    else {
+    } else if amount > 20_000 {
+        //todo lab.reverseReaction(lab1, lab2)
+        None
+    } else {
         None
     }
 }
@@ -189,8 +189,8 @@ fn reaction_third_tier(
     _resources: &Resources,
     _ctx: &RoomContext,
 ) -> Option<RoomEvent> {
-    // if CatalyzedGhodiumAcid 1_000 Lack ?
     if amount < 3_000 {
+        //ask colony or craft by itself random
         if game::time() % 200 == 0 {
             Some(RoomEvent::Lack(res, 3_000))
         } else {
@@ -212,20 +212,11 @@ fn reaction_third_tier(
 }
 
 fn default_handler(
-    res: ResourceType,
-    amount: u32,
+    _res: ResourceType,
+    _amount: u32,
     _resources: &Resources,
     _ctx: &RoomContext,
-) -> Option<RoomEvent> {
-    None
-    // if amount < 10_000 {
-    //     Some(RoomEvent::Lack(res, 3_000))
-    // } else if amount > 50_000 {
-    //     Some(RoomEvent::Excess(res, amount - 50_000))
-    // } else {
-    //     None
-    // }
-}
+) -> Option<RoomEvent> { None }
 
 fn energy_handler(
     _res: ResourceType,
@@ -257,6 +248,49 @@ fn power_handler(
 ) -> Option<RoomEvent> {
     (amount < 10_000)
         .then(|| RoomEvent::Lack(ResourceType::Power, 10_000))
+}
+
+fn ghodium_melt_handler(
+    _res: ResourceType,
+    ghodium_melt: u32,
+    _resources: &Resources,
+    _ctx: &RoomContext,
+) -> Option<RoomEvent> {
+    if ghodium_melt < 600 {
+        Some(RoomEvent::Request(Request::new(
+            RequestKind::Factory(FactoryData::new(ResourceType::GhodiumMelt, 300)),
+            Assignment::None)))
+    } else {
+        None
+    }
+}
+
+fn compressed_commodities_handler(
+    res: ResourceType,
+    amount: u32,
+    _resources: &Resources,
+    _ctx: &RoomContext,
+) -> Option<RoomEvent> {
+    // compressed resources are created by mineral handlers except ghodim_melt handler
+    // for other rooms this handler throws Lack event
+    (amount < 600).then(|| RoomEvent::Lack(res, 600))
+}
+
+fn composite_handler(
+    res: ResourceType,
+    amount: u32,
+    _resources: &Resources,
+    ctx: &RoomContext,
+) -> Option<RoomEvent> {
+    if ctx.fl == 1 && amount < 1_000 { // craft lvl
+        Some(RoomEvent::Request(Request::new(
+            RequestKind::Factory(FactoryData::new(res, 600)),
+            Assignment::None)))
+    } else if amount < 600 {
+        Some(RoomEvent::Lack(res, 600 - amount))
+    } else {
+        None
+    }
 }
 
 fn ops_handler(
@@ -296,6 +330,8 @@ fn mineral_handler(
                 RequestKind::Factory(FactoryData::new(compressed_resource, 5_000)),
                 Assignment::None)))
         }
+    } else if amount < 5_000 {
+        Some(RoomEvent::Lack(res, 5_000 - amount))
     } else {
         None
     }

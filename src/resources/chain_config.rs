@@ -8,6 +8,14 @@ pub struct FactoryChainConfig {
     pub opt2: Option<Chain>,
 }
 
+impl FactoryChainConfig {
+    pub fn random_chain(&self) -> &Chain {
+        //todo get chain randomly?
+        // once(self.chain).chain(self.opt1).chain(self.opt2);
+        &self.chain
+    }
+}
+
 #[derive(Clone, Copy)]
 pub struct Chain {
     pub f_lvl: u8,

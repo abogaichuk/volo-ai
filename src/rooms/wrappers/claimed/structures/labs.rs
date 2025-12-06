@@ -86,16 +86,16 @@ impl Claimed {
     }
 
     pub fn load_lab(&self, lab: &StructureLab, component: (ResourceType, u32)) -> Option<RoomEvent> {
-        (lab.store().get_used_capacity(Some(component.0)) < component.1)
+        let in_lab_amount = lab.store().get_used_capacity(Some(component.0));
+        (in_lab_amount < component.1)
             .then(|| find_container_with(component.0, None, self.storage(), self.terminal(), self.factory())
                 .map(|(id, amount)| {
-                    let min_amount = cmp::min(amount, component.1);
                     RoomEvent::Request(Request::new(
                         RequestKind::Carry(CarryData::new(
                             id,
                             lab.raw_id(),
                             component.0,
-                            min_amount)),
+                            cmp::min(amount, component.1.saturating_sub(in_lab_amount)))),
                         Assignment::Single(None)))
                 }))
             .flatten()

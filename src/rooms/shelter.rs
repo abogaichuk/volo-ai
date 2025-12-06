@@ -9,14 +9,12 @@ use screeps::{
     StructureStorage, StructureTerminal, StructureTower, game::{self, market::Order}
 };
 use crate::{
-    colony::ColonyEvent, commons::find_roles,
-    rooms::{
+    colony::ColonyEvent, commons::find_roles, rooms::{
         RoomEvent, state::{RoomState, TradeData,
             requests::{CreepHostile, DefendData, Request, RequestKind, assignment::Assignment}
         },
         wrappers::{Fillable, claimed::Claimed, farm::Farm}
-    },
-    units::{creeps::CreepMemory, roles::Role}
+    }, statistics::RoomStats, units::{creeps::CreepMemory, roles::Role}
 };
 
 pub struct Shelter<'s> {
@@ -222,9 +220,21 @@ impl <'s> Shelter<'s> {
                     colony_events.push(ColonyEvent::BlackList(username));
                 }
                 RoomEvent::ActivateSafeMode(message) => {
-                    // let _ = self.controller.activate_safe_mode();
-                    warn!("{} activate safe mode!!", self.name());
+                    let _ = self.base.controller.activate_safe_mode();
+                    warn!("{} activated safe mode!!", self.name());
                     colony_events.push(ColonyEvent::Notify(message, Some(30)));
+                }
+                RoomEvent::UpdateStatistic => {
+                    let creeps_number = creeps.iter()
+                        .filter(|(_, memory)| memory.role.get_home()
+                            .is_some_and(|home| *home == self.name()))
+                        .count();
+                    let requests = self.state.requests.len();
+                    let last_intrusion = self.state.last_intrusion;
+
+                    colony_events.push(ColonyEvent::Stats(
+                        self.name(),
+                        RoomStats::new(&self.base, requests, last_intrusion, creeps_number)));
                 }
                 // RoomEvent::Sos => {
                 //     warn!("room event sos is not implemented yet!");
