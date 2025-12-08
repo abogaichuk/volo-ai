@@ -1,9 +1,12 @@
 use log::*;
-use screeps::{local::RoomXY, Direction};
-use crate::rooms::state::constructions::{
-    OuterRectangle, RoomPlannerError, Walls, is_wall, xy_util::clockwise_dir, Sat, ROOM_SIZE
-};
+use screeps::Direction;
+use screeps::local::RoomXY;
+
 use super::Perimeter;
+use crate::rooms::state::constructions::xy_util::clockwise_dir;
+use crate::rooms::state::constructions::{
+    OuterRectangle, ROOM_SIZE, RoomPlannerError, Sat, Walls, is_wall,
+};
 
 const SAFE_RANGE: u8 = 3; // Chebyshev radius for "safe from perimeter"
 const MIN_SAFE_CELLS: usize = 150;
@@ -13,14 +16,14 @@ const BUILD_MAX: u8 = 42;
 const MIN_CORE: u8 = 13;
 const MAX_CORE: u8 = 20;
 
-
 pub(super) fn smallest_perimeter(
     spawn: Option<RoomXY>,
     sources: &[RoomXY],
-    walls: &Walls
+    walls: &Walls,
 ) -> Result<Perimeter, RoomPlannerError> {
     let sat = build_sat(walls);
-    minimal_rectangles(spawn, sources, &sat).into_iter()
+    minimal_rectangles(spawn, sources, &sat)
+        .into_iter()
         .map(|rect| Perimeter::new(rect, walls))
         .next()
         .ok_or(RoomPlannerError::PerimeterCreationFailed)
@@ -28,9 +31,9 @@ pub(super) fn smallest_perimeter(
 
 pub(super) fn walk_border(from: RoomXY, to: RoomXY, walls: &Walls) -> Vec<RoomXY> {
     let mut path = Vec::new();
-    if let Some(direction) = from.get_direction_to(to)
-        .filter(|dir| matches!(dir, Direction::Right | Direction::Bottom | Direction::Left | Direction::Top))
-    {
+    if let Some(direction) = from.get_direction_to(to).filter(|dir| {
+        matches!(dir, Direction::Right | Direction::Bottom | Direction::Left | Direction::Top)
+    }) {
         let mut distance = from.get_range_to(to);
         let secondary_dir = clockwise_dir(clockwise_dir(direction));
         let mut cur = from;
@@ -38,11 +41,12 @@ pub(super) fn walk_border(from: RoomXY, to: RoomXY, walls: &Walls) -> Vec<RoomXY
         while distance > 0 {
             let next = cur.saturating_add_direction(direction);
             if is_wall(walls, &cur) {
-                path.push(cur);//todo push next if it's last?
+                path.push(cur); //todo push next if it's last?
                 if !is_wall(walls, &next) {
                     let another_next = cur.saturating_add_direction(secondary_dir);
                     let p = cut_edge(another_next, direction, secondary_dir, distance, walls);
-                    if !p.is_empty() { //better path found
+                    if !p.is_empty() {
+                        //better path found
                         path.extend(p);
                         break;
                     }
@@ -54,7 +58,8 @@ pub(super) fn walk_border(from: RoomXY, to: RoomXY, walls: &Walls) -> Vec<RoomXY
                 if !is_wall(walls, &next) && is_wall(walls, &another_next) {
                     //try cut to the bottom
                     let p = cut_edge(another_next, direction, secondary_dir, distance, walls);
-                    if !p.is_empty() { //better path found
+                    if !p.is_empty() {
+                        //better path found
                         path.extend(p);
                         break;
                     }
@@ -64,7 +69,7 @@ pub(super) fn walk_border(from: RoomXY, to: RoomXY, walls: &Walls) -> Vec<RoomXY
             if distance == 1 {
                 path.push(next);
             }
-            
+
             distance -= 1;
             cur = next;
         }
@@ -88,7 +93,8 @@ fn cut_edge(
         path.push(start);
     } else if is_wall(walls, &next) {
         let segment = cut_edge(next, primary_dir, secondary_dir, distance - 1, walls);
-        if !segment.is_empty() { //reached the distance
+        if !segment.is_empty() {
+            //reached the distance
             path.push(start);
             path.extend(segment);
         }
@@ -100,10 +106,12 @@ fn cut_edge(
             Vec::new()
         };
 
-        if !segments.is_empty() { //reached the distance
+        if !segments.is_empty() {
+            //reached the distance
             path.push(start);
             path.extend(segments);
-        } else if distance == 1 { // natural walls path not found, but next cell - last cell, set rampart
+        } else if distance == 1 {
+            // natural walls path not found, but next cell - last cell, set rampart
             path.push(start);
             path.push(next);
         }
@@ -111,17 +119,16 @@ fn cut_edge(
     path
 }
 
-/// Returns *all* rectangles with the smallest safe-core size that yield ≥ TARGET_MIN_SAFE_CELLS.
-fn minimal_rectangles(
-    spawn: Option<RoomXY>,
-    sources: &[RoomXY],
-    sat: &Sat
-) -> Vec<OuterRectangle> {
+/// Returns *all* rectangles with the smallest safe-core size that yield ≥
+/// TARGET_MIN_SAFE_CELLS.
+fn minimal_rectangles(spawn: Option<RoomXY>, sources: &[RoomXY], sat: &Sat) -> Vec<OuterRectangle> {
     let mut sizes: Vec<(u8, u8)> = Vec::new();
     for w in MIN_CORE..=MAX_CORE {
         for h in MIN_CORE..=MAX_CORE {
             sizes.push((w, h));
-            if w != h { sizes.push((h, w)); }
+            if w != h {
+                sizes.push((h, w));
+            }
         }
     }
     sizes.sort_by_key(|&(w, h)| (w as u16 * h as u16, w.min(h)));
@@ -152,7 +159,9 @@ fn minimal_rectangles(
                 let cx1 = x1.saturating_sub(SAFE_RANGE);
                 let cy1 = y1.saturating_sub(SAFE_RANGE);
 
-                if spawn.is_some_and(|xy| xy.x.u8() < cx0 || xy.x.u8() > cx1 || xy.y.u8() < cy0 || xy.y.u8() > cy1) {
+                if spawn.is_some_and(|xy| {
+                    xy.x.u8() < cx0 || xy.x.u8() > cx1 || xy.y.u8() < cy0 || xy.y.u8() > cy1
+                }) {
                     continue;
                 }
 
@@ -183,27 +192,34 @@ fn minimal_rectangles(
     results_at_min_size.unwrap_or_default()
 }
 
-/// Rectangle is valid if source inside  or Chebyshev-distance ≤ r to the rectangle.
+/// Rectangle is valid if source inside  or Chebyshev-distance ≤ r to the
+/// rectangle.
 fn source_near_rect(source: RoomXY, x0: u8, y0: u8, x1: u8, y1: u8, r: u8) -> bool {
     let sx = source.x.u8() as i32;
     let sy = source.y.u8() as i32;
     let (x0, y0, x1, y1) = (x0 as i32, y0 as i32, x1 as i32, y1 as i32);
     let r = r as i32;
-    let dx = if sx < x0 { x0 - sx } else if sx > x1 { sx - x1 } else { 0 };
-    let dy = if sy < y0 { y0 - sy } else if sy > y1 { sy - y1 } else { 0 };
+    let dx = if sx < x0 {
+        x0 - sx
+    } else if sx > x1 {
+        sx - x1
+    } else {
+        0
+    };
+    let dy = if sy < y0 {
+        y0 - sy
+    } else if sy > y1 {
+        sy - y1
+    } else {
+        0
+    };
     dx.max(dy) <= r
 }
 
 /// apply inclusion–exclusion rectangle sum:
 /// returns number of natural-wall cells in [x0..=x1] × [y0..=y1].
 #[inline]
-fn rect_walls(
-    sat: &Sat,
-    x0: u8,
-    y0: u8,
-    x1: u8,
-    y1: u8,
-) -> u16 {
+fn rect_walls(sat: &Sat, x0: u8, y0: u8, x1: u8, y1: u8) -> u16 {
     let (x0, y0, x1, y1) = (x0 as usize, y0 as usize, x1 as usize, y1 as usize);
 
     let a = sat[y1][x1];
@@ -223,7 +239,7 @@ pub fn build_sat(walls: &[[bool; ROOM_SIZE]; ROOM_SIZE]) -> Sat {
             let v = walls[y][x] as u16; // 0 or 1
 
             // sums from neighbors; use 0 when on the border
-            let up   = if y > 0 { sat[y - 1][x] } else { 0 };
+            let up = if y > 0 { sat[y - 1][x] } else { 0 };
             let left = if x > 0 { sat[y][x - 1] } else { 0 };
             let diag = if y > 0 && x > 0 { sat[y - 1][x - 1] } else { 0 };
 
@@ -243,9 +259,10 @@ pub fn build_sat(walls: &[[bool; ROOM_SIZE]; ROOM_SIZE]) -> Sat {
 //     fn smallest_perimeter_test() {
 //         let spawn = spawn();
 //         let sources = sources();
-//         let perimeter = smallest_perimeter(spawn, &sources, &WALLS).expect("expect perimeter");
+//         let perimeter = smallest_perimeter(spawn, &sources,
+// &WALLS).expect("expect perimeter");
 
-//         assert_eq!((13, 17, 31, 36), perimeter.rectangle(), "invalid rectangle");
-//         assert_eq!(26, perimeter.ramparts().len(), "invalid ramparts len");
-//     }
+//         assert_eq!((13, 17, 31, 36), perimeter.rectangle(), "invalid
+// rectangle");         assert_eq!(26, perimeter.ramparts().len(), "invalid
+// ramparts len");     }
 // }

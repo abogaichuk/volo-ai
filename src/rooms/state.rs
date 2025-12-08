@@ -1,16 +1,19 @@
+use std::collections::{HashMap, HashSet};
+use std::hash::{Hash, Hasher};
+use std::iter::Iterator;
+
 use log::*;
-use serde::{Serialize, Deserialize};
-use screeps::{OrderType, PowerType, ResourceType, RoomName, game};
-use std::{collections::{HashMap, HashSet}, hash::{Hash, Hasher}, iter::Iterator};
 use ordered_float::OrderedFloat;
+use screeps::{OrderType, PowerType, ResourceType, RoomName, game};
+use serde::{Deserialize, Serialize};
 
-use crate::{
-    rooms::state::{constructions::RoomPlan, requests::Request},
-    units::{creeps::CreepMemory, roles::Role}
-};
+use crate::rooms::state::constructions::RoomPlan;
+use crate::rooms::state::requests::Request;
+use crate::units::creeps::CreepMemory;
+use crate::units::roles::Role;
 
-pub mod requests;
 pub mod constructions;
+pub mod requests;
 
 #[derive(Serialize, Deserialize, Debug, Default)]
 pub struct RoomState {
@@ -52,13 +55,12 @@ impl RoomState {
     }
 
     pub fn set_farm_plan(&mut self, name: RoomName, mut plan: RoomPlan) {
-        self.farms.entry(name)
-            .and_modify(|info| {
-                if let Some(existed) = info.plan.take() {
-                    plan.add_cells(existed.planned_cells().into_iter());
-                }
-                info.plan = Some(plan);
-            });
+        self.farms.entry(name).and_modify(|info| {
+            if let Some(existed) = info.plan.take() {
+                plan.add_cells(existed.planned_cells().into_iter());
+            }
+            info.plan = Some(plan);
+        });
     }
 
     pub fn add_to_spawn(&mut self, role: Role, times: usize) {
@@ -86,13 +88,17 @@ impl RoomState {
     }
 
     fn set_farm_for(&mut self, farm: RoomName, status: FarmStatus) {
-        self.farms.entry(farm)
-            .and_modify(|farm_room| { farm_room.update_status(status); })
+        self.farms
+            .entry(farm)
+            .and_modify(|farm_room| {
+                farm_room.update_status(status);
+            })
             .or_default();
     }
 
     pub fn add_boost(&mut self, reason: BoostReason, time: u32) {
-        self.boosts.entry(reason)
+        self.boosts
+            .entry(reason)
             .and_modify(|expire| {
                 if *expire < time {
                     *expire = time;
@@ -101,17 +107,16 @@ impl RoomState {
             .or_insert(time);
     }
 
-    pub fn find_roles<'a>(&'a self, role: &'a Role, creeps: &'a HashMap<String, CreepMemory>) -> impl Iterator<Item = &'a Role> {
-        self.in_spawn(role)
-            .chain(creeps.values()
-                .map(|mem| &mem.role)
-                .filter(move |r| *r == role))
+    pub fn find_roles<'a>(
+        &'a self,
+        role: &'a Role,
+        creeps: &'a HashMap<String, CreepMemory>,
+    ) -> impl Iterator<Item = &'a Role> {
+        self.in_spawn(role).chain(creeps.values().map(|mem| &mem.role).filter(move |r| *r == role))
     }
 
     fn in_spawn<'a>(&'a self, role: &'a Role) -> impl Iterator<Item = &'a Role> {
-        self.spawns
-            .iter()
-            .filter(move |future_creep| *future_creep == role)
+        self.spawns.iter().filter(move |future_creep| *future_creep == role)
     }
 
     pub fn update_expired_boosts(&mut self) {
@@ -134,7 +139,9 @@ impl FarmInfo {
         self.plan.as_ref()
     }
 
-    pub fn is_active(&self) -> bool { self.farm_status.is_active() }
+    pub fn is_active(&self) -> bool {
+        self.farm_status.is_active()
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
@@ -143,11 +150,13 @@ pub enum FarmStatus {
     Spawning,
     #[default]
     Ready,
-    Suspended
+    Suspended,
 }
 
 impl FarmStatus {
-    fn is_active(&self) -> bool { !matches!(self, FarmStatus::Suspended) }
+    fn is_active(&self) -> bool {
+        !matches!(self, FarmStatus::Suspended)
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Hash)]
@@ -165,13 +174,20 @@ pub enum BoostReason {
 impl BoostReason {
     pub fn value(&self) -> Vec<ResourceType> {
         match *self {
-            BoostReason::Invasion => vec![ResourceType::CatalyzedUtriumAcid, ResourceType::CatalyzedLemergiumAlkalide],
+            BoostReason::Invasion => {
+                vec![ResourceType::CatalyzedUtriumAcid, ResourceType::CatalyzedLemergiumAlkalide]
+            }
             BoostReason::Carry => vec![ResourceType::CatalyzedKeaniumAcid],
             BoostReason::Upgrade => vec![ResourceType::CatalyzedGhodiumAcid],
             BoostReason::Repair => vec![ResourceType::CatalyzedLemergiumAcid],
             BoostReason::Dismantle => vec![ResourceType::CatalyzedZynthiumAcid],
             BoostReason::Caravan => vec![ResourceType::CatalyzedKeaniumAlkalide],
-            BoostReason::Pvp => vec![ResourceType::CatalyzedGhodiumAlkalide, ResourceType::CatalyzedKeaniumAlkalide, ResourceType::CatalyzedLemergiumAlkalide, ResourceType::CatalyzedZynthiumAlkalide],
+            BoostReason::Pvp => vec![
+                ResourceType::CatalyzedGhodiumAlkalide,
+                ResourceType::CatalyzedKeaniumAlkalide,
+                ResourceType::CatalyzedLemergiumAlkalide,
+                ResourceType::CatalyzedZynthiumAlkalide,
+            ],
         }
     }
 }
@@ -198,7 +214,12 @@ impl TradeData {
         Self { order_type, resource, price: OrderedFloat::default(), amount: 0 }
     }
 
-    pub fn with_price_and_amount(order_type: OrderType, resource: ResourceType, price: OrderedFloat<f64>, amount: u32) -> Self {
+    pub fn with_price_and_amount(
+        order_type: OrderType,
+        resource: ResourceType,
+        price: OrderedFloat<f64>,
+        amount: u32,
+    ) -> Self {
         Self { order_type, resource, price, amount }
     }
 }

@@ -1,14 +1,19 @@
-use serde::{Serialize, Deserialize};
 use std::fmt;
-use screeps::{objects::Creep, prelude::*, Position, RoomName, Part};
+
 use arrayvec::ArrayVec;
-use crate::{movement::MovementProfile, rooms::shelter::Shelter};
+use screeps::objects::Creep;
+use screeps::prelude::*;
+use screeps::{Part, Position, RoomName};
+use serde::{Deserialize, Serialize};
+
 use super::{Kind, Task, can_scale, default_parts_priority};
+use crate::movement::MovementProfile;
+use crate::rooms::shelter::Shelter;
 
 #[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct MineralMiner {
     workplace: Option<Position>,
-    pub(crate) home: Option<RoomName>
+    pub(crate) home: Option<RoomName>,
 }
 
 impl fmt::Debug for MineralMiner {
@@ -30,7 +35,6 @@ impl MineralMiner {
 }
 
 impl Kind for MineralMiner {
-
     fn body(&self, room_energy: u32) -> ArrayVec<[Part; 50]> {
         let scale_parts = [Part::Work, Part::Work, Part::Move];
 
@@ -51,7 +55,9 @@ impl Kind for MineralMiner {
         self.workplace
             .and_then(|workplace| {
                 home.all_minerals()
-                    .find(|min| min.ticks_to_regeneration().is_none() && workplace.is_near_to(min.pos()))
+                    .find(|min| {
+                        min.ticks_to_regeneration().is_none() && workplace.is_near_to(min.pos())
+                    })
                     .map(|min| Task::HarvestMineral(workplace, min.id()))
             })
             .unwrap_or_default()

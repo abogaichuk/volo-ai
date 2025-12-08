@@ -1,12 +1,15 @@
-use log::*;
-use serde::{Serialize, Deserialize};
-use screeps::{FactoryRecipe, HasId, ResourceType, StructureFactory, action_error_codes::ProduceErrorCode, game};
-use smallvec::SmallVec;
 use std::cmp::min;
-use crate::{
-    rooms::{RoomEvent, shelter::Shelter, state::requests::{Meta, Status}},
-    utils::constants::MAX_CARRY_REQUEST_AMOUNT
-};
+
+use log::*;
+use screeps::action_error_codes::ProduceErrorCode;
+use screeps::{FactoryRecipe, HasId, ResourceType, StructureFactory, game};
+use serde::{Deserialize, Serialize};
+use smallvec::SmallVec;
+
+use crate::rooms::RoomEvent;
+use crate::rooms::shelter::Shelter;
+use crate::rooms::state::requests::{Meta, Status};
+use crate::utils::constants::MAX_CARRY_REQUEST_AMOUNT;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct FactoryData {
@@ -24,7 +27,7 @@ impl FactoryData {
 pub(in crate::rooms::state::requests) fn factory_handler(
     data: &mut FactoryData,
     meta: &mut Meta,
-    home: &Shelter
+    home: &Shelter,
 ) -> SmallVec<[RoomEvent; 3]> {
     let mut events: SmallVec<[RoomEvent; 3]> = SmallVec::new();
 
@@ -44,26 +47,42 @@ pub(in crate::rooms::state::requests) fn factory_handler(
                     if let Some(load_event) = home.supply_resources(
                         factory.raw_id(),
                         component.0,
-                        min(request_amount - factory_amount, MAX_CARRY_REQUEST_AMOUNT))
-                    {
+                        min(request_amount - factory_amount, MAX_CARRY_REQUEST_AMOUNT),
+                    ) {
                         events.push(load_event);
                         meta.update(Status::OnHold);
                     } else {
-                        debug!("{} can't find missing component: {} for request: {:?}", home.name(), component.0, data);
+                        debug!(
+                            "{} can't find missing component: {} for request: {:?}",
+                            home.name(),
+                            component.0,
+                            data
+                        );
                         meta.update(Status::Aborted);
                     }
                 }
-                // else if recipe.level.is_some() && !home.is_power_enabled(&screeps::PowerType::OperateFactory) {
+                // else if recipe.level.is_some() &&
+                // !home.is_power_enabled(&screeps::PowerType::OperateFactory) {
                 //     events.push(RoomEvent::AddPower(screeps::PowerType::OperateFactory));
                 // }
-                else if recipe.level.is_none() && home.is_power_enabled(&screeps::PowerType::OperateFactory) {
+                else if recipe.level.is_none()
+                    && home.is_power_enabled(&screeps::PowerType::OperateFactory)
+                {
                     events.push(RoomEvent::DeletePower(screeps::PowerType::OperateFactory));
                 } else if factory.cooldown() == 0 {
                     match factory.produce(data.resource) {
                         Ok(_) => {
-                            debug!("{} factory produced: OK request.amount: {}", home.name(), data.amount);
+                            debug!(
+                                "{} factory produced: OK request.amount: {}",
+                                home.name(),
+                                data.amount
+                            );
                             if recipe.amount >= data.amount {
-                                info!("{} factory finished request: {}", home.name(), data.resource);
+                                info!(
+                                    "{} factory finished request: {}",
+                                    home.name(),
+                                    data.resource
+                                );
                                 meta.update(Status::Resolved);
                             } else {
                                 data.amount -= recipe.amount;
@@ -74,25 +93,40 @@ pub(in crate::rooms::state::requests) fn factory_handler(
                             match err {
                                 //if busy wait for powercreep effect
                                 ProduceErrorCode::Busy => {
-                                    events.push(RoomEvent::AddPower(screeps::PowerType::OperateFactory));
-                                },
+                                    events.push(RoomEvent::AddPower(
+                                        screeps::PowerType::OperateFactory,
+                                    ));
+                                }
                                 _ => {
                                     meta.update(Status::Aborted);
-                                    error!("{} factory error: {:?}, request: {:?}", home.name(), err, data)
+                                    error!(
+                                        "{} factory error: {:?}, request: {:?}",
+                                        home.name(),
+                                        err,
+                                        data
+                                    )
                                 }
                             }
                         }
                     }
                 }
-            } else if let Some(unload_event) = home.unload(factory, &recipe.components.keys().cloned().collect::<Vec<_>>()) {
+            } else if let Some(unload_event) =
+                home.unload(factory, &recipe.components.keys().cloned().collect::<Vec<_>>())
+            {
                 events.push(unload_event);
             } else {
                 meta.update(Status::Aborted);
-                warn!("{} no factory free amount and nothing to unload: close: {:?}", home.name(), data);
+                warn!(
+                    "{} no factory free amount and nothing to unload: close: {:?}",
+                    home.name(),
+                    data
+                );
             }
         }
         Status::OnHold => {
-            if recipe.components.iter()
+            if recipe
+                .components
+                .iter()
                 .all(|(res, amount)| factory.store().get_used_capacity(Some(*res)) >= *amount)
             {
                 meta.update(Status::InProgress);
@@ -109,8 +143,13 @@ pub(in crate::rooms::state::requests) fn factory_handler(
     events
 }
 
-fn get_missing_component(factory: &StructureFactory, recipe: &FactoryRecipe) -> Option<(ResourceType, u32)> {
-    recipe.components.clone()
+fn get_missing_component(
+    factory: &StructureFactory,
+    recipe: &FactoryRecipe,
+) -> Option<(ResourceType, u32)> {
+    recipe
+        .components
+        .clone()
         .into_iter()
         .find(|(resource, amount)| factory.store().get_used_capacity(Some(*resource)) < *amount)
 }

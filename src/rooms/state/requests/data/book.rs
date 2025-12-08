@@ -1,11 +1,12 @@
 use log::warn;
-use serde::{Serialize, Deserialize};
-use screeps::{game, ObjectId, StructureController, Position, RoomName};
+use screeps::{ObjectId, Position, RoomName, StructureController, game};
+use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
-use crate::{
-    units::roles::{Role, services::booker::Booker},
-    rooms::{RoomEvent, state::requests::{Meta, Status, Assignment}}
-};
+
+use crate::rooms::RoomEvent;
+use crate::rooms::state::requests::{Assignment, Meta, Status};
+use crate::units::roles::Role;
+use crate::units::roles::services::booker::Booker;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BookData {
@@ -23,7 +24,7 @@ pub(in crate::rooms::state::requests) fn book_handler(
     data: &BookData,
     meta: &mut Meta,
     assignment: &mut Assignment,
-    home_name: RoomName
+    home_name: RoomName,
 ) -> SmallVec<[RoomEvent; 3]> {
     let mut events: SmallVec<[RoomEvent; 3]> = SmallVec::new();
     match meta.status {

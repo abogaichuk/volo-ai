@@ -1,23 +1,25 @@
 #![feature(extend_one, let_chains, if_let_guard, iter_next_chunk, int_roundings)]
-use log::*;
 use std::cell::RefCell;
 
+use getrandom::register_custom_getrandom;
+use log::*;
+use rand::rngs::StdRng;
+use rand::{RngCore, SeedableRng};
+use screeps::game;
 use utils::commons;
 use wasm_bindgen::prelude::*;
-use rand::{SeedableRng, RngCore, rngs::StdRng};
-use getrandom::register_custom_getrandom;
-use screeps::game;
+
 use crate::colony::GlobalState;
 
-mod logging;
 mod colony;
-mod utils;
-mod units;
-mod rooms;
 mod globals;
-mod statistics;
+mod logging;
 mod movement;
 mod resources;
+mod rooms;
+mod statistics;
+mod units;
+mod utils;
 
 static INIT_LOGGING: std::sync::Once = std::sync::Once::new();
 

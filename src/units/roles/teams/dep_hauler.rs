@@ -1,19 +1,22 @@
-use serde::{Serialize, Deserialize};
-use screeps::{objects::Creep, prelude::*, Part, RoomName};
 use std::fmt;
+
 use arrayvec::ArrayVec;
-use crate::{
-    movement::MovementProfile,
-    units::Role,
-    rooms::{shelter::Shelter, state::requests::{Request, RequestKind, meta::Status}}
-};
+use screeps::objects::Creep;
+use screeps::prelude::*;
+use screeps::{Part, RoomName};
+use serde::{Deserialize, Serialize};
+
 use super::{Kind, Task, can_scale};
+use crate::movement::MovementProfile;
+use crate::rooms::shelter::Shelter;
+use crate::rooms::state::requests::meta::Status;
+use crate::rooms::state::requests::{Request, RequestKind};
+use crate::units::Role;
 
 #[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct DepositHauler {
     pub(crate) squad_id: Option<String>,
-    pub(crate) home: Option<RoomName>
-
+    pub(crate) home: Option<RoomName>,
 }
 
 impl fmt::Debug for DepositHauler {
@@ -35,7 +38,6 @@ impl DepositHauler {
 }
 
 impl Kind for DepositHauler {
-
     fn body(&self, room_energy: u32) -> ArrayVec<[Part; 50]> {
         let scale_parts = [Part::Carry, Part::Move];
 
@@ -56,21 +58,24 @@ impl Kind for DepositHauler {
     }
 
     fn get_task(&self, creep: &Creep, home: &mut Shelter) -> Task {
-        self.squad_id.as_ref()
-            .and_then(|sid| get_request(home, sid)
-                .and_then(|req| home.take_request(&req))
-                .map(|mut req| {
+        self.squad_id
+            .as_ref()
+            .and_then(|sid| {
+                get_request(home, sid).and_then(|req| home.take_request(&req)).map(|mut req| {
                     req.join(Some(creep.name()), Some(sid));
                     home.add_request(req.clone());
                     (req, Role::DepositHauler(self.clone())).into()
-                }))
+                })
+            })
             .unwrap_or_default()
     }
 }
 
 fn get_request(home: &Shelter, squad_id: &str) -> Option<Request> {
     home.requests()
-        .find(|r| matches!(&r.kind, RequestKind::Deposit(_) if
-            matches!(*r.status(), Status::InProgress | Status::Carry) && r.assigned_to(squad_id)))
+        .find(|r| {
+            matches!(&r.kind, RequestKind::Deposit(_) if
+            matches!(*r.status(), Status::InProgress | Status::Carry) && r.assigned_to(squad_id))
+        })
         .cloned()
 }

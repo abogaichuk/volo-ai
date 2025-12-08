@@ -1,20 +1,22 @@
 use std::collections::HashMap;
 
 use log::*;
-use screeps::{game, Creep, Position, RoomName, SharedCreepProperties, HasPosition};
+use screeps::{Creep, HasPosition, Position, RoomName, SharedCreepProperties, game};
 use serde::{Deserialize, Serialize};
 
-use crate::{movement::{Movement, MovementGoal, MovementProfile, PathState}, rooms::{shelter::Shelter, state::requests::Request}, units::{roles::{Kind, Role}, tasks::{Task, TaskResult}}};
-
+use crate::movement::{Movement, MovementGoal, MovementProfile, PathState};
+use crate::rooms::shelter::Shelter;
+use crate::rooms::state::requests::Request;
+use crate::units::roles::{Kind, Role};
+use crate::units::tasks::{Task, TaskResult};
 
 pub struct CrUnit<'m, 'h, 's> {
     creep: Creep,
     memory: &'m mut CreepMemory,
-    home: &'h mut Shelter<'s>
+    home: &'h mut Shelter<'s>,
 }
 
 impl<'m, 'h, 's> CrUnit<'m, 'h, 's> {
-
     fn name(&self) -> String {
         self.creep.name()
     }
@@ -24,7 +26,8 @@ impl<'m, 'h, 's> CrUnit<'m, 'h, 's> {
     }
 
     fn can_move(&self) -> bool {
-        self.creep.fatigue() == 0 && !matches!(self.memory.role.get_movement_profile(&self.creep), MovementProfile::Cargo)
+        self.creep.fatigue() == 0
+            && !matches!(self.memory.role.get_movement_profile(&self.creep), MovementProfile::Cargo)
     }
 
     fn add_request(&mut self, task: Task) {
@@ -54,7 +57,10 @@ impl<'m, 'h, 's> CrUnit<'m, 'h, 's> {
     }
 
     pub fn run_unit(&mut self) -> Option<MovementGoal> {
-        let task = self.memory.task.take()
+        let task = self
+            .memory
+            .task
+            .take()
             .unwrap_or_else(|| self.memory.role.get_task(&self.creep, self.home));
 
         // let name = self.name();
@@ -79,7 +85,7 @@ impl<'m, 'h, 's> CrUnit<'m, 'h, 's> {
                         self.memory.task = Some(task);
                         movement_goal
                     }
-                    _ => None
+                    _ => None,
                 }
             }
             TaskResult::ResolveRequest(task, gracefull_suicide) => {
@@ -105,7 +111,7 @@ impl<'m, 'h, 's> CrUnit<'m, 'h, 's> {
                         self.memory.task = Some(task);
                         movement_goal
                     }
-                    _ => { None }
+                    _ => None,
                 }
             }
             TaskResult::Suicide => {
@@ -114,7 +120,7 @@ impl<'m, 'h, 's> CrUnit<'m, 'h, 's> {
                 let _ = self.creep.suicide();
                 None
             }
-            _ => None
+            _ => None,
         }
     }
 
@@ -160,7 +166,7 @@ impl<'m, 'h, 's> CrUnit<'m, 'h, 's> {
                         PathState::try_new(position, movement_goal, movement.get_find_route_options())
                     }
                     .and_then(|path_state| movement.move_creep(self.creep.into(), path_state));
-    
+
                     self.memory.path_state = new_path_state;
                 }
             } else {
@@ -171,8 +177,10 @@ impl<'m, 'h, 's> CrUnit<'m, 'h, 's> {
     }
 
     fn try_respawn(&mut self) {
-        if !self.memory.respawned && self.creep.ticks_to_live()
-            .is_some_and(|ticks| ticks < self.memory.role.respawn_timeout(Some(&self.creep)).unwrap_or_default())
+        if !self.memory.respawned
+            && self.creep.ticks_to_live().is_some_and(|ticks| {
+                ticks < self.memory.role.respawn_timeout(Some(&self.creep)).unwrap_or_default()
+            })
         {
             debug!("time to respawn {}", self.creep.name());
             self.memory.respawned = true;
@@ -190,7 +198,7 @@ pub struct CreepMemory {
     #[serde(skip)]
     pub task: Option<Task>,
     #[serde(skip)]
-    pub path_state: Option<PathState>
+    pub path_state: Option<PathState>,
 }
 
 impl CreepMemory {
@@ -206,8 +214,8 @@ impl CreepMemory {
 pub fn run_creeps<'s>(
     creeps_state: &mut HashMap<String, CreepMemory>,
     homes: &mut HashMap<RoomName, Shelter<'s>>,
-    movement: &mut Movement)
-{
+    movement: &mut Movement,
+) {
     let mut creeps: HashMap<String, Creep> = game::creeps().entries().collect();
 
     for (name, memory) in creeps_state.iter_mut() {
@@ -216,7 +224,9 @@ pub fn run_creeps<'s>(
             _ => continue, //gc will clear them
         };
 
-        if let Some(mut unit) = memory.get_home().as_ref()
+        if let Some(mut unit) = memory
+            .get_home()
+            .as_ref()
             .and_then(|home_name| homes.get_mut(home_name))
             .map(|home| CrUnit { creep, memory, home })
         {

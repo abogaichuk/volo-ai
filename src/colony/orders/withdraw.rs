@@ -1,10 +1,8 @@
-use std::{
-    fmt,
-    hash::{Hash, Hasher},
-};
+use std::fmt;
+use std::hash::{Hash, Hasher};
 
+use screeps::{Position, RawObjectId, ResourceType, RoomName, game};
 use serde::{Deserialize, Serialize};
-use screeps::{game, Position, RawObjectId, ResourceType, RoomName};
 
 #[derive(Serialize, Deserialize, Eq)]
 pub(crate) struct WithdrawOrder {
@@ -18,14 +16,7 @@ pub(crate) struct WithdrawOrder {
 
 impl WithdrawOrder {
     pub(crate) fn new(id: RawObjectId, pos: Position, resource: ResourceType, amount: u32) -> Self {
-        Self {
-            room: None,
-            id,
-            pos,
-            resource,
-            amount,
-            timeout: game::time() + 2000,
-        }
+        Self { room: None, id, pos, resource, amount, timeout: game::time() + 2000 }
     }
 }
 

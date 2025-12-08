@@ -1,6 +1,8 @@
 use std::collections::HashMap;
-use serde::{Serialize, Deserialize, Serializer};
-use screeps::{game, HasHits, ResourceType, RoomName, StructureController, StructureRampart};
+
+use screeps::{HasHits, ResourceType, RoomName, StructureController, StructureRampart, game};
+use serde::{Deserialize, Serialize, Serializer};
+
 use crate::rooms::wrappers::claimed::Claimed;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
@@ -14,7 +16,7 @@ pub struct Statistic {
     #[serde(default)]
     pub cpu_used: f64,
     #[serde(default = "HashMap::new")]
-    pub rooms: HashMap<RoomName, RoomStats>
+    pub rooms: HashMap<RoomName, RoomStats>,
 }
 
 impl Statistic {
@@ -53,23 +55,22 @@ pub struct RoomStats {
 }
 
 impl RoomStats {
-    pub(crate) fn new(
-        base: &Claimed,
-        requests: usize,
-        last_intrusion: u32,
-        creeps: usize) -> Self
-    {        
+    pub(crate) fn new(base: &Claimed, requests: usize, last_intrusion: u32, creeps: usize) -> Self {
         Self {
             controller: ControllerStats::new(&base.controller),
             energy_in_use: base.energy_available(),
             energy_capacity: base.energy_capacity_available(),
             resources: base.resources.all().clone(),
-            storage_used_capacity: base.storage().map(|storage| storage.store().get_used_capacity(None)),
-            terminal_used_capacity: base.terminal().map(|terminal| terminal.store().get_used_capacity(None)),
+            storage_used_capacity: base
+                .storage()
+                .map(|storage| storage.store().get_used_capacity(None)),
+            terminal_used_capacity: base
+                .terminal()
+                .map(|terminal| terminal.store().get_used_capacity(None)),
             last_intrusion,
             requests,
             creeps,
-            perimetr: Perimetr::new(base.ramparts.perimeter())
+            perimetr: Perimetr::new(base.ramparts.perimeter()),
         }
     }
 }
@@ -78,7 +79,7 @@ impl RoomStats {
 pub struct ControllerStats {
     level: u8,
     ticks_to_downgrade: Option<u32>,
-    progress: Option<u32>
+    progress: Option<u32>,
 }
 
 impl ControllerStats {
@@ -86,7 +87,7 @@ impl ControllerStats {
         Self {
             level: controller.level(),
             ticks_to_downgrade: controller.ticks_to_downgrade(),
-            progress: controller.progress()
+            progress: controller.progress(),
         }
     }
 }
@@ -99,7 +100,7 @@ pub struct Perimetr {
     #[serde(default)]
     max: u32,
     #[serde(default, serialize_with = "serialize_f64")]
-    average: f64
+    average: f64,
 }
 
 fn serialize_f64<S>(value: &f64, serializer: S) -> Result<S::Ok, S::Error>
@@ -112,11 +113,7 @@ where
 
 impl Default for Perimetr {
     fn default() -> Self {
-        Perimetr {
-            min: 0,
-            max: 0,
-            average: 0.,
-        }
+        Perimetr { min: 0, max: 0, average: 0. }
     }
 }
 

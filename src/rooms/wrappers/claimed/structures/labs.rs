@@ -1,28 +1,28 @@
+use std::cmp;
+use std::collections::{HashMap, HashSet};
+
+use itertools::Itertools;
 use log::*;
 use screeps::{HasId, HasPosition, ObjectId, ResourceType, StructureLab, StructureStorage};
-use std::{cmp, collections::{HashMap, HashSet}};
-use itertools::Itertools;
-use crate::{
-    commons::find_container_with, rooms::{
-        RoomEvent, state::{
-            BoostReason, RoomState, constructions::{LabStatus, PlannedCell, RoomPlan, RoomStructure}, requests::{CarryData, Request, RequestKind, assignment::Assignment, meta::Status}
-        }, wrappers::claimed::Claimed
-    }
-};
+
+use crate::commons::find_container_with;
+use crate::rooms::RoomEvent;
+use crate::rooms::state::constructions::{LabStatus, PlannedCell, RoomPlan, RoomStructure};
+use crate::rooms::state::requests::assignment::Assignment;
+use crate::rooms::state::requests::meta::Status;
+use crate::rooms::state::requests::{CarryData, Request, RequestKind};
+use crate::rooms::state::{BoostReason, RoomState};
+use crate::rooms::wrappers::claimed::Claimed;
 
 const MIN_ENERGY_AMOUNT: u32 = 1000;
 const MIN_RESOURCE_AMOUNT: u32 = 2000;
 const LAB_PRODUCTION: u32 = 5;
 
 impl Claimed {
-    pub(crate) fn run_labs(
-        &self,
-        state: &RoomState
-    ) -> Option<RoomEvent> {
+    pub(crate) fn run_labs(&self, state: &RoomState) -> Option<RoomEvent> {
         debug!("{} running labs", self.get_name());
 
-        self.storage()
-            .and_then(|storage|
+        self.storage().and_then(|storage|
                 //update lab statuses to current boosts
                 self.update_lab_state(&state.boosts)
                     .or_else(|| self.labs.boosts().iter()
@@ -32,8 +32,8 @@ impl Claimed {
                         let in_progress = state.requests.iter()
                             .any(|r| matches!(r.kind, RequestKind::Lab(_)) &&
                                 matches!(r.status(), Status::InProgress | Status::OnHold));
-                        
-                        //if no in progress request
+
+                        // if no in progress request
                         if !in_progress {
                             //take a new one
                             if let Some(mut request) = new_request(&state.requests, storage) {
@@ -48,69 +48,90 @@ impl Claimed {
                         } else {
                             None
                         }
-                    })
-            )
+                    }))
     }
 
     fn update_lab_state(&self, boosts: &HashMap<BoostReason, u32>) -> Option<RoomEvent> {
         //all unique boostable resources
-        let boost_resources: Vec<ResourceType> = boosts.iter()
-            .flat_map(|boost_reason| boost_reason.0.value())
-            .unique()
-            .collect();
+        let boost_resources: Vec<ResourceType> =
+            boosts.iter().flat_map(|boost_reason| boost_reason.0.value()).unique().collect();
 
-        boost_resources.iter()
-            .find_map(|res| (!self.labs.boosts().contains_key(res))
-                .then(|| self.labs.outputs.first()
-                    .map(|lab| {
+        boost_resources
+            .iter()
+            .find_map(|res| {
+                (!self.labs.boosts().contains_key(res)).then(|| {
+                    self.labs.outputs.first().map(|lab| {
                         let cell = PlannedCell::searchable(
                             lab.pos().xy(),
-                            RoomStructure::Lab(LabStatus::Boost(*res)));
+                            RoomStructure::Lab(LabStatus::Boost(*res)),
+                        );
                         RoomEvent::ReplaceCell(cell)
-                    })))
+                    })
+                })
+            })
             .flatten()
-            .or_else(|| self.labs.boosts.iter()
-                .find_map(|(res, lab)| (!boost_resources.contains(res))
-                    .then(|| {
+            .or_else(|| {
+                self.labs.boosts.iter().find_map(|(res, lab)| {
+                    (!boost_resources.contains(res)).then(|| {
                         let cell = PlannedCell::searchable(
                             lab.pos().xy(),
-                            RoomStructure::Lab(LabStatus::Output));
+                            RoomStructure::Lab(LabStatus::Output),
+                        );
                         RoomEvent::ReplaceCell(cell)
-                    })))
+                    })
+                })
+            })
     }
 
     fn keep_boost_ready(&self, resource: &ResourceType, lab: &StructureLab) -> Option<RoomEvent> {
         self.load_lab(lab, (ResourceType::Energy, MIN_ENERGY_AMOUNT)) //supply energy
-            .or_else(|| self.unload(lab, &[*resource]) //unload resources
-                .or_else(|| self.load_lab(lab, (*resource, MIN_RESOURCE_AMOUNT)))) //load boost resource
+            .or_else(|| {
+                self.unload(lab, &[*resource]) //unload resources
+                .or_else(|| self.load_lab(lab, (*resource, MIN_RESOURCE_AMOUNT)))
+            }) //load boost resource
     }
 
-    pub fn load_lab(&self, lab: &StructureLab, component: (ResourceType, u32)) -> Option<RoomEvent> {
+    pub fn load_lab(
+        &self,
+        lab: &StructureLab,
+        component: (ResourceType, u32),
+    ) -> Option<RoomEvent> {
         let in_lab_amount = lab.store().get_used_capacity(Some(component.0));
         (in_lab_amount < component.1)
-            .then(|| find_container_with(component.0, None, self.storage(), self.terminal(), self.factory())
+            .then(|| {
+                find_container_with(
+                    component.0,
+                    None,
+                    self.storage(),
+                    self.terminal(),
+                    self.factory(),
+                )
                 .map(|(id, amount)| {
                     RoomEvent::Request(Request::new(
                         RequestKind::Carry(CarryData::new(
                             id,
                             lab.raw_id(),
                             component.0,
-                            cmp::min(amount, component.1.saturating_sub(in_lab_amount)))),
-                        Assignment::Single(None)))
-                }))
+                            cmp::min(amount, component.1.saturating_sub(in_lab_amount)),
+                        )),
+                        Assignment::Single(None),
+                    ))
+                })
+            })
             .flatten()
     }
 }
 
 fn new_request(requests: &HashSet<Request>, storage: &StructureStorage) -> Option<Request> {
-    requests.iter()
+    requests
+        .iter()
         .find(|r| match &r.kind {
-            RequestKind::Lab(d) => {
-                d.resource.reaction_components()
-                    .is_some_and(|components| components.iter()
-                        .all(|component| storage.store().get_used_capacity(Some(*component)) >= LAB_PRODUCTION))
-            }
-            _ => false
+            RequestKind::Lab(d) => d.resource.reaction_components().is_some_and(|components| {
+                components.iter().all(|component| {
+                    storage.store().get_used_capacity(Some(*component)) >= LAB_PRODUCTION
+                })
+            }),
+            _ => false,
         })
         .cloned()
 }
@@ -119,7 +140,7 @@ fn new_request(requests: &HashSet<Request>, storage: &StructureStorage) -> Optio
 pub(crate) struct Labs {
     inputs: Vec<StructureLab>,
     outputs: Vec<StructureLab>,
-    boosts: HashMap<ResourceType, StructureLab>
+    boosts: HashMap<ResourceType, StructureLab>,
 }
 
 impl Labs {
@@ -134,14 +155,15 @@ impl Labs {
 
         //split labs by boost or production purposes
         for lab in labs.into_iter() {
-            let cell = PlannedCell::searchable(
-                    lab.pos().xy(),
-                    RoomStructure::Lab(LabStatus::Output));
+            let cell =
+                PlannedCell::searchable(lab.pos().xy(), RoomStructure::Lab(LabStatus::Output));
             if let Some(planned_cell) = plan.get_cell(cell) {
                 match planned_cell.structure {
                     RoomStructure::Lab(LabStatus::Input) => inputs.push(lab),
                     RoomStructure::Lab(LabStatus::Output) => outputs.push(lab),
-                    RoomStructure::Lab(LabStatus::Boost(r)) => { boosts.insert(r, lab); },
+                    RoomStructure::Lab(LabStatus::Boost(r)) => {
+                        boosts.insert(r, lab);
+                    }
                     _ => {}
                 }
             }
@@ -163,7 +185,6 @@ impl Labs {
     }
 
     pub(crate) fn boost_lab(&self, resource: &ResourceType) -> Option<ObjectId<StructureLab>> {
-        self.boosts.get(resource)
-            .map(|lab| lab.id())
+        self.boosts.get(resource).map(|lab| lab.id())
     }
 }

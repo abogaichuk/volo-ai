@@ -1,5 +1,5 @@
-use serde::{Serialize, Deserialize};
 use screeps::game;
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Meta {
@@ -24,11 +24,7 @@ impl Meta {
 
 impl Default for Meta {
     fn default() -> Self {
-        Self {
-            status: Status::Created,
-            created_at: game::time(),
-            updated_at: game::time()
-        }
+        Self { status: Status::Created, created_at: game::time(), updated_at: game::time() }
     }
 }
 

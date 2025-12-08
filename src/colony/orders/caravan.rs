@@ -1,19 +1,15 @@
-use std::{
-    collections::{BTreeMap, HashMap},
-    fmt,
-    hash::{Hash, Hasher},
-};
+use std::collections::{BTreeMap, HashMap};
+use std::fmt;
+use std::hash::{Hash, Hasher};
 
 use log::debug;
+use screeps::{Direction, RoomName, game};
 use serde::{Deserialize, Serialize};
-use screeps::{game, Direction, RoomName};
 
-use crate::{
-    colony::{less_cga, prefered_room},
-    commons::{capture_room_numbers, get_room_regex},
-    movement::Movement,
-    rooms::wrappers::claimed::Claimed,
-};
+use crate::colony::{less_cga, prefered_room};
+use crate::commons::{capture_room_numbers, get_room_regex};
+use crate::movement::Movement;
+use crate::rooms::wrappers::claimed::Claimed;
 
 #[derive(Serialize, Deserialize)]
 pub(crate) struct CaravanOrder {

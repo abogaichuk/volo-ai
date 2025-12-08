@@ -1,11 +1,13 @@
-use serde::{Serialize, Deserialize};
-use screeps::{game, ObjectId, Structure, Position, RoomName};
+use screeps::{ObjectId, Position, RoomName, Structure, game};
+use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
-use crate::{
-    units::roles::{Role, services::{dismantler::Dismantler, puller::Puller}},
-    rooms::{RoomEvent, state::requests::{Meta, Status, Assignment}},
-    commons::is_walkable
-};
+
+use crate::commons::is_walkable;
+use crate::rooms::RoomEvent;
+use crate::rooms::state::requests::{Assignment, Meta, Status};
+use crate::units::roles::Role;
+use crate::units::roles::services::dismantler::Dismantler;
+use crate::units::roles::services::puller::Puller;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct DismantleData {
@@ -23,7 +25,7 @@ pub(in crate::rooms::state::requests) fn dismantle_handler(
     data: &mut DismantleData,
     meta: &mut Meta,
     assignment: &mut Assignment,
-    home_name: RoomName
+    home_name: RoomName,
 ) -> SmallVec<[RoomEvent; 3]> {
     let mut events: SmallVec<[RoomEvent; 3]> = SmallVec::new();
 
@@ -35,7 +37,7 @@ pub(in crate::rooms::state::requests) fn dismantle_handler(
 
             events.push(RoomEvent::Spawn(dismantler, 1));
             events.push(RoomEvent::Spawn(puller, 1));
-        },
+        }
         Status::InProgress if game::time() % 100 == 0 && !assignment.has_alive_members() => {
             meta.update(Status::Created);
             *assignment = Assignment::Single(None);
@@ -44,7 +46,7 @@ pub(in crate::rooms::state::requests) fn dismantle_handler(
             if is_walkable(&data.workplace) {
                 meta.update(Status::Created);
             }
-        },
+        }
         _ => {}
     }
     events

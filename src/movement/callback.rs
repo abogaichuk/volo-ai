@@ -1,11 +1,13 @@
-use log::*;
-use screeps::{
-    CostMatrix, LocalRoomTerrain, Position, RoomXY, Terrain,
-    constants::StructureType, enums::StructureObject, find, game,
-    local::{LocalCostMatrix, RoomName}, pathfinder::{MultiRoomCostResult, SingleRoomCostResult},
-    prelude::*
-};
 use std::collections::{HashMap, HashSet};
+
+use log::*;
+use screeps::constants::StructureType;
+use screeps::enums::StructureObject;
+use screeps::local::{LocalCostMatrix, RoomName};
+use screeps::pathfinder::{MultiRoomCostResult, SingleRoomCostResult};
+use screeps::prelude::*;
+use screeps::{CostMatrix, LocalRoomTerrain, Position, RoomXY, Terrain, find, game};
+
 use crate::rooms::state::constructions::RoomPart;
 
 pub type SingleRoomCallback = fn(RoomName, CostMatrix) -> SingleRoomCostResult;
@@ -15,12 +17,12 @@ pub struct PathOptions {
     pub from: Position,
     pub avoid_creeps: bool,
     pub allowed_rooms: HashSet<RoomName>,
-    pub danger_zones: Option<(RoomName, Vec<RoomXY>)>
+    pub danger_zones: Option<(RoomName, Vec<RoomXY>)>,
 }
 
-pub fn prefer_roads_callback(options: PathOptions)
-    -> Box<dyn FnMut(RoomName) -> MultiRoomCostResult>
-{
+pub fn prefer_roads_callback(
+    options: PathOptions,
+) -> Box<dyn FnMut(RoomName) -> MultiRoomCostResult> {
     Box::new(move |room_name: RoomName| -> MultiRoomCostResult {
         //if allowed rooms is not empty -> we have high level route
         if !options.allowed_rooms.is_empty() && !options.allowed_rooms.contains(&room_name) {
@@ -31,9 +33,9 @@ pub fn prefer_roads_callback(options: PathOptions)
     })
 }
 
-pub fn prefer_plain_callback(options: PathOptions)
-    -> Box<dyn FnMut(RoomName) -> MultiRoomCostResult>
-{
+pub fn prefer_plain_callback(
+    options: PathOptions,
+) -> Box<dyn FnMut(RoomName) -> MultiRoomCostResult> {
     Box::new(move |room_name: RoomName| -> MultiRoomCostResult {
         //if allowed rooms is not empty -> we have high level route
         if !options.allowed_rooms.is_empty() && !options.allowed_rooms.contains(&room_name) {
@@ -44,9 +46,9 @@ pub fn prefer_plain_callback(options: PathOptions)
     })
 }
 
-pub fn prefer_swamp_callback(options: PathOptions)
-    -> Box<dyn FnMut(RoomName) -> MultiRoomCostResult>
-{
+pub fn prefer_swamp_callback(
+    options: PathOptions,
+) -> Box<dyn FnMut(RoomName) -> MultiRoomCostResult> {
     Box::new(move |room_name: RoomName| -> MultiRoomCostResult {
         //if allowed rooms is not empty -> we have high level route
         if !options.allowed_rooms.is_empty() && !options.allowed_rooms.contains(&room_name) {
@@ -57,13 +59,13 @@ pub fn prefer_swamp_callback(options: PathOptions)
     })
 }
 
-pub fn closest_in_room_range<'a>(grid: &'a HashMap<RoomXY, RoomPart>)
-    -> impl FnMut(RoomName, CostMatrix) -> SingleRoomCostResult + use<'a>
-{
+pub fn closest_in_room_range<'a>(
+    grid: &'a HashMap<RoomXY, RoomPart>,
+) -> impl FnMut(RoomName, CostMatrix) -> SingleRoomCostResult + use<'a> {
     |_: RoomName, mut matrix: CostMatrix| -> SingleRoomCostResult {
         for (xy, part) in grid.iter() {
             match part {
-                RoomPart::Wall | RoomPart::Exit => { matrix.set_xy(*xy, 0xff) }
+                RoomPart::Wall | RoomPart::Exit => matrix.set_xy(*xy, 0xff),
                 _ => {}
             }
         }
@@ -71,25 +73,23 @@ pub fn closest_in_room_range<'a>(grid: &'a HashMap<RoomXY, RoomPart>)
     }
 }
 
-pub fn closest_multi_rooms_range() -> impl FnMut(RoomName) -> MultiRoomCostResult
-{
-    move |_: RoomName| -> MultiRoomCostResult {
-        MultiRoomCostResult::CostMatrix(CostMatrix::new())
-    }
+pub fn closest_multi_rooms_range() -> impl FnMut(RoomName) -> MultiRoomCostResult {
+    move |_: RoomName| -> MultiRoomCostResult { MultiRoomCostResult::CostMatrix(CostMatrix::new()) }
 }
 
 pub fn construction_single_room<'a>(
     unwalkable: HashSet<RoomXY>,
-    grid: &'a HashMap<RoomXY, RoomPart>) -> impl FnMut(RoomName) -> MultiRoomCostResult + use<'a>
-{
-    move |_: RoomName| -> MultiRoomCostResult  {
+    grid: &'a HashMap<RoomXY, RoomPart>,
+) -> impl FnMut(RoomName) -> MultiRoomCostResult + use<'a> {
+    move |_: RoomName| -> MultiRoomCostResult {
         let mut matrix = LocalCostMatrix::new();
 
         for (xy, part) in grid.iter() {
-            if unwalkable.contains(xy) { matrix.set_xy(*xy, 0xff) }
-            else {
+            if unwalkable.contains(xy) {
+                matrix.set_xy(*xy, 0xff)
+            } else {
                 match part {
-                    RoomPart::Wall | RoomPart::Exit => { matrix.set_xy(*xy, 0xff) }
+                    RoomPart::Wall | RoomPart::Exit => matrix.set_xy(*xy, 0xff),
                     _ => {}
                 }
             }
@@ -101,12 +101,10 @@ pub fn construction_single_room<'a>(
 
 pub fn construction_multi_rooms<'a>(
     planned: &'a HashMap<RoomName, Vec<RoomXY>>,
-) -> impl FnMut(RoomName) -> MultiRoomCostResult + use<'a>
-{
+) -> impl FnMut(RoomName) -> MultiRoomCostResult + use<'a> {
     move |room_name: RoomName| -> MultiRoomCostResult {
         let mut matrix = LocalCostMatrix::new();
         if let Some(room) = game::rooms().get(room_name) {
-
             let mut keepers = Vec::new();
             let mut structures = HashSet::new();
             for structure in room.find(find::STRUCTURES, None) {
@@ -130,9 +128,11 @@ pub fn construction_multi_rooms<'a>(
                     if structures.contains(&xy) || terrain.get(x, y) == Terrain::Wall {
                         matrix.set(xy, 0xff);
                     } else {
-                        let distance = keepers.iter()
+                        let distance = keepers
+                            .iter()
                             .map(|keeper| keeper.get_range_to(xy))
-                            .min().unwrap_or(u8::MAX);
+                            .min()
+                            .unwrap_or(u8::MAX);
                         match distance {
                             1 => matrix.set(xy, 0xfa), //250
                             2 => matrix.set(xy, 0xc8), //200
@@ -192,7 +192,8 @@ fn cost_matrix(room_name: RoomName, options: &PathOptions, prefer_swamp: bool) -
         }
 
         for creep in room.find(find::CREEPS, None) {
-            if !creep.my() || (options.avoid_creeps && options.from.get_range_to(creep.pos()) <= 2) {
+            if !creep.my() || (options.avoid_creeps && options.from.get_range_to(creep.pos()) <= 2)
+            {
                 new_matrix.set(creep.pos().xy(), 0xff);
             }
         }
@@ -213,36 +214,39 @@ fn cost_matrix(room_name: RoomName, options: &PathOptions, prefer_swamp: bool) -
             }
         }
 
-        if let Some(danger_zones) = &options.danger_zones && room_name == danger_zones.0 {
-                let lrt = LocalRoomTerrain::from(room.get_terrain());
-                let penalty = 0xa;
+        if let Some(danger_zones) = &options.danger_zones
+            && room_name == danger_zones.0
+        {
+            let lrt = LocalRoomTerrain::from(room.get_terrain());
+            let penalty = 0xa;
 
-                //trying to avoid attackable cells
-                for xy in danger_zones.1.iter() {
-                    match new_matrix.get(*xy) {
-                        0xff => {} //cell is unwalkable -> do nothing
-                        1 => {
-                            //road here
-                            if !prefer_swamp {
-                                new_matrix.set(*xy, penalty / 2) //reduced penalty set on cell with road
-                            }
+            //trying to avoid attackable cells
+            for xy in danger_zones.1.iter() {
+                match new_matrix.get(*xy) {
+                    0xff => {} //cell is unwalkable -> do nothing
+                    1 => {
+                        //road here
+                        if !prefer_swamp {
+                            new_matrix.set(*xy, penalty / 2) //reduced penalty set on cell with road
                         }
-                        cost => { //no road here
-                            match lrt.get_xy(*xy) {
-                                Terrain::Wall => new_matrix.set(*xy, 0xff),
-                                Terrain::Swamp => {
-                                    if prefer_swamp {
-                                        new_matrix.set(*xy, cost + penalty) //just penalty
-                                    } else {
-                                        new_matrix.set(*xy, cost + 0xa + penalty) //swamp cost + penalty
-                                    }
-                                },
-                                Terrain::Plain => new_matrix.set(*xy, cost + 0x02 + penalty) //plain cost + penalty
+                    }
+                    cost => {
+                        //no road here
+                        match lrt.get_xy(*xy) {
+                            Terrain::Wall => new_matrix.set(*xy, 0xff),
+                            Terrain::Swamp => {
+                                if prefer_swamp {
+                                    new_matrix.set(*xy, cost + penalty) //just penalty
+                                } else {
+                                    new_matrix.set(*xy, cost + 0xa + penalty) //swamp cost + penalty
+                                }
                             }
+                            Terrain::Plain => new_matrix.set(*xy, cost + 0x02 + penalty), /* plain cost + penalty */
                         }
                     }
                 }
             }
+        }
     }
 
     new_matrix.into()

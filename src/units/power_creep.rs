@@ -1,23 +1,23 @@
 use std::collections::HashMap;
 
 use log::*;
-use serde::{Serialize, Deserialize};
 use screeps::{
-    game, Effect, EffectType, HasPosition, Position, PowerCreep, PowerInfo,
-    PowerType, ResourceType, RoomName, RoomObjectProperties, RoomXY,
-    SharedCreepProperties, StructureController
+    Effect, EffectType, HasPosition, Position, PowerCreep, PowerInfo, PowerType, ResourceType,
+    RoomName, RoomObjectProperties, RoomXY, SharedCreepProperties, StructureController, game,
 };
+use serde::{Deserialize, Serialize};
 
-use crate::{
-    movement::{Movement, MovementGoal, MovementGoalBuilder, MovementProfile, PathState}, rooms::shelter::Shelter, utils::constants::{CLOSE_RANGE_ACTION, LONG_RANGE_ACTION}
-};
+use crate::movement::{Movement, MovementGoal, MovementGoalBuilder, MovementProfile, PathState};
+use crate::rooms::shelter::Shelter;
+use crate::utils::constants::{CLOSE_RANGE_ACTION, LONG_RANGE_ACTION};
 
 pub fn run_power_creeps<'s>(
     states: &mut HashMap<String, PowerCreepMemory>,
     homes: &mut HashMap<RoomName, Shelter<'s>>,
-    movement: &mut Movement)
-{
-    let mut p_creeps: HashMap<String, PowerCreep> = game::power_creeps().entries()
+    movement: &mut Movement,
+) {
+    let mut p_creeps: HashMap<String, PowerCreep> = game::power_creeps()
+        .entries()
         .filter_map(|(name, apc)| PowerCreep::try_from(apc).ok().map(|pc| (name, pc)))
         .collect();
 
@@ -26,18 +26,17 @@ pub fn run_power_creeps<'s>(
             Some(pc) => pc,
             _ => continue, //gc will clear them
         };
-        
+
         if let Some(room_name) = memory.get_home().as_ref() {
-            if let Some(mut unit) = homes.get_mut(room_name)
-                .map(|home| PcUnit { creep: pc, memory, home })
+            if let Some(mut unit) =
+                homes.get_mut(room_name).map(|home| PcUnit { creep: pc, memory, home })
             {
                 let goal = unit.run_unit();
                 unit.move_to_goal(goal, movement);
             } else {
                 error!("{} error creation pcunit!", name);
             }
-        }
-        else {
+        } else {
             memory.home = get_home(&pc, homes).map(|s| s.name());
         }
     }
@@ -47,14 +46,24 @@ pub fn run_power_creeps<'s>(
     }
 }
 
-fn get_home<'a>(pc: &'a PowerCreep, homes: &'a HashMap<RoomName, Shelter>) -> Option<&'a Shelter<'a>> {
-    pc.room()
-        .and_then(|room| homes.values().find(|base| base.name() == room.name())
-            .or_else(|| find_closest_home(room.name(), homes)))
+fn get_home<'a>(
+    pc: &'a PowerCreep,
+    homes: &'a HashMap<RoomName, Shelter>,
+) -> Option<&'a Shelter<'a>> {
+    pc.room().and_then(|room| {
+        homes
+            .values()
+            .find(|base| base.name() == room.name())
+            .or_else(|| find_closest_home(room.name(), homes))
+    })
 }
 
-fn find_closest_home<'a>(target: RoomName, homes: &'a HashMap<RoomName, Shelter>) -> Option<&'a Shelter<'a>> {
-    homes.values()
+fn find_closest_home<'a>(
+    target: RoomName,
+    homes: &'a HashMap<RoomName, Shelter>,
+) -> Option<&'a Shelter<'a>> {
+    homes
+        .values()
         .filter(|home| home.controller().level() > 1)
         .min_by_key(|home| game::map::get_room_linear_distance(home.name(), target, false))
 }
@@ -64,7 +73,7 @@ pub struct PowerCreepMemory {
     #[serde(skip)]
     pub home: Option<RoomName>,
     #[serde(skip)]
-    pub path_state: Option<PathState>
+    pub path_state: Option<PathState>,
 }
 
 impl PowerCreepMemory {
@@ -76,11 +85,10 @@ impl PowerCreepMemory {
 pub struct PcUnit<'m, 'h, 's> {
     creep: PowerCreep,
     memory: &'m mut PowerCreepMemory,
-    home: &'h mut Shelter<'s>
+    home: &'h mut Shelter<'s>,
 }
 
 impl<'m, 'h, 's> PcUnit<'m, 'h, 's> {
-
     fn name(&self) -> String {
         self.creep.name()
     }
@@ -105,7 +113,9 @@ impl<'m, 'h, 's> PcUnit<'m, 'h, 's> {
 
         if self.home.invasion() {
             if self.creep.store().get_used_capacity(Some(ResourceType::Ops)) < 10 {
-                if let Some(storage) = self.home.storage() && storage.store().get_used_capacity(Some(ResourceType::Ops)) >= 10 {
+                if let Some(storage) = self.home.storage()
+                    && storage.store().get_used_capacity(Some(ResourceType::Ops)) >= 10
+                {
                     if self.creep.pos().is_near_to(storage.pos()) {
                         let _ = self.creep.withdraw(storage, ResourceType::Ops, None);
                         None
@@ -144,12 +154,16 @@ impl<'m, 'h, 's> PcUnit<'m, 'h, 's> {
             } else {
                 None
             }
-        } else if let (Some(source), Some(_)) = (self.home.source_without_effect(), self.get_power(PowerType::RegenSource)) {
+        } else if let (Some(source), Some(_)) =
+            (self.home.source_without_effect(), self.get_power(PowerType::RegenSource))
+        {
             if self.creep.pos().in_range_to(source.pos(), LONG_RANGE_ACTION) {
                 let res = self.creep.use_power(PowerType::RegenSource, Some(source));
                 match res {
-                    Ok(_) => {},
-                    Err(err) => { error!("use power error: {:?}", err); }
+                    Ok(_) => {}
+                    Err(err) => {
+                        error!("use power error: {:?}", err);
+                    }
                 };
                 None
             } else {
@@ -159,7 +173,9 @@ impl<'m, 'h, 's> PcUnit<'m, 'h, 's> {
             (self.home.full_storage_without_effect(), self.get_power(PowerType::OperateStorage))
         {
             if self.creep.store().get_used_capacity(Some(ResourceType::Ops)) < 100 {
-                if let Some(storage) = self.home.storage() && storage.store().get_used_capacity(Some(ResourceType::Ops)) >= 100 {
+                if let Some(storage) = self.home.storage()
+                    && storage.store().get_used_capacity(Some(ResourceType::Ops)) >= 100
+                {
                     if self.creep.pos().is_near_to(storage.pos()) {
                         let _ = self.creep.withdraw(storage, ResourceType::Ops, None);
                         None
@@ -176,31 +192,39 @@ impl<'m, 'h, 's> PcUnit<'m, 'h, 's> {
                     let res = self.creep.use_power(PowerType::OperateStorage, Some(storage));
                     debug!("creep {} operate storage res: {:?}", self.name(), res);
                     match res {
-                        Ok(_) => {},
-                        Err(err) => { error!("use power error: {:?}", err); }
+                        Ok(_) => {}
+                        Err(err) => {
+                            error!("use power error: {:?}", err);
+                        }
                     };
                     None
                 } else {
                     build_goal(storage.pos(), LONG_RANGE_ACTION, None)
                 }
             }
-        } else if self.home.mineral_without_effect() && self.get_power(PowerType::RegenMineral).is_some() {
+        } else if self.home.mineral_without_effect()
+            && self.get_power(PowerType::RegenMineral).is_some()
+        {
             if self.creep.pos().in_range_to(self.home.mineral().pos(), 3) {
                 let res = self.creep.use_power(PowerType::RegenMineral, Some(self.home.mineral()));
                 match res {
-                    Ok(_) => {},
-                    Err(err) => { error!("use power error: {:?}", err); }
+                    Ok(_) => {}
+                    Err(err) => {
+                        error!("use power error: {:?}", err);
+                    }
                 };
                 None
             } else {
                 build_goal(self.home.mineral().pos(), LONG_RANGE_ACTION, None)
             }
-        } else if let (Some(spawn), Some(_)) = (
-            self.home.spawn_without_effect(),
-            self.get_power(PowerType::OperateSpawn)) && self.home.is_power_enabled(&PowerType::OperateSpawn)
+        } else if let (Some(spawn), Some(_)) =
+            (self.home.spawn_without_effect(), self.get_power(PowerType::OperateSpawn))
+            && self.home.is_power_enabled(&PowerType::OperateSpawn)
         {
             if self.creep.store().get_used_capacity(Some(ResourceType::Ops)) < 100 {
-                if let Some(storage) = self.home.storage() && storage.store().get_used_capacity(Some(ResourceType::Ops)) >= 100 {
+                if let Some(storage) = self.home.storage()
+                    && storage.store().get_used_capacity(Some(ResourceType::Ops)) >= 100
+                {
                     if self.creep.pos().is_near_to(storage.pos()) {
                         let _ = self.creep.withdraw(storage, ResourceType::Ops, None);
                         None
@@ -217,8 +241,10 @@ impl<'m, 'h, 's> PcUnit<'m, 'h, 's> {
                     let res = self.creep.use_power(PowerType::OperateSpawn, Some(spawn));
                     debug!("creep {} operate spawn res: {:?}", self.creep.name(), res);
                     match res {
-                        Ok(_) => {},
-                        Err(err) => { error!("use power error: {:?}", err); }
+                        Ok(_) => {}
+                        Err(err) => {
+                            error!("use power error: {:?}", err);
+                        }
                     };
                     None
                 } else {
@@ -228,10 +254,12 @@ impl<'m, 'h, 's> PcUnit<'m, 'h, 's> {
         } else if let (Some(factory), Some(_), true) = (
             self.home.factory_without_effect(),
             self.get_power(PowerType::OperateFactory),
-            self.home.is_power_enabled(&PowerType::OperateFactory))
-        {
+            self.home.is_power_enabled(&PowerType::OperateFactory),
+        ) {
             if self.creep.store().get_used_capacity(Some(ResourceType::Ops)) < 100 {
-                if let Some(storage) = self.home.storage() && storage.store().get_used_capacity(Some(ResourceType::Ops)) >= 100 {
+                if let Some(storage) = self.home.storage()
+                    && storage.store().get_used_capacity(Some(ResourceType::Ops)) >= 100
+                {
                     if self.creep.pos().is_near_to(storage.pos()) {
                         let _ = self.creep.withdraw(storage, ResourceType::Ops, None);
                         None
@@ -248,16 +276,22 @@ impl<'m, 'h, 's> PcUnit<'m, 'h, 's> {
                     let res = self.creep.use_power(PowerType::OperateFactory, Some(factory));
                     debug!("creep {} operate storage res: {:?}", self.creep.name(), res);
                     match res {
-                        Ok(_) => {},
-                        Err(err) => { error!("use power error: {:?}", err); }
+                        Ok(_) => {}
+                        Err(err) => {
+                            error!("use power error: {:?}", err);
+                        }
                     };
                     None
                 } else {
                     build_goal(factory.pos(), LONG_RANGE_ACTION, None)
                 }
             }
-        } else if self.creep.store().get_used_capacity(Some(ResourceType::Ops)) > self.creep.store().get_capacity(Some(ResourceType::Ops)) / 2 {
-            if let Some(storage) = self.home.storage() && storage.store().get_free_capacity(None) > 5000 {
+        } else if self.creep.store().get_used_capacity(Some(ResourceType::Ops))
+            > self.creep.store().get_capacity(Some(ResourceType::Ops)) / 2
+        {
+            if let Some(storage) = self.home.storage()
+                && storage.store().get_free_capacity(None) > 5000
+            {
                 if self.creep.pos().is_near_to(storage.pos()) {
                     let _ = self.creep.transfer(storage, ResourceType::Ops, None);
                     None
@@ -273,7 +307,9 @@ impl<'m, 'h, 's> PcUnit<'m, 'h, 's> {
             && self.home.is_power_enabled(&PowerType::OperateController)
         {
             if self.creep.store().get_used_capacity(Some(ResourceType::Ops)) < 200 {
-                if let Some(storage) = self.home.storage() && storage.store().get_used_capacity(Some(ResourceType::Ops)) >= 200 {
+                if let Some(storage) = self.home.storage()
+                    && storage.store().get_used_capacity(Some(ResourceType::Ops)) >= 200
+                {
                     if self.creep.pos().is_near_to(storage.pos()) {
                         let _ = self.creep.withdraw(storage, ResourceType::Ops, None);
                         None
@@ -286,12 +322,17 @@ impl<'m, 'h, 's> PcUnit<'m, 'h, 's> {
                 }
             } else {
                 debug!("creep full: {}", self.creep.name());
-                if self.creep.pos().get_range_to(self.home.controller().pos()) <= LONG_RANGE_ACTION {
-                    let res = self.creep.use_power(PowerType::OperateController, Some(self.home.controller()));
+                if self.creep.pos().get_range_to(self.home.controller().pos()) <= LONG_RANGE_ACTION
+                {
+                    let res = self
+                        .creep
+                        .use_power(PowerType::OperateController, Some(self.home.controller()));
                     debug!("creep {} operate controller res: {:?}", self.creep.name(), res);
                     match res {
-                        Ok(_) => {},
-                        Err(err) => { error!("use power error: {:?}", err); }
+                        Ok(_) => {}
+                        Err(err) => {
+                            error!("use power error: {:?}", err);
+                        }
                     };
                     None
                 } else {
@@ -324,7 +365,9 @@ impl<'m, 'h, 's> PcUnit<'m, 'h, 's> {
     }
 
     fn get_power(&self, power_type: PowerType) -> Option<PowerInfo> {
-        self.creep.powers().get(power_type)
+        self.creep
+            .powers()
+            .get(power_type)
             .and_then(|p| if p.cooldown() == 0 { Some(p) } else { None })
     }
 
@@ -380,13 +423,10 @@ impl<'m, 'h, 's> PcUnit<'m, 'h, 's> {
 }
 
 fn controller_without_effect(controller: &StructureController) -> bool {
-    !controller.effects().into_iter()
-        .any(|effect:Effect| {
-            match effect.effect() {
-                EffectType::PowerEffect(p) => matches!(p, PowerType::OperateController),
-                _ => false
-            }
-        })
+    !controller.effects().into_iter().any(|effect: Effect| match effect.effect() {
+        EffectType::PowerEffect(p) => matches!(p, PowerType::OperateController),
+        _ => false,
+    })
 }
 
 fn enable_controller(creep: &PowerCreep, controller: &StructureController) -> Option<MovementGoal> {
@@ -398,11 +438,17 @@ fn enable_controller(creep: &PowerCreep, controller: &StructureController) -> Op
     }
 }
 
-fn build_goal(pos: Position, range: u32, danger_zones: Option<(RoomName, Vec<RoomXY>)>) -> Option<MovementGoal> {
-    Some(MovementGoalBuilder::new(pos)
-        .range(range)
-        .profile(MovementProfile::SwampFiveToOne)
-        .avoid_creeps(false)
-        .danger_zones(danger_zones)
-        .build())
+fn build_goal(
+    pos: Position,
+    range: u32,
+    danger_zones: Option<(RoomName, Vec<RoomXY>)>,
+) -> Option<MovementGoal> {
+    Some(
+        MovementGoalBuilder::new(pos)
+            .range(range)
+            .profile(MovementProfile::SwampFiveToOne)
+            .avoid_creeps(false)
+            .danger_zones(danger_zones)
+            .build(),
+    )
 }

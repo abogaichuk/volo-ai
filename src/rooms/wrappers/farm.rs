@@ -1,25 +1,25 @@
+use std::str::FromStr;
+
 use log::*;
 use screeps::{
-    Creep, EffectType, HasHits, HasId, HasPosition, MaybeHasId, Mineral,
-    Part, Room, RoomName, RoomObjectProperties,
-    SOURCE_KEEPER_USERNAME, SharedCreepProperties, Source, StructureContainer,
-    StructureController, StructureInvaderCore, StructureKeeperLair,
-    StructureObject, StructureRoad, find, game, Event
+    Creep, EffectType, Event, HasHits, HasId, HasPosition, MaybeHasId, Mineral, Part, Room,
+    RoomName, RoomObjectProperties, SOURCE_KEEPER_USERNAME, SharedCreepProperties, Source,
+    StructureContainer, StructureController, StructureInvaderCore, StructureKeeperLair,
+    StructureObject, StructureRoad, find, game,
 };
-use std::str::FromStr;
-use crate::{
-    commons::{capture_room_numbers, get_room_regex, is_skr, is_skr_walkway},
-    rooms::{
-        RoomEvent, is_extractor, missed_buildings,
-        state::{FarmInfo, constructions::RoomPlan,
-        requests::{
-            BodyPart, BuildData, BookData, CrashData, CreepHostile, PickupData, RepairData,
-            Request, RequestKind, WithdrawData, assignment::Assignment}
-        }
-    },
-    units::roles::{Role, miners::mineral_miner::MineralMiner},
-    utils::constants::FARM_ROOMS_PICKUP_RESOURCE_THRESHOLD
+
+use crate::commons::{capture_room_numbers, get_room_regex, is_skr, is_skr_walkway};
+use crate::rooms::state::FarmInfo;
+use crate::rooms::state::constructions::RoomPlan;
+use crate::rooms::state::requests::assignment::Assignment;
+use crate::rooms::state::requests::{
+    BodyPart, BookData, BuildData, CrashData, CreepHostile, PickupData, RepairData, Request,
+    RequestKind, WithdrawData,
 };
+use crate::rooms::{RoomEvent, is_extractor, missed_buildings};
+use crate::units::roles::Role;
+use crate::units::roles::miners::mineral_miner::MineralMiner;
+use crate::utils::constants::FARM_ROOMS_PICKUP_RESOURCE_THRESHOLD;
 
 pub struct Farm {
     pub(crate) room: Room,
@@ -37,8 +37,7 @@ impl Farm {
     pub fn new(room: Room) -> Self {
         let mut containers = Vec::new();
         let mut roads = Vec::new();
-        let mineral = room.find(find::MINERALS, None)
-            .into_iter().find(is_extractor);
+        let mineral = room.find(find::MINERALS, None).into_iter().find(is_extractor);
         let sources = room.find(find::SOURCES, None);
         let hostiles = room.find(find::HOSTILE_CREEPS, None);
         let events = if hostiles.is_empty() { Vec::new() } else { room.get_event_log() };
@@ -81,15 +80,19 @@ impl Farm {
 
             if is_skr(f_rem, s_rem) {
                 // //source keeper farm room
-                let ic_timeout = self.icore.as_ref()
-                    .and_then(|ic| ic.effects().iter()
-                        .find_map(|effect| {
+                let ic_timeout = self
+                    .icore
+                    .as_ref()
+                    .and_then(|ic| {
+                        ic.effects().iter().find_map(|effect| {
                             match effect.effect() {
-                                //add 50 ticks to make sure a request with collapse timer has been created
+                                //add 50 ticks to make sure a request with collapse timer has been
+                                // created
                                 EffectType::NaturalEffect(_) => Some(effect.ticks_remaining() + 50),
-                                _ => None
+                                _ => None,
                             }
-                        }))
+                        })
+                    })
                     .unwrap_or_default();
 
                 if ic_timeout > 0 {
@@ -100,7 +103,10 @@ impl Farm {
                         //if farm is_active -> stop it
                         let stop_farm_event = if is_skr_walkway(f_rem, s_rem) {
                             // the sk room is a walkay to a central room, stop farming central too
-                            RoomEvent::StopFarm(self.get_name(), get_central_room_name(self.get_name(), f_num, s_num))
+                            RoomEvent::StopFarm(
+                                self.get_name(),
+                                get_central_room_name(self.get_name(), f_num, s_num),
+                            )
                         } else {
                             RoomEvent::StopFarm(self.get_name(), None)
                         };
@@ -110,7 +116,10 @@ impl Farm {
                     // no invander core in the room -> enable farming
                     let start_farm_event = if is_skr_walkway(f_rem, s_rem) {
                         // the sk room is a walkay to a central room, start farming central too
-                        RoomEvent::StartFarm(self.get_name(), get_central_room_name(self.get_name(), f_num, s_num))
+                        RoomEvent::StartFarm(
+                            self.get_name(),
+                            get_central_room_name(self.get_name(), f_num, s_num),
+                        )
                     } else {
                         RoomEvent::StartFarm(self.get_name(), None)
                     };
@@ -130,18 +139,15 @@ impl Farm {
         }
 
         room_events
-    } 
+    }
 
     fn create_cs(&self, plan: Option<&RoomPlan>) {
-        if let Some(plan) = plan && game::time() % 100 == 0 {
-            missed_buildings(self.get_name(), plan)
-                .for_each(|(xy, str_type)| {
-                    let _ = self.room.create_construction_site(
-                        xy.x.u8(),
-                        xy.y.u8(),
-                        str_type,
-                        None);
-                });
+        if let Some(plan) = plan
+            && game::time() % 100 == 0
+        {
+            missed_buildings(self.get_name(), plan).for_each(|(xy, str_type)| {
+                let _ = self.room.create_construction_site(xy.x.u8(), xy.y.u8(), str_type, None);
+            });
         }
     }
 
@@ -179,29 +185,34 @@ impl Farm {
     }
 
     fn mineral_event(&self) -> Option<RoomEvent> {
-        if let Some(mineral) = &self.mineral && mineral.mineral_amount() > 0 && is_extractor(mineral) {
-            self.containers.iter()
-                .find_map(|container| {
-                    if container.pos().is_near_to(mineral.pos()) {
-                        let mineral_miner = Role::MineralMiner(MineralMiner::new(Some(container.pos()), None));
-                        Some(RoomEvent::MayBeSpawn(mineral_miner))
-                    } else {
-                        None
-                    }
-                })
+        if let Some(mineral) = &self.mineral
+            && mineral.mineral_amount() > 0
+            && is_extractor(mineral)
+        {
+            self.containers.iter().find_map(|container| {
+                if container.pos().is_near_to(mineral.pos()) {
+                    let mineral_miner =
+                        Role::MineralMiner(MineralMiner::new(Some(container.pos()), None));
+                    Some(RoomEvent::MayBeSpawn(mineral_miner))
+                } else {
+                    None
+                }
+            })
         } else {
             None
         }
     }
 
     fn pickup_requests(&self) -> Vec<RoomEvent> {
-        self.room().find(find::DROPPED_RESOURCES, None)
+        self.room()
+            .find(find::DROPPED_RESOURCES, None)
             .iter()
             .filter_map(move |resource| {
                 if resource.amount() > FARM_ROOMS_PICKUP_RESOURCE_THRESHOLD {
                     Some(RoomEvent::Request(Request::new(
                         RequestKind::Pickup(PickupData::new(resource.id())),
-                        Assignment::Single(None))))
+                        Assignment::Single(None),
+                    )))
                     // Some(RoomEvent::Request(Request::Pickup(PickupRequest::new(resource.id()))))
                 } else {
                     None
@@ -211,43 +222,56 @@ impl Farm {
     }
 
     fn tomb_requests(&self) -> Vec<RoomEvent> {
-        self.room().find(find::TOMBSTONES, None)
+        self.room()
+            .find(find::TOMBSTONES, None)
             .iter()
             .filter(|tomb| tomb.store().get_used_capacity(None) > 1000)
             .map(|tomb| {
-                let resources = tomb.store().store_types().into_iter()
-                    .map(|res| (res, None)).collect();
+                let resources =
+                    tomb.store().store_types().into_iter().map(|res| (res, None)).collect();
                 RoomEvent::Request(Request::new(
                     RequestKind::Withdraw(WithdrawData::new(
                         tomb.id().into(),
                         tomb.pos(),
-                        resources)),
-                    Assignment::Single(None)))
+                        resources,
+                    )),
+                    Assignment::Single(None),
+                ))
             })
             .collect()
     }
 
     fn run_containers(&self, plan: &RoomPlan) -> Vec<RoomEvent> {
         let planned_containers = plan.containers();
-        self.containers.iter()
+        self.containers
+            .iter()
             .filter_map(|container| {
                 if container.store().get_used_capacity(None) >= 1250 {
                     Some(RoomEvent::Request(Request::new(
-                            RequestKind::Withdraw(WithdrawData::new(
-                                container.id().into(),
-                                container.pos(),
-                                container.store().store_types().into_iter().map(|res| (res, None)).collect())),
-                            Assignment::Single(None))))
-                } else if container.hits() < ((container.hits_max() as f32 * 0.75) as u32) &&
-                    planned_containers.contains(&container.pos().xy())
+                        RequestKind::Withdraw(WithdrawData::new(
+                            container.id().into(),
+                            container.pos(),
+                            container
+                                .store()
+                                .store_types()
+                                .into_iter()
+                                .map(|res| (res, None))
+                                .collect(),
+                        )),
+                        Assignment::Single(None),
+                    )))
+                } else if container.hits() < ((container.hits_max() as f32 * 0.75) as u32)
+                    && planned_containers.contains(&container.pos().xy())
                 {
                     Some(RoomEvent::Request(Request::new(
-                            RequestKind::Repair(RepairData::with_max_attempts_and_hits(
-                                container.id().into_type(),
-                                container.pos(),
-                                10,
-                                container.hits())),
-                            Assignment::Single(None))))
+                        RequestKind::Repair(RepairData::with_max_attempts_and_hits(
+                            container.id().into_type(),
+                            container.pos(),
+                            10,
+                            container.hits(),
+                        )),
+                        Assignment::Single(None),
+                    )))
                 } else {
                     None
                 }
@@ -257,13 +281,20 @@ impl Farm {
 
     fn repair_roads(&self, plan: &RoomPlan) -> Vec<RoomEvent> {
         let planned_roads = plan.roads();
-        self.roads.iter()
+        self.roads
+            .iter()
             .filter_map(|road| {
                 if road.hits() < road.hits_max() / 2 && planned_roads.contains(&road.pos().xy()) {
                     let attempts = if road.hits_max() == 5000 { 2 } else { 5 };
                     Some(RoomEvent::Request(Request::new(
-                            RequestKind::Repair(RepairData::with_max_attempts_and_hits(road.id().into_type(), road.pos(), attempts, road.hits())),
-                            Assignment::Single(None))))
+                        RequestKind::Repair(RepairData::with_max_attempts_and_hits(
+                            road.id().into_type(),
+                            road.pos(),
+                            attempts,
+                            road.hits(),
+                        )),
+                        Assignment::Single(None),
+                    )))
                 } else {
                     None
                 }
@@ -272,53 +303,70 @@ impl Farm {
     }
 
     fn build_requests(&self) -> Vec<RoomEvent> {
-        self.room().find(find::CONSTRUCTION_SITES, None).iter()
+        self.room()
+            .find(find::CONSTRUCTION_SITES, None)
+            .iter()
             .filter(|cs| cs.my())
-            .map(|cs| RoomEvent::Request(Request::new(
-                RequestKind::Build(BuildData::new(cs.try_id(), cs.pos())),
-                Assignment::Single(None))))
+            .map(|cs| {
+                RoomEvent::Request(Request::new(
+                    RequestKind::Build(BuildData::new(cs.try_id(), cs.pos())),
+                    Assignment::Single(None),
+                ))
+            })
             .collect()
     }
 
     fn crash_request(&self) -> Option<RoomEvent> {
-        self.icore.as_ref()
-            .map(|ic| RoomEvent::Request(Request::new(
+        self.icore.as_ref().map(|ic| {
+            RoomEvent::Request(Request::new(
                 RequestKind::Crash(CrashData::new(ic.id(), ic.pos())),
-                Assignment::Single(None))))
+                Assignment::Single(None),
+            ))
+        })
     }
 
     fn reserve_room(&self, controller: &StructureController) -> Option<RoomEvent> {
-        controller.reservation()
-            .is_none_or(|reservation| reservation.ticks_to_end() < 1000)
-            .then(|| RoomEvent::Request(Request::new(
-                RequestKind::Book(BookData::new(controller.id(), controller.pos())),
-                Assignment::Single(None))))
+        controller.reservation().is_none_or(|reservation| reservation.ticks_to_end() < 1000).then(
+            || {
+                RoomEvent::Request(Request::new(
+                    RequestKind::Book(BookData::new(controller.id(), controller.pos())),
+                    Assignment::Single(None),
+                ))
+            },
+        )
     }
 
     fn defend_request(&self) -> Option<RoomEvent> {
         let time = game::time();
-    
+
         let parts = [Part::Attack, Part::RangedAttack, Part::Claim, Part::Carry, Part::Work];
-        let enemies: Vec<CreepHostile> = self.hostiles.iter()
-            .filter(|hostile| hostile.body().iter()
-                .map(|bodypart| bodypart.part())
-                .any(|part| parts.is_empty() || parts.contains(&part)))
+        let enemies: Vec<CreepHostile> = self
+            .hostiles
+            .iter()
+            .filter(|hostile| {
+                hostile
+                    .body()
+                    .iter()
+                    .map(|bodypart| bodypart.part())
+                    .any(|part| parts.is_empty() || parts.contains(&part))
+            })
             .filter(|creep| creep.owner().username() != SOURCE_KEEPER_USERNAME)
-            .map(|hostile| {
-                CreepHostile {
-                    name: hostile.name(),
-                    owner: hostile.owner().username(),
-                    ticks_to_live: hostile.ticks_to_live(),
-                    parts: hostile.body().iter()
-                        .map(|bodypart| BodyPart {
-                            boosted: bodypart.boost().is_some(),
-                            part: bodypart.part(),
-                            hits: bodypart.hits()
-                        })
-                        .collect()
-                }
-            }).collect();
-    
+            .map(|hostile| CreepHostile {
+                name: hostile.name(),
+                owner: hostile.owner().username(),
+                ticks_to_live: hostile.ticks_to_live(),
+                parts: hostile
+                    .body()
+                    .iter()
+                    .map(|bodypart| BodyPart {
+                        boosted: bodypart.boost().is_some(),
+                        part: bodypart.part(),
+                        hits: bodypart.hits(),
+                    })
+                    .collect(),
+            })
+            .collect();
+
         if !enemies.is_empty() {
             if time % 50 == 0 {
                 debug!("enemies {} in room: {}", enemies.len(), self.get_name());
@@ -333,7 +381,8 @@ fn get_central_room_name(sk_name: RoomName, f_num: u32, s_num: u32) -> Option<Ro
     let fr = f_num.div_floor(10) * 10 + 5;
     let sr = s_num.div_floor(10) * 10 + 5;
 
-    let central_room_str = sk_name.to_string()
+    let central_room_str = sk_name
+        .to_string()
         .replace(&f_num.to_string(), &fr.to_string())
         .replace(&s_num.to_string(), &sr.to_string());
 

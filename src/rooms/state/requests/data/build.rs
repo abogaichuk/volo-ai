@@ -1,7 +1,9 @@
-use serde::{Serialize, Deserialize};
-use screeps::{game, ObjectId, ConstructionSite, Position};
-use smallvec::{smallvec, SmallVec};
-use crate::rooms::{RoomEvent, state::requests::{Meta, Status, Assignment}};
+use screeps::{ConstructionSite, ObjectId, Position, game};
+use serde::{Deserialize, Serialize};
+use smallvec::{SmallVec, smallvec};
+
+use crate::rooms::RoomEvent;
+use crate::rooms::state::requests::{Assignment, Meta, Status};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BuildData {
@@ -17,7 +19,7 @@ impl BuildData {
 
 pub(in crate::rooms::state::requests) fn build_handler(
     meta: &mut Meta,
-    assignment: &mut Assignment
+    assignment: &mut Assignment,
 ) -> SmallVec<[RoomEvent; 3]> {
     match meta.status {
         Status::InProgress if game::time() % 100 == 0 && !assignment.has_alive_members() => {

@@ -1,13 +1,15 @@
-use thiserror::Error;
 use screeps::{Creep, Part, SOURCE_KEEPER_USERNAME};
-use crate::{commons::has_part, movement::MovementGoal};
-use self::{roles::Role, tasks::{Task, TaskResult}};
+use thiserror::Error;
 
-pub mod tasks;
-pub mod roles;
-pub mod power_creep;
+use self::roles::Role;
+use self::tasks::{Task, TaskResult};
+use crate::commons::has_part;
+use crate::movement::MovementGoal;
+
 pub mod creeps;
-
+pub mod power_creep;
+pub mod roles;
+pub mod tasks;
 
 #[derive(Error, Debug, Eq, PartialEq)]
 pub enum UnitError {
@@ -16,13 +18,12 @@ pub enum UnitError {
 }
 
 fn with_parts(enemies: Vec<Creep>, parts: Vec<Part>) -> Vec<Creep> {
-    enemies.into_iter()
-        .filter(|creep| has_part(&parts, creep, true))
-        .collect()
+    enemies.into_iter().filter(|creep| has_part(&parts, creep, true)).collect()
 }
 
 fn need_escape(enemies: &[Creep]) -> bool {
-    enemies.iter()
-        .any(|hostile| hostile.owner().username() != SOURCE_KEEPER_USERNAME &&
-            has_part(&[Part::RangedAttack, Part::Attack], hostile, true))
+    enemies.iter().any(|hostile| {
+        hostile.owner().username() != SOURCE_KEEPER_USERNAME
+            && has_part(&[Part::RangedAttack, Part::Attack], hostile, true)
+    })
 }

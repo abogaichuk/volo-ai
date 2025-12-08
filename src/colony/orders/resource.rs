@@ -1,7 +1,7 @@
 use std::hash::{Hash, Hasher};
 
+use screeps::{ResourceType, RoomName, game};
 use serde::{Deserialize, Serialize};
-use screeps::{game, ResourceType, RoomName};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub(crate) struct ResourceOrder {
@@ -28,12 +28,6 @@ impl Hash for ResourceOrder {
 
 impl ResourceOrder {
     pub(crate) fn new(from: RoomName, resource: ResourceType, amount: u32) -> Self {
-        Self {
-            from,
-            to: None,
-            resource,
-            amount,
-            timeout: game::time() + 1500,
-        }
+        Self { from, to: None, resource, amount, timeout: game::time() + 1500 }
     }
 }

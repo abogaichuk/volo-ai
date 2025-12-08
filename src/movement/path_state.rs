@@ -1,7 +1,11 @@
 use log::*;
-use serde::{Serialize, Deserialize};
-use screeps::{constants::Direction, local::Position, RoomName};
-use crate::{movement::{MovementGoal, FindRouteOptions}, utils::constants::*};
+use screeps::RoomName;
+use screeps::constants::Direction;
+use screeps::local::Position;
+use serde::{Deserialize, Serialize};
+
+use crate::movement::{FindRouteOptions, MovementGoal};
+use crate::utils::constants::*;
 
 // struct for tracking the current state of a moving creep
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -20,11 +24,10 @@ impl PathState {
     pub fn try_new(
         from: Position,
         goal: MovementGoal,
-        route_options: FindRouteOptions<impl FnMut(RoomName, RoomName) -> f64>) -> Option<Self>
-    {
+        route_options: FindRouteOptions<impl FnMut(RoomName, RoomName) -> f64>,
+    ) -> Option<Self> {
         if from.is_near_to(goal.pos) && goal.range == 0 {
-            let next_direction = from.get_direction_to(goal.pos)
-                .unwrap_or(Direction::Top);
+            let next_direction = from.get_direction_to(goal.pos).unwrap_or(Direction::Top);
             Some(PathState {
                 goal,
                 stuck_count: 0,
@@ -43,7 +46,7 @@ impl PathState {
                     goal.pos
                 );
             }
-            
+
             let mut cursor = from;
             let mut steps = Vec::with_capacity(search_result.path().len());
 
@@ -77,7 +80,6 @@ impl PathState {
                 path: steps,
                 path_progress: 0,
             })
-
         } else {
             debug!("can't find a path from: {}, goal: {:?}", from, goal);
             None
@@ -94,8 +96,11 @@ impl PathState {
 
     pub fn check_if_moved_and_update_pos(&mut self, current_position: Position) -> bool {
         // first we'll check if the creep actually moved as we intended last tick,
-        // incrementing the path_progress if so (and incrementing the stuck_count if not)
-        if current_position == (self.last_position + self.next_direction) || passed_edge(current_position, self.last_position) {
+        // incrementing the path_progress if so (and incrementing the stuck_count if
+        // not)
+        if current_position == (self.last_position + self.next_direction)
+            || passed_edge(current_position, self.last_position)
+        {
             // we've moved as intended (yay); let's update the last good position..
             self.last_position = current_position;
             // ..and bump the cursor for the next move..
@@ -109,9 +114,13 @@ impl PathState {
             false
         } else {
             // we're not in the right spot. If we're in a different position than we were
-            // last tick, something weird is going on (possibly stuck on an exit tile or portal) -
-            // we want to repath in this case, so send the stuck count way up to trigger repathing
-            debug!("weird position:{:?}, last_pos: {} stuck_count == MAX!", current_position, self.last_position);
+            // last tick, something weird is going on (possibly stuck on an exit tile or
+            // portal) - we want to repath in this case, so send the stuck count
+            // way up to trigger repathing
+            debug!(
+                "weird position:{:?}, last_pos: {} stuck_count == MAX!",
+                current_position, self.last_position
+            );
             true
             // self.stuck_count = u8::MAX;
         }
@@ -119,6 +128,7 @@ impl PathState {
 }
 
 fn passed_edge(current_position: Position, last_position: Position) -> bool {
-    // info!("current_position: {}, last_position: {}", current_position, last_position);
+    // info!("current_position: {}, last_position: {}", current_position,
+    // last_position);
     current_position.is_room_edge() && current_position.room_name() != last_position.room_name()
 }

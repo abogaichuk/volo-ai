@@ -1,6 +1,7 @@
-use serde::{Serialize, Deserialize};
-use screeps::{Position};
-use smallvec::{smallvec, SmallVec};
+use screeps::Position;
+use serde::{Deserialize, Serialize};
+use smallvec::{SmallVec, smallvec};
+
 use crate::rooms::RoomEvent;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

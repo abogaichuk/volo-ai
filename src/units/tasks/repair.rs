@@ -1,21 +1,32 @@
 use log::*;
+use screeps::action_error_codes::CreepRepairErrorCode;
 use screeps::{
-    Creep, HasPosition, ObjectId, Part, Position, ResourceType,
-    SharedCreepProperties, Structure, StructureObject,
-    action_error_codes::CreepRepairErrorCode
-};
-use crate::{
-    units::{Task, TaskResult, roles::Role, with_parts},
-    movement::walker::Walker,
-    utils::constants::LONG_RANGE_ACTION
+    Creep, HasPosition, ObjectId, Part, Position, ResourceType, SharedCreepProperties, Structure,
+    StructureObject,
 };
 
-pub fn repair(id: ObjectId<Structure>, pos: Position, times: u8, creep: &Creep, role: &Role, hostiles: Vec<Creep>) -> TaskResult {
+use crate::movement::walker::Walker;
+use crate::units::roles::Role;
+use crate::units::{Task, TaskResult, with_parts};
+use crate::utils::constants::LONG_RANGE_ACTION;
+
+pub fn repair(
+    id: ObjectId<Structure>,
+    pos: Position,
+    times: u8,
+    creep: &Creep,
+    role: &Role,
+    hostiles: Vec<Creep>,
+) -> TaskResult {
     //todo add flee
     let attackers = with_parts(hostiles, vec![Part::Attack, Part::RangedAttack]);
     if creep.store().get_used_capacity(Some(ResourceType::Energy)) == 0 {
         TaskResult::UpdateRequest(Task::Repair(id, pos, times))
-    } else if !creep.body().iter().any(|body_part| body_part.hits() > 0 && body_part.part() == Part::Work) {
+    } else if !creep
+        .body()
+        .iter()
+        .any(|body_part| body_part.hits() > 0 && body_part.part() == Part::Work)
+    {
         TaskResult::Abort
     } else if creep.pos().room_name() != pos.room_name() {
         TaskResult::RunAnother(Task::MoveMe(pos.room_name(), Walker::Reinforcing))
@@ -29,7 +40,9 @@ pub fn repair(id: ObjectId<Structure>, pos: Position, times: u8, creep: &Creep, 
         }
     } else if let Some(structure) = id.resolve().map(|str: Structure| StructureObject::from(str)) {
         if creep.pos().in_range_to(pos, LONG_RANGE_ACTION) {
-            if let Some(repairable) = structure.as_repairable() && repairable.hits() < repairable.hits_max() {
+            if let Some(repairable) = structure.as_repairable()
+                && repairable.hits() < repairable.hits_max()
+            {
                 let _ = creep.say("🛠︎", false);
                 match creep.repair(repairable) {
                     Ok(_) => {
@@ -37,18 +50,22 @@ pub fn repair(id: ObjectId<Structure>, pos: Position, times: u8, creep: &Creep, 
                         if times > 1 {
                             TaskResult::StillWorking(Task::Repair(id, pos, times - 1), None)
                         } else {
-                            TaskResult::ResolveRequest(Task::Repair(id, pos, times -1), false)
+                            TaskResult::ResolveRequest(Task::Repair(id, pos, times - 1), false)
                         }
                     }
-                    Err(err) => {
-                        match err {
-                            CreepRepairErrorCode::NotEnoughResources | CreepRepairErrorCode::NotInRange => TaskResult::Abort,
-                            _ => {
-                                error!("creep: {} can't repair: {}, error: {:?}", creep.name(), id, err);
-                                TaskResult::ResolveRequest(Task::Repair(id, pos, times), false)
-                            }
+                    Err(err) => match err {
+                        CreepRepairErrorCode::NotEnoughResources
+                        | CreepRepairErrorCode::NotInRange => TaskResult::Abort,
+                        _ => {
+                            error!(
+                                "creep: {} can't repair: {}, error: {:?}",
+                                creep.name(),
+                                id,
+                                err
+                            );
+                            TaskResult::ResolveRequest(Task::Repair(id, pos, times), false)
                         }
-                    }
+                    },
                 }
             } else {
                 warn!("{} not repairable structure: {}", creep.name(), id);
@@ -56,7 +73,7 @@ pub fn repair(id: ObjectId<Structure>, pos: Position, times: u8, creep: &Creep, 
             }
         } else {
             let goal = Walker::Reinforcing.walk(pos, LONG_RANGE_ACTION, creep, role, attackers);
-             TaskResult::StillWorking(Task::Repair(id, pos, times), Some(goal))
+            TaskResult::StillWorking(Task::Repair(id, pos, times), Some(goal))
         }
     } else {
         warn!("{} repair error, no structure found! {}", creep.name(), id);

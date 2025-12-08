@@ -1,10 +1,14 @@
-use log::*;
-use serde::{Serialize, Deserialize};
-use js_sys::JsString;
-use screeps::{game, ResourceType, RoomName, HasId};
-use smallvec::SmallVec;
 use std::str::FromStr;
-use crate::rooms::{RoomEvent, shelter::Shelter, state::requests::{Meta, Status}};
+
+use js_sys::JsString;
+use log::*;
+use screeps::{HasId, ResourceType, RoomName, game};
+use serde::{Deserialize, Serialize};
+use smallvec::SmallVec;
+
+use crate::rooms::RoomEvent;
+use crate::rooms::shelter::Shelter;
+use crate::rooms::state::requests::{Meta, Status};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct TransferData {
@@ -16,7 +20,12 @@ pub struct TransferData {
 }
 
 impl TransferData {
-    pub fn new(resource: ResourceType, amount: u32, destination: RoomName, description: Option<String>) -> Self {
+    pub fn new(
+        resource: ResourceType,
+        amount: u32,
+        destination: RoomName,
+        description: Option<String>,
+    ) -> Self {
         Self { resource, amount, destination, description }
     }
 }
@@ -24,7 +33,7 @@ impl TransferData {
 pub(in crate::rooms::state::requests) fn transfer_handler(
     data: &TransferData,
     meta: &mut Meta,
-    home: &Shelter
+    home: &Shelter,
 ) -> SmallVec<[RoomEvent; 3]> {
     let mut events: SmallVec<[RoomEvent; 3]> = SmallVec::new();
 
@@ -36,8 +45,10 @@ pub(in crate::rooms::state::requests) fn transfer_handler(
         Status::InProgress => {
             let transaction_cost = game::market::calc_transaction_cost(
                 data.amount,
-                &JsString::from_str(home.name().to_string().as_str()).expect("couldn't resolve room_name"),
-                &JsString::from_str(data.destination.to_string().as_str()).expect("couldn't resolve room_name")
+                &JsString::from_str(home.name().to_string().as_str())
+                    .expect("couldn't resolve room_name"),
+                &JsString::from_str(data.destination.to_string().as_str())
+                    .expect("couldn't resolve room_name"),
             );
 
             //if transfer energy -> min energy capacity = self.amount + transaction_cost
@@ -59,10 +70,8 @@ pub(in crate::rooms::state::requests) fn transfer_handler(
                     } else {
                         warn!("{} terminal is full! request: {:?}", home.name(), data)
                     }
-                } else if let Some(load_event) = home.supply_resources(
-                    terminal.raw_id(),
-                    ResourceType::Energy,
-                    lack)
+                } else if let Some(load_event) =
+                    home.supply_resources(terminal.raw_id(), ResourceType::Energy, lack)
                 {
                     meta.update(Status::OnHold);
                     events.push(load_event);
@@ -78,10 +87,8 @@ pub(in crate::rooms::state::requests) fn transfer_handler(
                     } else {
                         warn!("{} terminal is full! request: {:?}", home.name(), data)
                     }
-                } else if let Some(load_event) = home.supply_resources(
-                    terminal.raw_id(),
-                    data.resource,
-                    lack)
+                } else if let Some(load_event) =
+                    home.supply_resources(terminal.raw_id(), data.resource, lack)
                 {
                     meta.update(Status::OnHold);
                     events.push(load_event);
@@ -90,9 +97,20 @@ pub(in crate::rooms::state::requests) fn transfer_handler(
                     warn!("{} not enough resource for request: {:?}", home.name(), data)
                 }
             } else if terminal.cooldown() == 0 {
-                match terminal.send(data.resource, data.amount, data.destination, data.description.as_deref()) {
-                    Ok(_) => info!("room: {}, send {}: {} to {} successfully!", home.name(), data.amount, data.resource, data.destination),
-                    Err(err) => error!("transfer error: {:?}", err)
+                match terminal.send(
+                    data.resource,
+                    data.amount,
+                    data.destination,
+                    data.description.as_deref(),
+                ) {
+                    Ok(_) => info!(
+                        "room: {}, send {}: {} to {} successfully!",
+                        home.name(),
+                        data.amount,
+                        data.resource,
+                        data.destination
+                    ),
+                    Err(err) => error!("transfer error: {:?}", err),
                 };
                 meta.update(Status::Resolved);
             }

@@ -1,46 +1,63 @@
-use log::*;
 use std::collections::{HashMap, HashSet};
+
 use itertools::Itertools;
+use log::*;
+use screeps::game::market::Order;
+use screeps::game::{self};
 use screeps::{
-    Creep, Effect, EffectType, HasHits, HasId, HasPosition, HasStore, Mineral, ObjectId,
-    OrderType, Part, Position, PowerType, RawObjectId, ResourceType, Room, RoomName,
-    RoomObjectProperties, Source, StructureController, StructureFactory, StructureLab,
-    StructureLink, StructurePowerSpawn, StructureRampart, StructureSpawn,
-    StructureStorage, StructureTerminal, StructureTower, game::{self, market::Order}
+    Creep, Effect, EffectType, HasHits, HasId, HasPosition, HasStore, Mineral, ObjectId, OrderType,
+    Part, Position, PowerType, RawObjectId, ResourceType, Room, RoomName, RoomObjectProperties,
+    Source, StructureController, StructureFactory, StructureLab, StructureLink,
+    StructurePowerSpawn, StructureRampart, StructureSpawn, StructureStorage, StructureTerminal,
+    StructureTower,
 };
-use crate::{
-    colony::ColonyEvent, commons::find_roles, rooms::{
-        RoomEvent, state::{RoomState, TradeData,
-            requests::{CreepHostile, DefendData, Request, RequestKind, assignment::Assignment}
-        },
-        wrappers::{Fillable, claimed::Claimed, farm::Farm}
-    }, statistics::RoomStats, units::{creeps::CreepMemory, roles::Role}
-};
+
+use crate::colony::ColonyEvent;
+use crate::commons::find_roles;
+use crate::rooms::RoomEvent;
+use crate::rooms::state::requests::assignment::Assignment;
+use crate::rooms::state::requests::{CreepHostile, DefendData, Request, RequestKind};
+use crate::rooms::state::{RoomState, TradeData};
+use crate::rooms::wrappers::Fillable;
+use crate::rooms::wrappers::claimed::Claimed;
+use crate::rooms::wrappers::farm::Farm;
+use crate::statistics::RoomStats;
+use crate::units::creeps::CreepMemory;
+use crate::units::roles::Role;
 
 pub struct Shelter<'s> {
     pub(crate) base: Claimed,
     pub(crate) state: &'s mut RoomState,
-    pub(crate) white_list: &'s HashSet<String>
+    pub(crate) white_list: &'s HashSet<String>,
 }
 
-impl <'s> Shelter<'s> {
+impl<'s> Shelter<'s> {
     pub(crate) fn new(
         base_room: Room,
         farms: Vec<Farm>,
         state: &'s mut RoomState,
-        white_list: &'s HashSet<String>
+        white_list: &'s HashSet<String>,
     ) -> Self {
         Shelter { base: Claimed::new(base_room, farms, state), state, white_list }
     }
 
-    pub fn run_shelter(&mut self, creeps: &mut HashMap<String, CreepMemory>, orders: &[Order]) -> Vec<ColonyEvent> {
+    pub fn run_shelter(
+        &mut self,
+        creeps: &mut HashMap<String, CreepMemory>,
+        orders: &[Order],
+    ) -> Vec<ColonyEvent> {
         //     //todo proportial perimetr security check
-        //     //todo room_memory for requests excess, only room_memory spawns in use for dismantle or combats and room_memory.boost for factory
-        //     //todo Request as updateable?
-        //     //find better abstraction for request handler, sequential\parallel or implement task runner for factory, terminal and labs
+        //     //todo room_memory for requests excess, only room_memory spawns in use
+        // for dismantle or combats and room_memory.boost for factory     //todo
+        // Request as updateable?     //find better abstraction for request
+        // handler, sequential\parallel or implement task runner for factory, terminal
+        // and labs
 
         let mut events = Vec::new();
-        for mut request in self.state.requests.drain()
+        for mut request in self
+            .state
+            .requests
+            .drain()
             .filter(|req| !req.meta.is_finished())
             .chain(self.base.run_ramparts())
             .chain(self.base.run_power())
@@ -63,19 +80,22 @@ impl <'s> Shelter<'s> {
         // lab, terminal and factory toogle request status to InProgress only
         // because only one request can be correctly handled at one tick
         events.extend(
-            self.base.run_labs(self.state).into_iter()
-            .chain(self.base.run_factory(self.state))
-            .chain(self.base.run_terminal(self.state, orders))
-            .chain(self.base.security_check(self.state, creeps))
-            .chain(self.base.run_spawns(self.state))
-            .chain(self.base.time_based_events(self.state, creeps))
-            .chain(self.base.farms.iter()
-            .flat_map(|farm| {
-                self.state.farms.get(&farm.get_name())
-                    .map(|info| farm.run_farm(info))
-                    .unwrap_or_default()
-                    .into_iter()
-            }))
+            self.base
+                .run_labs(self.state)
+                .into_iter()
+                .chain(self.base.run_factory(self.state))
+                .chain(self.base.run_terminal(self.state, orders))
+                .chain(self.base.security_check(self.state, creeps))
+                .chain(self.base.run_spawns(self.state))
+                .chain(self.base.time_based_events(self.state, creeps))
+                .chain(self.base.farms.iter().flat_map(|farm| {
+                    self.state
+                        .farms
+                        .get(&farm.get_name())
+                        .map(|info| farm.run_farm(info))
+                        .unwrap_or_default()
+                        .into_iter()
+                })),
         );
 
         let mut colony_events = Vec::new();
@@ -83,18 +103,20 @@ impl <'s> Shelter<'s> {
             match event {
                 RoomEvent::Request(request) => {
                     self.add_request(request);
-                },
+                }
                 RoomEvent::Defend(farm_name, hostiles) => {
-                    let hostiles: Vec<CreepHostile> = hostiles.into_iter()
+                    let hostiles: Vec<CreepHostile> = hostiles
+                        .into_iter()
                         .filter(|ch| !self.white_list.contains(&ch.name))
                         .collect();
                     self.add_request(Request::new(
                         RequestKind::Defend(DefendData::with_hostiles(farm_name, hostiles)),
-                        Assignment::Multi(HashSet::new())));
-                },
+                        Assignment::Multi(HashSet::new()),
+                    ));
+                }
                 RoomEvent::ReplaceRequest(request) => {
                     self.replace_request(request);
-                },
+                }
                 RoomEvent::Spawned(name, role, index) => {
                     self.state.spawns.remove(index);
                     creeps.insert(name, CreepMemory::new(role));
@@ -110,12 +132,11 @@ impl <'s> Shelter<'s> {
                     }
                 }
                 RoomEvent::CancelRespawn(role) => {
-                    creeps.iter_mut()
-                        .for_each(|creep| {
-                            if creep.1.role == role {
-                                creep.1.respawned = true;
-                            }
-                        });
+                    creeps.iter_mut().for_each(|creep| {
+                        if creep.1.role == role {
+                            creep.1.respawned = true;
+                        }
+                    });
                 }
                 RoomEvent::AddPower(power) => {
                     self.state.powers.insert(power);
@@ -138,49 +159,63 @@ impl <'s> Shelter<'s> {
                 }
                 RoomEvent::Avoid(room_name, timeout) => {
                     colony_events.push(ColonyEvent::AvoidRoom(room_name, timeout));
-                },
+                }
                 RoomEvent::StopFarm(room_name, with_room) => {
                     self.state.finish_farm(room_name, with_room);
-                },
+                }
                 RoomEvent::StartFarm(room_name, with_room) => {
                     self.state.begin_farm(room_name, with_room);
-                },
+                }
                 RoomEvent::Lack(res, amount) => {
                     colony_events.push(ColonyEvent::Lack(self.name(), res, amount));
-                },
+                }
                 RoomEvent::Excess(res, amount) => {
                     colony_events.push(ColonyEvent::Excess(self.name(), res, amount));
-                },
+                }
                 RoomEvent::Sell(order_id, resource, amount) => {
-                    if let Some(mut trade) = self.state.trades.take(&TradeData::new(OrderType::Sell, resource)) {
+                    if let Some(mut trade) =
+                        self.state.trades.take(&TradeData::new(OrderType::Sell, resource))
+                    {
                         match game::market::deal(&order_id, amount, Some(self.name())) {
                             Ok(_) => {
                                 trade.amount -= amount;
                                 self.state.trades.insert(trade);
                                 info!("{} sell: {}", self.name(), resource);
-                            },
+                            }
                             Err(err) => {
                                 error!("sell trade error: {:?}", err);
                             }
                         }
                     } else {
-                        error!("{} not found trade {:?} resource {}", self.name(), OrderType::Sell, resource);
+                        error!(
+                            "{} not found trade {:?} resource {}",
+                            self.name(),
+                            OrderType::Sell,
+                            resource
+                        );
                     }
-                },
+                }
                 RoomEvent::Buy(order_id, resource, amount) => {
-                    if let Some(mut trade) = self.state.trades.take(&TradeData::new(OrderType::Buy, resource)) {
+                    if let Some(mut trade) =
+                        self.state.trades.take(&TradeData::new(OrderType::Buy, resource))
+                    {
                         match game::market::deal(&order_id, amount, Some(self.name())) {
                             Ok(_) => {
                                 trade.amount -= amount;
                                 self.state.trades.insert(trade);
                                 info!("{} buy: {}", self.name(), resource);
-                            },
+                            }
                             Err(err) => {
                                 error!("buy trade error: {:?}", err);
                             }
                         }
                     } else {
-                        error!("{} not found trade {:?} resource {}", self.name(), OrderType::Sell, resource);
+                        error!(
+                            "{} not found trade {:?} resource {}",
+                            self.name(),
+                            OrderType::Sell,
+                            resource
+                        );
                     }
                 }
                 RoomEvent::Intrusion(message) => {
@@ -194,7 +229,11 @@ impl <'s> Shelter<'s> {
                 }
                 RoomEvent::NukeFalling => {
                     let land_time = self.base.nukes.iter().map(|nuke| nuke.time_to_land()).min();
-                    let message = format!("Nuke is launched to room {}, splash in: {:?}", self.name(), land_time);
+                    let message = format!(
+                        "Nuke is launched to room {}, splash in: {:?}",
+                        self.name(),
+                        land_time
+                    );
                     colony_events.push(ColonyEvent::Notify(message, Some(30)));
                 }
                 RoomEvent::AddPlans(plans) => {
@@ -225,21 +264,23 @@ impl <'s> Shelter<'s> {
                     colony_events.push(ColonyEvent::Notify(message, Some(30)));
                 }
                 RoomEvent::UpdateStatistic => {
-                    let creeps_number = creeps.iter()
-                        .filter(|(_, memory)| memory.role.get_home()
-                            .is_some_and(|home| *home == self.name()))
+                    let creeps_number = creeps
+                        .iter()
+                        .filter(|(_, memory)| {
+                            memory.role.get_home().is_some_and(|home| *home == self.name())
+                        })
                         .count();
                     let requests = self.state.requests.len();
                     let last_intrusion = self.state.last_intrusion;
 
                     colony_events.push(ColonyEvent::Stats(
                         self.name(),
-                        RoomStats::new(&self.base, requests, last_intrusion, creeps_number)));
-                }
-                // RoomEvent::Sos => {
-                //     warn!("room event sos is not implemented yet!");
-                //     //todo colony help me
-                // }
+                        RoomStats::new(&self.base, requests, last_intrusion, creeps_number),
+                    ));
+                } /* RoomEvent::Sos => {
+                   *     warn!("room event sos is not implemented yet!");
+                   *     //todo colony help me
+                   * } */
             };
         }
         colony_events
@@ -278,18 +319,20 @@ impl <'s> Shelter<'s> {
     }
 
     pub fn lowest_perimetr_hits(&self) -> Option<&StructureRampart> {
-        self.base.ramparts.perimeter()
-            .sorted_by_key(|r| r.hits())
-            .next()
+        self.base.ramparts.perimeter().sorted_by_key(|r| r.hits()).next()
     }
 
     pub fn empty_sender(&self) -> Option<&StructureLink> {
-        self.base.links.sender()
+        self.base
+            .links
+            .sender()
             .filter(|link| link.store().get_free_capacity(Some(ResourceType::Energy)) > 0)
     }
 
     pub fn full_receiver(&self) -> Option<&StructureLink> {
-        self.base.links.receiver()
+        self.base
+            .links
+            .receiver()
             .filter(|link| link.store().get_used_capacity(Some(ResourceType::Energy)) > 0)
     }
 
@@ -332,7 +375,9 @@ impl <'s> Shelter<'s> {
     }
 
     pub fn pc_workplace(&self) -> Option<Position> {
-        self.state.plan.as_ref()
+        self.state
+            .plan
+            .as_ref()
             .and_then(|plan| plan.pc_workplace())
             .map(|xy| Position::new(xy.x, xy.y, self.name()))
     }
@@ -354,8 +399,7 @@ impl <'s> Shelter<'s> {
     }
 
     pub fn lab_for_boost(&self, resources: &[ResourceType; 2]) -> Option<ObjectId<StructureLab>> {
-        resources.iter()
-            .find_map(|res| self.base.labs.boost_lab(res))
+        resources.iter().find_map(|res| self.base.labs.boost_lab(res))
     }
 
     pub fn mineral(&self) -> &Mineral {
@@ -371,111 +415,111 @@ impl <'s> Shelter<'s> {
     }
 
     pub fn find_source_near(&self, pos: &Position) -> Option<ObjectId<Source>> {
-        self.base.sources.iter()
+        self.base
+            .sources
+            .iter()
             .chain(self.base.farms.iter().flat_map(|farm| farm.sources.iter()))
-            .find_map(|source| {
-                if pos.is_near_to(source.pos()) {
-                    Some(source.id())
-                } else {
-                    None
-                }
-            })
+            .find_map(|source| if pos.is_near_to(source.pos()) { Some(source.id()) } else { None })
     }
 
-    pub fn find_container_in_range(&self, pos: Position, range: u32) -> Option<(RawObjectId, Position)> {
+    pub fn find_container_in_range(
+        &self,
+        pos: Position,
+        range: u32,
+    ) -> Option<(RawObjectId, Position)> {
         //todo 1 trait for containers and links?
-        self.base.links.ctrl()
-            .map(|link| (link.raw_id(), link.pos()))
-            .or_else(|| self.base.containers.iter()
-                .find_map(|c| {
-                    if pos.get_range_to(c.pos()) <= range {
-                        Some((c.raw_id(), c.pos()))
-                    } else {
-                        None
-                    }
-                }))
+        self.base.links.ctrl().map(|link| (link.raw_id(), link.pos())).or_else(|| {
+            self.base.containers.iter().find_map(|c| {
+                if pos.get_range_to(c.pos()) <= range { Some((c.raw_id(), c.pos())) } else { None }
+            })
+        })
     }
-    
-    pub fn get_available_boost(&self, creep: &Creep, all_boosts: HashMap<Part, [ResourceType; 2]>)
-        -> Option<(ObjectId<StructureLab>, Part)>
-    {
-        creep.body().iter()
+
+    pub fn get_available_boost(
+        &self,
+        creep: &Creep,
+        all_boosts: HashMap<Part, [ResourceType; 2]>,
+    ) -> Option<(ObjectId<StructureLab>, Part)> {
+        creep
+            .body()
+            .iter()
             .filter(|bodypart| bodypart.boost().is_none())
             .map(|bodypart| bodypart.part())
             .unique()
             .flat_map(|part| all_boosts.get(&part).map(|resoucres| (part, resoucres)))
-            .find_map(|resources_for_part| self.lab_for_boost(resources_for_part.1)
-                .map(|id| (id, resources_for_part.0)))
+            .find_map(|resources_for_part| {
+                self.lab_for_boost(resources_for_part.1).map(|id| (id, resources_for_part.0))
+            })
     }
 
     pub fn unload<T>(&self, obj: &T, allowed: &[ResourceType]) -> Option<RoomEvent>
-        where T: HasStore + HasId
+    where
+        T: HasStore + HasId,
     {
         self.base.unload(obj, allowed)
     }
 
-    pub fn supply_resources(&self, to: RawObjectId, resource: ResourceType, amount: u32) -> Option<RoomEvent> {
+    pub fn supply_resources(
+        &self,
+        to: RawObjectId,
+        resource: ResourceType,
+        amount: u32,
+    ) -> Option<RoomEvent> {
         self.base.supply_resources(to, resource, amount)
     }
 
     pub fn tower_without_effect(&self) -> Option<&StructureTower> {
-        self.base.towers.iter()
-            .find(|tower| !tower.effects().into_iter()
-                .any(|effect:Effect| {
-                    match effect.effect() {
-                        EffectType::PowerEffect(p) => matches!(p, PowerType::OperateTower),
-                        _ => false
-                    }
-                }))
+        self.base.towers.iter().find(|tower| {
+            !tower.effects().into_iter().any(|effect: Effect| match effect.effect() {
+                EffectType::PowerEffect(p) => matches!(p, PowerType::OperateTower),
+                _ => false,
+            })
+        })
     }
 
     pub fn spawn_without_effect(&self) -> Option<&StructureSpawn> {
-        self.base.spawns.iter()
-            .find(|spawn| !spawn.effects().into_iter()
-                .any(|effect:Effect| {
-                    match effect.effect() {
-                        EffectType::PowerEffect(p) => matches!(p, PowerType::OperateSpawn),
-                        _ => false
-                    }
-                }))
+        self.base.spawns.iter().find(|spawn| {
+            !spawn.effects().into_iter().any(|effect: Effect| match effect.effect() {
+                EffectType::PowerEffect(p) => matches!(p, PowerType::OperateSpawn),
+                _ => false,
+            })
+        })
     }
 
     pub fn factory_without_effect(&self) -> Option<&StructureFactory> {
-        self.base.factory.as_ref()
-            .filter(|factory| !factory.effects().into_iter()
-                .any(|effect:Effect| {
-                    match effect.effect() {
-                        EffectType::PowerEffect(p) => matches!(p, PowerType::OperateFactory),
-                        _ => false
-                    }
-                }))
+        self.base.factory.as_ref().filter(|factory| {
+            !factory.effects().into_iter().any(|effect: Effect| match effect.effect() {
+                EffectType::PowerEffect(p) => matches!(p, PowerType::OperateFactory),
+                _ => false,
+            })
+        })
     }
 
     pub fn full_storage_without_effect(&self) -> Option<&StructureStorage> {
-        self.base.storage().filter(|storage| storage.effects().is_empty() && storage.store().get_used_capacity(None) > 990000)
+        self.base.storage().filter(|storage| {
+            storage.effects().is_empty() && storage.store().get_used_capacity(None) > 990000
+        })
     }
 
     pub fn mineral_without_effect(&self) -> bool {
-        self.base.mineral.ticks_to_regeneration().is_none() && !self.base.mineral.effects().into_iter()
-            .any(|effect:Effect| {
+        self.base.mineral.ticks_to_regeneration().is_none()
+            && !self.base.mineral.effects().into_iter().any(|effect: Effect| {
                 match effect.effect() {
                     EffectType::PowerEffect(p) => matches!(p, PowerType::RegenMineral),
-                    _ => false
+                    _ => false,
                 }
             })
     }
 
     pub fn source_without_effect(&self) -> Option<&Source> {
         //todo check remote rooms sources for powers without hardcoded ids
-        self.base.sources.iter()
-            .find(|source| !source.effects().into_iter()
-                .any(|effect:Effect| {
-                    match effect.effect() {
-                        EffectType::PowerEffect(p) => {
-                            matches!(p, PowerType::RegenSource if { effect.ticks_remaining() > 30 })
-                        },
-                        _ => false
-                    }
-                }))
+        self.base.sources.iter().find(|source| {
+            !source.effects().into_iter().any(|effect: Effect| match effect.effect() {
+                EffectType::PowerEffect(p) => {
+                    matches!(p, PowerType::RegenSource if { effect.ticks_remaining() > 30 })
+                }
+                _ => false,
+            })
+        })
     }
 }

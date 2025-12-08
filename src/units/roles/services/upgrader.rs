@@ -1,22 +1,22 @@
-use serde::{Serialize, Deserialize};
-use screeps::{Creep, HasId, HasPosition, Part, ResourceType, RoomName, game};
-use std::{fmt, collections::HashMap, iter};
+use std::collections::HashMap;
+use std::{fmt, iter};
+
 use arrayvec::ArrayVec;
-use crate::{movement::MovementProfile,rooms::shelter::Shelter};
+use screeps::{Creep, HasId, HasPosition, Part, ResourceType, RoomName, game};
+use serde::{Deserialize, Serialize};
+
 use super::{Kind, Task, can_scale, default_parts_priority};
+use crate::movement::MovementProfile;
+use crate::rooms::shelter::Shelter;
 
 #[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Upgrader {
-    pub(crate) home: Option<RoomName>
+    pub(crate) home: Option<RoomName>,
 }
 
 impl fmt::Debug for Upgrader {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if let Some(home) = self.home {
-            write!(f, "home: {}", home)
-        } else {
-            write!(f, "")
-        }
+        if let Some(home) = self.home { write!(f, "home: {}", home) } else { write!(f, "") }
     }
 }
 
@@ -27,7 +27,6 @@ impl Upgrader {
 }
 
 impl Kind for Upgrader {
-
     fn body(&self, room_energy: u32) -> ArrayVec<[Part; 50]> {
         let scale_parts = [Part::Work, Part::Work, Part::Work, Part::Work, Part::Work, Part::Move];
         let mut body = iter::once(Part::Carry).collect::<ArrayVec<[Part; 50]>>();
@@ -44,11 +43,9 @@ impl Kind for Upgrader {
     fn get_movement_profile(&self, _: &Creep) -> MovementProfile {
         MovementProfile::RoadsOneToTwo
     }
-    
+
     fn respawn_timeout(&self, creep: Option<&Creep>) -> Option<u32> {
-        creep
-            .map(|c| c.body().len() as u32 * 3)
-            .or(Some(0))
+        creep.map(|c| c.body().len() as u32 * 3).or(Some(0))
     }
 
     fn boosts(&self, creep: &Creep) -> HashMap<Part, [ResourceType; 2]> {
@@ -62,18 +59,18 @@ impl Kind for Upgrader {
     fn get_task(&self, creep: &Creep, home: &mut Shelter) -> Task {
         home.get_available_boost(creep, self.boosts(creep))
             .map(|(id, body_part)| {
-                let parts_number = creep.body().iter()
-                    .filter(|bp| bp.part() == body_part).count();
+                let parts_number = creep.body().iter().filter(|bp| bp.part() == body_part).count();
                 Task::Boost(id, Some(parts_number as u32))
             })
-            .or_else(|| home.find_container_in_range(home.controller().pos(), 2)
-                .map(|(id, pos)| {
+            .or_else(|| {
+                home.find_container_in_range(home.controller().pos(), 2).map(|(id, pos)| {
                     if creep.store().get_used_capacity(Some(ResourceType::Energy)) > 0 {
                         Task::Upgrade(home.controller().id(), Some(id))
                     } else {
                         Task::TakeFromStructure(pos, id, ResourceType::Energy, None)
                     }
-                }))
+                })
+            })
             .unwrap_or_default()
     }
 }

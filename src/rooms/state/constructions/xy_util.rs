@@ -1,5 +1,6 @@
-use screeps::{RoomXY, Direction};
 use std::cmp::min;
+
+use screeps::{Direction, RoomXY};
 
 use super::OuterRectangle;
 
@@ -13,7 +14,8 @@ pub fn diagonal_neighbors(xy: &RoomXY) -> impl Iterator<Item = RoomXY> {
         xy.saturating_add((1, -1)),
         xy.saturating_add((-1, 1)),
         xy.saturating_add((-1, -1)),
-    ].into_iter()
+    ]
+    .into_iter()
 }
 
 #[inline]
@@ -28,9 +30,8 @@ pub fn to_index(xy: RoomXY) -> usize {
 }
 
 fn iter_xy() -> impl Iterator<Item = RoomXY> {
-    (0..ROOM_AREA).map(|i| unsafe {
-        RoomXY::unchecked_new((i % ROOM_SIZE) as u8, (i / ROOM_SIZE) as u8)
-    })
+    (0..ROOM_AREA)
+        .map(|i| unsafe { RoomXY::unchecked_new((i % ROOM_SIZE) as u8, (i / ROOM_SIZE) as u8) })
 }
 
 #[inline]
@@ -52,7 +53,8 @@ pub fn square_sides(xy: &RoomXY, multiplier: i8) -> impl Iterator<Item = RoomXY>
         xy.saturating_add((multiplier, -multiplier)),
         xy.saturating_add((-multiplier, multiplier)),
         xy.saturating_add((-multiplier, -multiplier)),
-    ].into_iter()
+    ]
+    .into_iter()
 }
 
 #[inline]

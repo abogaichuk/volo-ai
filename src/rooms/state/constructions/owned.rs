@@ -1,46 +1,42 @@
+use std::cmp::Ordering;
+use std::collections::{HashMap, HashSet};
+
 use itertools::Itertools;
-use screeps::{Direction, HasPosition, Position, RoomXY, RoomPosition, Step};
-use std::{collections::{HashMap, HashSet}, cmp::Ordering};
-use crate::{
-    movement::{callback::closest_in_room_range, find_path_in_room},
-    rooms::wrappers::claimed::Claimed,
-};
+use screeps::{Direction, HasPosition, Position, RoomPosition, RoomXY, Step};
 
-use self::{
-    polygon::{smallest_perimeter, walk_border},
-    central::{central_square},
-    spawns::spawn_space,
-    roads::{RoadNet, best_net, Dash, Variable, Turn}
-};
+use self::central::central_square;
+use self::polygon::{smallest_perimeter, walk_border};
+use self::roads::{Dash, RoadNet, Turn, Variable, best_net};
+use self::spawns::spawn_space;
+use super::xy_util::{outside_rect, square_sides};
 use super::{
-    RoomPlan, RoomPlannerError, RoomPart, OuterRectangle, Walls, is_wall,
-    build_wall_bitmap, xy_util::{outside_rect, square_sides}
+    OuterRectangle, RoomPart, RoomPlan, RoomPlannerError, Walls, build_wall_bitmap, is_wall,
 };
+use crate::movement::callback::closest_in_room_range;
+use crate::movement::find_path_in_room;
+use crate::rooms::wrappers::claimed::Claimed;
 
-mod roads;
-mod polygon;
 mod central;
+mod controller;
+mod extensions;
+mod mineral;
+mod observer;
+mod polygon;
+mod ramparts;
+mod roads;
+mod sources;
 mod spawns;
 mod towers;
-mod sources;
-mod extensions;
-mod observer;
-mod controller;
-mod mineral;
-mod ramparts;
 
 type Route = (RoomXY, Vec<Step>);
 
 impl Claimed {
     pub fn generate_plan(&self) -> Result<RoomPlan, RoomPlannerError> {
-        let sources: Vec<RoomXY> = self.sources.iter()
-            .map(|source| source.pos().xy())
-            .collect();
+        let sources: Vec<RoomXY> = self.sources.iter().map(|source| source.pos().xy()).collect();
 
         let ctrl = self.controller.pos().xy();
-        
-        let initial_spawn = self.spawns.first()
-            .map(|spawn| spawn.pos().xy());
+
+        let initial_spawn = self.spawns.first().map(|spawn| spawn.pos().xy());
 
         let mineral = self.mineral.pos().xy();
 
@@ -60,7 +56,8 @@ impl Claimed {
         let spawns = spawn_space(&central, initial_spawn, &squares, &walls)?;
 
         let mut plan = RoomPlan::new(central.plan()?);
-        let storage = plan.storage()
+        let storage = plan
+            .storage()
             .map(|xy| Position::new(xy.x, xy.y, self.get_name()))
             .ok_or(RoomPlannerError::StorageNotFound)?;
 
@@ -82,40 +79,46 @@ impl Claimed {
 
     //     let storage = self.storage().expect("expect storage");
 
-    //     cells.insert(PlannedCell::new(storage.pos().xy(), RoomStructure::Storage, 4, None));
-    //     cells.extend(self.power_spawn.as_ref()
-    //         .map(|p| PlannedCell::new(p.pos().xy(), RoomStructure::PowerSpawn, 8, None)));
-    //     cells.extend(self.observer.as_ref()
-    //         .map(|p| PlannedCell::new(p.pos().xy(), RoomStructure::Observer, 8, None)));
-    //     cells.extend(self.factory.as_ref()
-    //         .map(|p| PlannedCell::new(p.pos().xy(), RoomStructure::Factory, 7, None)));
-    //     cells.extend(self.terminal.as_ref()
-    //         .map(|p| PlannedCell::new(p.pos().xy(), RoomStructure::Terminal, 6, None)));
-    //     cells.extend(self.nuker.as_ref()
-    //         .map(|p| PlannedCell::new(p.pos().xy(), RoomStructure::Nuker, 8, None)));
-    //     cells.insert(PlannedCell::new(self.mineral.pos().xy(), RoomStructure::Extractor, 6, None));
-    //     cells.extend(self.ramparts.iter()
-    //         .map(|r| PlannedCell::new(r.pos().xy(), RoomStructure::Rampart(true), 5, None)));
-    //     cells.extend(self.spawns.iter()
-    //         .map(|r| PlannedCell::new(r.pos().xy(), RoomStructure::Spawn, 8, None)));
-    //     cells.extend(self.extensions.iter()
-    //         .map(|r| PlannedCell::new(r.pos().xy(), RoomStructure::Extension, 8, None)));
-    //     cells.extend(self.containers.iter()
-    //         .map(|r| PlannedCell::new(r.pos().xy(), RoomStructure::Container(RoomPart::Red), 8, None)));
+    //     cells.insert(PlannedCell::new(storage.pos().xy(), RoomStructure::Storage,
+    // 4, None));     cells.extend(self.power_spawn.as_ref()
+    //         .map(|p| PlannedCell::new(p.pos().xy(), RoomStructure::PowerSpawn, 8,
+    // None)));     cells.extend(self.observer.as_ref()
+    //         .map(|p| PlannedCell::new(p.pos().xy(), RoomStructure::Observer, 8,
+    // None)));     cells.extend(self.factory.as_ref()
+    //         .map(|p| PlannedCell::new(p.pos().xy(), RoomStructure::Factory, 7,
+    // None)));     cells.extend(self.terminal.as_ref()
+    //         .map(|p| PlannedCell::new(p.pos().xy(), RoomStructure::Terminal, 6,
+    // None)));     cells.extend(self.nuker.as_ref()
+    //         .map(|p| PlannedCell::new(p.pos().xy(), RoomStructure::Nuker, 8,
+    // None)));     cells.insert(PlannedCell::new(self.mineral.pos().xy(),
+    // RoomStructure::Extractor, 6, None));     cells.extend(self.ramparts.
+    // iter()         .map(|r| PlannedCell::new(r.pos().xy(),
+    // RoomStructure::Rampart(true), 5, None)));     cells.extend(self.spawns.
+    // iter()         .map(|r| PlannedCell::new(r.pos().xy(),
+    // RoomStructure::Spawn, 8, None)));     cells.extend(self.extensions.iter()
+    //         .map(|r| PlannedCell::new(r.pos().xy(), RoomStructure::Extension, 8,
+    // None)));     cells.extend(self.containers.iter()
+    //         .map(|r| PlannedCell::new(r.pos().xy(),
+    // RoomStructure::Container(RoomPart::Red), 8, None)));
     //     cells.extend(self.towers.iter()
-    //         .map(|r| PlannedCell::new(r.pos().xy(), RoomStructure::Tower, 8, None)));
-    //     cells.extend(self.roads.iter()
-    //         .map(|r| PlannedCell::new(r.pos().xy(), RoomStructure::Road(1), 2, None)));
-    //     cells.extend(self.links.iter()
-    //         .map(|r| PlannedCell::new(r.pos().xy(), RoomStructure::Link(super::LinkType::Source), 8, None)));
+    //         .map(|r| PlannedCell::new(r.pos().xy(), RoomStructure::Tower, 8,
+    // None)));     cells.extend(self.roads.iter()
+    //         .map(|r| PlannedCell::new(r.pos().xy(), RoomStructure::Road(1), 2,
+    // None)));     cells.extend(self.links.iter()
+    //         .map(|r| PlannedCell::new(r.pos().xy(),
+    // RoomStructure::Link(super::LinkType::Source), 8, None)));
     //     cells.extend(self.labs.iter()
-    //         .map(|r| PlannedCell::new(r.pos().xy(), RoomStructure::Lab(LabStatus::Output), 8, None)));
+    //         .map(|r| PlannedCell::new(r.pos().xy(),
+    // RoomStructure::Lab(LabStatus::Output), 8, None)));
 
     //     Ok(RoomPlan { planned_cells: cells, built_lvl: 8 })
     // }
 }
 
-fn room_grid(perimeter: &Perimeter, walls: &Walls) -> Result<HashMap<RoomXY, RoomPart>, RoomPlannerError> {
+fn room_grid(
+    perimeter: &Perimeter,
+    walls: &Walls,
+) -> Result<HashMap<RoomXY, RoomPart>, RoomPlannerError> {
     let mut grid = HashMap::new();
 
     let (x0, y0, x1, y1) = perimeter.rectangle();
@@ -132,9 +135,7 @@ fn room_grid(perimeter: &Perimeter, walls: &Walls) -> Result<HashMap<RoomXY, Roo
             } else if perimeter.ramparts().contains(&xy) {
                 grid.insert(xy, RoomPart::Protected);
             } else if x > x0 && x < x1 && y > y0 && y < y1 {
-                let x_line: Vec<_> = border.iter()
-                    .filter(|xy| xy.y.u8() == y)
-                    .collect();
+                let x_line: Vec<_> = border.iter().filter(|xy| xy.y.u8() == y).collect();
 
                 let first_x = x_line.first().ok_or(RoomPlannerError::GridCreationFailed)?;
                 let last_x = x_line.last().ok_or(RoomPlannerError::GridCreationFailed)?;
@@ -143,16 +144,17 @@ fn room_grid(perimeter: &Perimeter, walls: &Walls) -> Result<HashMap<RoomXY, Roo
                     grid.insert(xy, RoomPart::Red);
                 } else {
                     // xy definatelly inside the perimeter?
-                    let range = border.iter()
+                    let range = border
+                        .iter()
                         .map(|edge| xy.get_range_to(*edge))
                         .min()
                         .ok_or(RoomPlannerError::GridCreationFailed)?;
-                    
+
                     let part = match range {
                         0 => Err(RoomPlannerError::GridCreationFailed),
                         1 => Ok(RoomPart::Orange),
                         2 => Ok(RoomPart::Yellow),
-                        _ => Ok(RoomPart::Green)
+                        _ => Ok(RoomPart::Green),
                     }?;
                     grid.insert(xy, part);
                 }
@@ -165,25 +167,27 @@ fn room_grid(perimeter: &Perimeter, walls: &Walls) -> Result<HashMap<RoomXY, Roo
     Ok(grid)
 }
 
-
 fn place_for_container(
     storage: Position,
     target: &RoomXY,
     roads: HashSet<RoomXY>,
     unwalkable: HashSet<RoomXY>,
-    grid: &HashMap<RoomXY, RoomPart>
+    grid: &HashMap<RoomXY, RoomPart>,
 ) -> Option<RoomXY> {
-    let (road_cells, empty_cells): (Vec<RoomXY>, Vec<_>) =
-        walkable_neighbors(target, grid)
-            .filter(|xy| !unwalkable.contains(xy))
-            .partition(|xy| roads.contains(xy));
+    let (road_cells, empty_cells): (Vec<RoomXY>, Vec<_>) = walkable_neighbors(target, grid)
+        .filter(|xy| !unwalkable.contains(xy))
+        .partition(|xy| roads.contains(xy));
 
-    empty_cells.into_iter()
+    empty_cells
+        .into_iter()
         .map(|xy| walkable_range(storage.into(), xy, grid))
         .min_by(|r1, r2| cmp_routes(r1, r2, &storage))
-        .or_else(|| road_cells.into_iter()
-            .map(|xy| walkable_range(storage.into(), xy, grid))
-            .min_by(|r1, r2| cmp_routes(r1, r2, &storage)))
+        .or_else(|| {
+            road_cells
+                .into_iter()
+                .map(|xy| walkable_range(storage.into(), xy, grid))
+                .min_by(|r1, r2| cmp_routes(r1, r2, &storage))
+        })
         .map(|(xy, _)| xy)
 }
 
@@ -208,17 +212,25 @@ fn cmp_routes(r1: &Route, r2: &Route, from: &Position) -> std::cmp::Ordering {
     }
 }
 
-fn walkable_neighbors<'a>(xy: &'a RoomXY, grid: &'a HashMap<RoomXY, RoomPart>) -> impl Iterator<Item = RoomXY> + use<'a> {
-    xy.neighbors().into_iter()
+fn walkable_neighbors<'a>(
+    xy: &'a RoomXY,
+    grid: &'a HashMap<RoomXY, RoomPart>,
+) -> impl Iterator<Item = RoomXY> + use<'a> {
+    xy.neighbors()
+        .into_iter()
         .filter(|neighbor| grid.get(neighbor).is_some_and(|part| !part.is_wall()))
 }
 
 //todo guide cell could be an exit from farm to a base
-fn guide_cell(ctrl: RoomXY, sources: &[RoomXY], rect: OuterRectangle) -> Result<RoomXY, RoomPlannerError> {
+fn guide_cell(
+    ctrl: RoomXY,
+    sources: &[RoomXY],
+    rect: OuterRectangle,
+) -> Result<RoomXY, RoomPlannerError> {
     if outside_rect(&ctrl, rect) {
         Ok(ctrl)
-    } else if let Some(source) = sources.iter()
-        .find(|source| outside_rect(source, rect))//todo add default target, perim center?
+    } else if let Some(source) = sources.iter().find(|source| outside_rect(source, rect))
+    //todo add default target, perim center?
     {
         Ok(*source)
     } else {
@@ -230,7 +242,7 @@ fn guide_cell(ctrl: RoomXY, sources: &[RoomXY], rect: OuterRectangle) -> Result<
 pub struct Perimeter {
     rect: OuterRectangle,
     walls: Vec<RoomXY>,
-    ramparts: Vec<RoomXY>
+    ramparts: Vec<RoomXY>,
 }
 
 impl Perimeter {
@@ -242,37 +254,33 @@ impl Perimeter {
         path.extend(walk_border(
             unsafe { RoomXY::unchecked_new(x0, y0) },
             unsafe { RoomXY::unchecked_new(x1, y0) },
-            walls));
+            walls,
+        ));
 
         // from top_right to bottom_right
         if let Some(start) = path.last().cloned() {
-            path.extend(walk_border(
-                start,
-                unsafe { RoomXY::unchecked_new(x1, y1) },
-                walls));
+            path.extend(walk_border(start, unsafe { RoomXY::unchecked_new(x1, y1) }, walls));
         }
 
         // from bottom_right to bottom_left
         if let Some(start) = path.last().cloned() {
-            path.extend(walk_border(
-                start,
-                unsafe { RoomXY::unchecked_new(x0, y1) },
-                walls));
+            path.extend(walk_border(start, unsafe { RoomXY::unchecked_new(x0, y1) }, walls));
         }
 
         // from bottom_left to top_left
         if let Some(start) = path.last().cloned() {
-            path.extend(walk_border(
-                start,
-                unsafe { RoomXY::unchecked_new(x0, y0) },
-                walls));
+            path.extend(walk_border(start, unsafe { RoomXY::unchecked_new(x0, y0) }, walls));
         }
 
         // Split into natural vs ramparts
-        let mut natural_walls  = Vec::new();
+        let mut natural_walls = Vec::new();
         let mut ramparts = Vec::new();
         for p in path.into_iter() {
-            if is_wall(walls, &p) { natural_walls.push(p); } else { ramparts.push(p); }
+            if is_wall(walls, &p) {
+                natural_walls.push(p);
+            } else {
+                ramparts.push(p);
+            }
         }
         Self { walls: natural_walls, ramparts, rect: (x0, y0, x1, y1) }
     }
@@ -298,7 +306,7 @@ impl Perimeter {
             .sorted_by(|xy1, xy2| match Ord::cmp(&xy1.y.u8(), &xy2.y.u8()) {
                 Ordering::Equal => Ord::cmp(&xy1.x.u8(), &xy2.x.u8()),
                 Ordering::Greater => Ordering::Greater,
-                Ordering::Less => Ordering::Less
+                Ordering::Less => Ordering::Less,
             })
             .copied()
             .collect()
@@ -310,20 +318,20 @@ pub struct RoadConfig {
     dash: Dash,
     row1: Variable,
     row2: Variable,
-    turn: Turn
+    turn: Turn,
 }
 
 #[derive(Debug)]
 pub struct CentralSquare {
     cross_road: RoomXY,
     guide_dir: Direction,
-    squares: HashMap<Direction, Square>
+    squares: HashMap<Direction, Square>,
 }
 
 #[derive(Debug)]
 pub struct Square {
     center: RoomXY,
-    sides: Vec<RoomXY>
+    sides: Vec<RoomXY>,
 }
 
 impl Eq for Square {}
@@ -341,7 +349,7 @@ impl Square {
     pub fn center(&self) -> &RoomXY {
         &self.center
     }
-    
+
     pub fn rounded(&self) -> bool {
         self.sides.len() == 8
     }
@@ -351,8 +359,11 @@ impl Square {
             square_sides(&self.center, 1)
                 .find(|xy| !self.sides.contains(xy))
                 .filter(|vertex| !vertex.is_near_to(self.center)) //we can't round if distance == 1
-                .and_then(|vertex| vertex.get_direction_to(self.center)
-                    .map(|direction| vertex.saturating_add_direction(direction)))
+                .and_then(|vertex| {
+                    vertex
+                        .get_direction_to(self.center)
+                        .map(|direction| vertex.saturating_add_direction(direction))
+                })
         } else {
             None
         }
@@ -364,8 +375,9 @@ impl Square {
             self.center.saturating_add((0, -1)),
             self.center.saturating_add((0, 1)),
             self.center.saturating_add((1, 0)),
-            self.center.saturating_add((-1, 0))
-        ].into_iter()
+            self.center.saturating_add((-1, 0)),
+        ]
+        .into_iter()
     }
 
     pub fn is_empty(&self, walls: &Walls, spawn: Option<&RoomXY>) -> bool {
@@ -374,7 +386,9 @@ impl Square {
             self.center.saturating_add((0, -1)),
             self.center.saturating_add((0, 1)),
             self.center.saturating_add((1, 0)),
-            self.center.saturating_add((-1, 0))
-        ].iter().all(|xy| !is_wall(walls, xy) && spawn.is_none_or(|spawn_xy| xy != spawn_xy))
+            self.center.saturating_add((-1, 0)),
+        ]
+        .iter()
+        .all(|xy| !is_wall(walls, xy) && spawn.is_none_or(|spawn_xy| xy != spawn_xy))
     }
 }

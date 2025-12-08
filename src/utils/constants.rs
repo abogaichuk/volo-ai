@@ -22,7 +22,8 @@ pub const MAX_RAMPART_HITS: u32 = 299000000;
 pub const MAX_WALL_HITS: u32 = 100000;
 
 pub const ROOM_NUMBER_RE: &str = r"^[WE]([0-9]+)[NS]([0-9]+)$";
-/// Won't do pathing for moving creeps if current-tick CPU spend is above this level when movement step is reached
+/// Won't do pathing for moving creeps if current-tick CPU spend is above this
+/// level when movement step is reached
 pub const HIGH_CPU_THRESHOLD: f64 = 180.;
 /// Won't do pathing for moving creeps if bucket is below this number
 pub const LOW_BUCKET_THRESHOLD: i32 = 400;
@@ -32,15 +33,16 @@ pub const STUCK_REPATH_THRESHOLD: u8 = 3;
 pub const MAX_OPS: u32 = 10_000;
 /// Limit for pathfinder rooms
 pub const MAX_ROOMS: u8 = 16;
-/// A* heuristic weight - default is 1.2, but it risks non-optimal paths, so we turn it down a bit
+/// A* heuristic weight - default is 1.2, but it risks non-optimal paths, so we
+/// turn it down a bit
 pub const HEURISTIC_WEIGHT: f64 = 1.0;
 /// When task finding fails, idle this long
 pub const NO_TASK_IDLE_TICKS: u32 = 1;
-/// Creeps are just out of range of their ranged action at this range; at this range
-/// they'll usually path avoiding creeps
+/// Creeps are just out of range of their ranged action at this range; at this
+/// range they'll usually path avoiding creeps
 pub const RANGED_OUT_OF_RANGE: u32 = (CREEP_RANGED_ACTION_RANGE + 1) as u32;
-/// Creeps are just out of range of their melee action at this range; at this range
-/// they'll usually path avoiding creeps
+/// Creeps are just out of range of their melee action at this range; at this
+/// range they'll usually path avoiding creeps
 pub const MELEE_OUT_OF_RANGE: u32 = 2;
 /// Creeps run away from edge range while escaping
 pub const ESCAPE_FROM_EDGE_RANGE: u32 = 5;
@@ -61,6 +63,6 @@ pub const LONG_RANGE_ACTION: u32 = CREEP_RANGED_ACTION_RANGE as u32;
 pub const CLOSE_RANGE_ACTION: u32 = 1;
 pub const DEFEND_ROOM_RANGE: u32 = 23;
 
-pub const LOW_RESPAWN_TIMEOUT:u32 = 20;
-pub const MID_RESPAWN_TIMEOUT:u32 = 50;
-pub const HIGH_RESPAWN_TIMEOUT:u32 = 70;
+pub const LOW_RESPAWN_TIMEOUT: u32 = 20;
+pub const MID_RESPAWN_TIMEOUT: u32 = 50;
+pub const HIGH_RESPAWN_TIMEOUT: u32 = 70;

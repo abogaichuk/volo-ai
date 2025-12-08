@@ -1,24 +1,26 @@
+use std::collections::{HashMap, HashSet};
+use std::iter::Iterator;
+
 use itertools::Itertools;
+use js_sys::JsString;
 use log::*;
 use screeps::{
-    game, HasPosition, Mineral, RoomPosition, PowerType,
-    ResourceType, Room, RoomName, RoomXY, StructureType
-};
-use std::{collections::{HashMap, HashSet}, iter::Iterator};
-use js_sys::JsString;
-use crate::{
-    commons::look_for,
-    rooms::{
-        shelter::Shelter,
-        state::{BoostReason, RoomState, constructions::{PlannedCell, RoomPlan}, requests::{CreepHostile, Request}},
-        wrappers::{farm::Farm, neutral::Neutral}
-    },
-    units::roles::Role
+    HasPosition, Mineral, PowerType, ResourceType, Room, RoomName, RoomPosition, RoomXY,
+    StructureType, game,
 };
 
-pub mod wrappers;
+use crate::commons::look_for;
+use crate::rooms::shelter::Shelter;
+use crate::rooms::state::constructions::{PlannedCell, RoomPlan};
+use crate::rooms::state::requests::{CreepHostile, Request};
+use crate::rooms::state::{BoostReason, RoomState};
+use crate::rooms::wrappers::farm::Farm;
+use crate::rooms::wrappers::neutral::Neutral;
+use crate::units::roles::Role;
+
 pub mod shelter;
 pub mod state;
+pub mod wrappers;
 
 #[derive(Debug)]
 pub enum RoomEvent {
@@ -49,14 +51,13 @@ pub enum RoomEvent {
     Defend(RoomName, Vec<CreepHostile>),
     ActivateSafeMode(String),
     BlackList(String),
-    UpdateStatistic
-    // #[default]
-    // Nothing
+    UpdateStatistic, /* #[default]
+                      * Nothing */
 }
 
 pub fn register_rooms<'a>(
     states: &'a mut HashMap<RoomName, RoomState>,
-    white_list: &'a HashSet<String>
+    white_list: &'a HashSet<String>,
 ) -> (HashMap<RoomName, Shelter<'a>>, Vec<Neutral>) {
     let mut rooms: HashMap<RoomName, Room> = game::rooms().entries().collect();
 
@@ -78,27 +79,23 @@ pub fn register_rooms<'a>(
     (homes, rooms.into_values().map(Neutral::new).collect())
 }
 
-fn missed_buildings(room_name: RoomName, plan: &RoomPlan) -> impl Iterator<Item = (RoomXY, StructureType)> + use<'_> {
+fn missed_buildings(
+    room_name: RoomName,
+    plan: &RoomPlan,
+) -> impl Iterator<Item = (RoomXY, StructureType)> + use<'_> {
     plan.current_lvl_buildings()
         .sorted_by_key(|cell| cell.structure)
         .filter_map(move |cell| {
             if let Ok(str_type) = StructureType::try_from(cell.structure) {
-                let room_position = RoomPosition::new(
-                    cell.xy.x.u8(),
-                    cell.xy.y.u8(),
-                    room_name);
+                let room_position = RoomPosition::new(cell.xy.x.u8(), cell.xy.y.u8(), room_name);
 
-                if !look_for(&room_position, str_type) {
-                    Some((cell.xy, str_type))
-                } else {
-                    None
-                }
+                if !look_for(&room_position, str_type) { Some((cell.xy, str_type)) } else { None }
             } else {
                 None
             }
         })
         .take(5)
-        // .collect()
+    // .collect()
 }
 
 fn is_extractor(mineral: &Mineral) -> bool {

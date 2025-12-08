@@ -1,13 +1,14 @@
 use std::collections::HashMap;
+
 use screeps::{RawObjectId, ResourceType, RoomName};
 
-use crate::{
-    colony::events::ColonyContext, resources::handlers::get_handler_for, rooms::RoomEvent
-};
+use crate::colony::events::ColonyContext;
+use crate::resources::handlers::get_handler_for;
+use crate::rooms::RoomEvent;
 
 // mod policy;
-mod handlers;
 pub mod chain_config;
+mod handlers;
 
 const MIN_LAB_PRODUCTION: u32 = 5;
 
@@ -16,17 +17,22 @@ pub struct RoomContext {
     pub rcl: u8,
     pub terminal: Option<RawObjectId>,
     pub storage: Option<RawObjectId>,
-    pub fl: u8
+    pub fl: u8,
 }
 
 impl RoomContext {
-    pub fn new(rcl: u8, terminal: Option<RawObjectId>, storage: Option<RawObjectId>, fl: u8) -> Self {
+    pub fn new(
+        rcl: u8,
+        terminal: Option<RawObjectId>,
+        storage: Option<RawObjectId>,
+        fl: u8,
+    ) -> Self {
         Self { rcl, terminal, storage, fl }
     }
 }
 
 pub struct Resources {
-    amounts: HashMap<ResourceType, u32>
+    amounts: HashMap<ResourceType, u32>,
 }
 
 impl Resources {
@@ -42,18 +48,16 @@ impl Resources {
         &self.amounts
     }
 
-    pub fn events<'a>(
-        &'a self,
-        ctx: RoomContext,
-    ) -> impl Iterator<Item = RoomEvent> + 'a {
-        self.amounts.iter()
-            .filter_map(move |(res, amount)| get_handler_for(*res) (*res, *amount, self, &ctx))
+    pub fn events<'a>(&'a self, ctx: RoomContext) -> impl Iterator<Item = RoomEvent> + 'a {
+        self.amounts
+            .iter()
+            .filter_map(move |(res, amount)| get_handler_for(*res)(*res, *amount, self, &ctx))
     }
 }
 
 pub struct ResourceOnLowResult {
     amount: u32,
-    room_name: RoomName
+    room_name: RoomName,
 }
 
 impl ResourceOnLowResult {
@@ -74,7 +78,7 @@ pub fn lack_handler_for(res: ResourceType) -> ResourceOnLowHandlerFn {
 
     match res {
         Energy | Battery | CatalyzedGhodiumAcid => contain_excessive,
-        _ => divide_by_half
+        _ => divide_by_half,
     }
 }
 
@@ -83,9 +87,8 @@ fn divide_by_half(
     amount: u32,
     ctx: &ColonyContext,
 ) -> Option<ResourceOnLowResult> {
-    find_room_with_high_amount(res, ctx)
-        .filter(|(_, available)| *available > 0)
-        .map(|(room_name, available)| {
+    find_room_with_high_amount(res, ctx).filter(|(_, available)| *available > 0).map(
+        |(room_name, available)| {
             if available > amount * 2 {
                 ResourceOnLowResult { room_name, amount }
             } else if available >= amount {
@@ -93,7 +96,8 @@ fn divide_by_half(
             } else {
                 ResourceOnLowResult { room_name, amount: available / 2 }
             }
-        })
+        },
+    )
 }
 
 fn contain_excessive(
@@ -107,7 +111,8 @@ fn contain_excessive(
 }
 
 fn find_room_with_high_amount(res: ResourceType, ctx: &ColonyContext) -> Option<(RoomName, u32)> {
-    ctx.bases().values()
+    ctx.bases()
+        .values()
         .map(|b| (b.get_name(), b.resources.amount(res)))
         .max_by_key(|(_, available)| *available)
 }

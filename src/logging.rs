@@ -1,12 +1,12 @@
-use std::{fmt::Write, panic};
+use std::fmt::Write;
+use std::panic;
 
 use js_sys::JsString;
+pub use log::LevelFilter::*;
 use log::*;
 use screeps::game;
 use wasm_bindgen::prelude::wasm_bindgen;
 use web_sys::console;
-
-pub use log::LevelFilter::*;
 
 struct JsLog;
 struct JsNotify;
@@ -15,18 +15,22 @@ impl log::Log for JsLog {
     fn enabled(&self, _: &log::Metadata<'_>) -> bool {
         true
     }
+
     fn log(&self, record: &log::Record<'_>) {
         console::log_1(&JsString::from(format!("{}:{}", game::time(), record.args())));
     }
+
     fn flush(&self) {}
 }
 impl log::Log for JsNotify {
     fn enabled(&self, _: &log::Metadata<'_>) -> bool {
         true
     }
+
     fn log(&self, record: &log::Record<'_>) {
         game::notify(&format!("{}", record.args()), None);
     }
+
     fn flush(&self) {}
 }
 
@@ -34,12 +38,7 @@ pub fn setup_logging(verbosity: log::LevelFilter) {
     fern::Dispatch::new()
         .level(verbosity)
         .format(|out, message, record| {
-            out.finish(format_args!(
-                "({}) {}: {}",
-                record.level(),
-                record.target(),
-                message
-            ))
+            out.finish(format_args!("({}) {}: {}", record.level(), record.target(), message))
         })
         .chain(Box::new(JsLog) as Box<dyn log::Log>)
         .chain(

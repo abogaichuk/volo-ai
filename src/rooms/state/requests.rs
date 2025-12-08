@@ -1,36 +1,49 @@
+use std::collections::{HashMap, HashSet};
+use std::fmt::{Display, Formatter};
+use std::hash::{Hash, Hasher};
+
+pub use data::{
+    BookData, BuildData, CaravanData, CarryData, ClaimData, CrashData, DefendData, DepositData,
+    DestroyData, DismantleData, FactoryData, LRWData, LabData, PickupData, PowerbankData,
+    ProtectData, PullData, RepairData, SMData, TransferData, WithdrawData,
+};
 use log::*;
-use serde::{Serialize, Deserialize};
-use std::{collections::{HashMap, HashSet}, fmt::{Display, Formatter}, hash::{Hash, Hasher}};
 use screeps::Part;
+use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 use thiserror::Error;
 
-use crate::{
-    rooms::{RoomEvent, shelter::Shelter},
-    units::{creeps::CreepMemory, tasks::Task}
-};
-use self::{
-    meta::{Meta, Status}, assignment::Assignment,
-    data::{
-        destroy::destroy_handler, protect::protect_handler, defend::defend_handler, transfer::transfer_handler,
-        factory::factory_handler, lab::lab_handler, power_bank::powerbank_handler, deposit::deposit_handler,
-        caravan::caravan_handler, build::build_handler, repair::repair_handler, claim::claim_handler,
-        book::book_handler, dismantle::dismantle_handler, crash::crash_handler, safe_mode::sm_handler,
-        pull::pull_handler, pickup::pickup_handler, withdraw::withdraw_handler, carry::carry_handler,
-        lrw::lrw_handler
-    }
-};
+use self::assignment::Assignment;
+use self::data::book::book_handler;
+use self::data::build::build_handler;
+use self::data::caravan::caravan_handler;
+use self::data::carry::carry_handler;
+use self::data::claim::claim_handler;
+use self::data::crash::crash_handler;
+use self::data::defend::defend_handler;
+use self::data::deposit::deposit_handler;
+use self::data::destroy::destroy_handler;
+use self::data::dismantle::dismantle_handler;
+use self::data::factory::factory_handler;
+use self::data::lab::lab_handler;
+use self::data::lrw::lrw_handler;
+use self::data::pickup::pickup_handler;
+use self::data::power_bank::powerbank_handler;
+use self::data::protect::protect_handler;
+use self::data::pull::pull_handler;
+use self::data::repair::repair_handler;
+use self::data::safe_mode::sm_handler;
+use self::data::transfer::transfer_handler;
+use self::data::withdraw::withdraw_handler;
+use self::meta::{Meta, Status};
+use crate::rooms::RoomEvent;
+use crate::rooms::shelter::Shelter;
+use crate::units::creeps::CreepMemory;
+use crate::units::tasks::Task;
 
-pub use data::{
-    LabData, TransferData, FactoryData,
-    DestroyData, DefendData, ProtectData, CrashData,
-    CaravanData, PowerbankData, DepositData,
-    ClaimData, BookData, BuildData, RepairData, DismantleData, PullData,
-    PickupData, WithdrawData, LRWData, CarryData, SMData};
-
-pub mod meta;
 pub mod assignment;
 mod data;
+pub mod meta;
 
 //todo defend request for all defenders
 //todo repair perimeter for all house keepers
@@ -41,7 +54,7 @@ pub struct Request {
     pub assignment: Assignment,
     pub kind: RequestKind,
     #[serde(flatten, default)]
-    pub meta: Meta
+    pub meta: Meta,
 }
 
 impl Request {
@@ -53,16 +66,24 @@ impl Request {
         Self { assignment, kind, meta }
     }
 
-    pub fn status(&self) -> &Status { &self.meta.status }
-    pub fn assigned_to(&self, name: &str) -> bool { self.assignment.has_member(name) }
-    pub fn created_at(&self) -> u32 { self.meta.created_at }
+    pub fn status(&self) -> &Status {
+        &self.meta.status
+    }
 
-    pub fn handle(&mut self, home: &Shelter, creeps: &HashMap<String, CreepMemory>) -> SmallVec<[RoomEvent; 3]> {
-        let (meta, assignment, kind) = (
-            &mut self.meta,
-            &mut self.assignment,
-            &mut self.kind,
-        );
+    pub fn assigned_to(&self, name: &str) -> bool {
+        self.assignment.has_member(name)
+    }
+
+    pub fn created_at(&self) -> u32 {
+        self.meta.created_at
+    }
+
+    pub fn handle(
+        &mut self,
+        home: &Shelter,
+        creeps: &HashMap<String, CreepMemory>,
+    ) -> SmallVec<[RoomEvent; 3]> {
+        let (meta, assignment, kind) = (&mut self.meta, &mut self.assignment, &mut self.kind);
 
         match kind {
             RequestKind::Destroy(_) => destroy_handler(),
@@ -85,21 +106,17 @@ impl Request {
             RequestKind::Pickup(_) => pickup_handler(meta),
             RequestKind::Withdraw(_) => withdraw_handler(meta, assignment),
             RequestKind::Carry(_) => carry_handler(meta, assignment),
-            RequestKind::LongRangeWithdraw(_) => lrw_handler(meta, assignment, home.name())
+            RequestKind::LongRangeWithdraw(_) => lrw_handler(meta, assignment, home.name()),
         }
     }
 
-    pub fn join(
-        &mut self,
-        doer: Option<String>,
-        squad_id: Option<&str>)
-    {
+    pub fn join(&mut self, doer: Option<String>, squad_id: Option<&str>) {
         match self.assignment.try_join(doer, squad_id) {
             Ok(()) => {
                 if matches!(self.meta.status, Status::Created | Status::Spawning) {
                     self.meta.update(Status::InProgress);
                 }
-            },
+            }
             Err(err) => error!("{}", err),
         };
     }
@@ -123,7 +140,7 @@ impl Hash for Request {
             RequestKind::Dismantle(d) => {
                 d.id.hash(state);
                 d.workplace.hash(state);
-            },
+            }
             RequestKind::Crash(d) => d.id.hash(state),
             RequestKind::Pull(d) => d.creep_name.hash(state),
             RequestKind::Factory(d) => d.resource.hash(state),
@@ -134,8 +151,8 @@ impl Hash for Request {
             RequestKind::Transfer(d) => {
                 d.resource.hash(state);
                 d.destination.hash(state);
-            },
-            RequestKind::Carry(d)  => {
+            }
+            RequestKind::Carry(d) => {
                 d.from.hash(state);
                 d.to.hash(state);
                 d.resource.hash(state);
@@ -148,136 +165,98 @@ impl Eq for Request {}
 impl PartialEq for Request {
     fn eq(&self, other: &Request) -> bool {
         match &self.kind {
-            RequestKind::Withdraw(d) => {
-                match &other.kind {
-                    RequestKind::Withdraw(o) => d.id == o.id,
-                    _ => false
-                }
+            RequestKind::Withdraw(d) => match &other.kind {
+                RequestKind::Withdraw(o) => d.id == o.id,
+                _ => false,
             },
-            RequestKind::LongRangeWithdraw(d) => {
-                match &other.kind {
-                    RequestKind::LongRangeWithdraw(o) => d.id == o.id,
-                    _ => false
-                }
+            RequestKind::LongRangeWithdraw(d) => match &other.kind {
+                RequestKind::LongRangeWithdraw(o) => d.id == o.id,
+                _ => false,
             },
-            RequestKind::SafeMode(d) => {
-                match &other.kind {
-                    RequestKind::SafeMode(o) => d.id == o.id,
-                    _ => false
-                }
+            RequestKind::SafeMode(d) => match &other.kind {
+                RequestKind::SafeMode(o) => d.id == o.id,
+                _ => false,
             },
-            RequestKind::Pickup(d) => {
-                match &other.kind {
-                    RequestKind::Pickup(o) => d.id == o.id,
-                    _ => false
-                }
+            RequestKind::Pickup(d) => match &other.kind {
+                RequestKind::Pickup(o) => d.id == o.id,
+                _ => false,
             },
-            RequestKind::Carry(d)  => {
-                match &other.kind {
-                    RequestKind::Carry(o) => d.from == o.from && d.to == o.to && d.resource == o.resource,
-                    _ => false
+            RequestKind::Carry(d) => match &other.kind {
+                RequestKind::Carry(o) => {
+                    d.from == o.from && d.to == o.to && d.resource == o.resource
                 }
+                _ => false,
             },
-            RequestKind::Repair(d)  => {
-                match &other.kind {
-                    RequestKind::Repair(o) => d.id == o.id,
-                    _ => false
-                }
+            RequestKind::Repair(d) => match &other.kind {
+                RequestKind::Repair(o) => d.id == o.id,
+                _ => false,
             },
-            RequestKind::Build(d)  => {
-                match &other.kind {
-                    RequestKind::Build(o) => d.id == o.id,
-                    _ => false
-                }
+            RequestKind::Build(d) => match &other.kind {
+                RequestKind::Build(o) => d.id == o.id,
+                _ => false,
             },
-            RequestKind::Claim(d) => {
-                match &other.kind {
-                    RequestKind::Claim(o) => d.id == o.id,
-                    _ => false
-                }
+            RequestKind::Claim(d) => match &other.kind {
+                RequestKind::Claim(o) => d.id == o.id,
+                _ => false,
             },
-            RequestKind::Book(d) => {
-                match &other.kind {
-                    RequestKind::Book(o) => d.id == o.id,
-                    _ => false
-                }
+            RequestKind::Book(d) => match &other.kind {
+                RequestKind::Book(o) => d.id == o.id,
+                _ => false,
             },
-            RequestKind::Defend(d) => {
-                match &other.kind {
-                    RequestKind::Defend(o) => d.room_name == o.room_name,
-                    _ => false
-                }
+            RequestKind::Defend(d) => match &other.kind {
+                RequestKind::Defend(o) => d.room_name == o.room_name,
+                _ => false,
             },
-            RequestKind::Protect(d) => {
-                match &other.kind {
-                    RequestKind::Protect(o) => d.room_name == o.room_name,
-                    _ => false
-                }
+            RequestKind::Protect(d) => match &other.kind {
+                RequestKind::Protect(o) => d.room_name == o.room_name,
+                _ => false,
             },
-            RequestKind::Powerbank(d)  => {
-                match &other.kind {
-                    RequestKind::Powerbank(o) => d.id == o.id,
-                    _ => false
-                }
+            RequestKind::Powerbank(d) => match &other.kind {
+                RequestKind::Powerbank(o) => d.id == o.id,
+                _ => false,
             },
-            RequestKind::Destroy(d)  => {
-                match &other.kind {
-                    RequestKind::Destroy(o) => d.target == o.target,
-                    _ => false
-                }
+            RequestKind::Destroy(d) => match &other.kind {
+                RequestKind::Destroy(o) => d.target == o.target,
+                _ => false,
             },
-            RequestKind::Deposit(d)  => {
-                match &other.kind {
-                    RequestKind::Deposit(o) => d.id == o.id,
-                    _ => false
-                }
+            RequestKind::Deposit(d) => match &other.kind {
+                RequestKind::Deposit(o) => d.id == o.id,
+                _ => false,
             },
-            RequestKind::Caravan(d)  => {
-                match &other.kind {
-                    RequestKind::Caravan(o) => d.ambush_room == o.ambush_room,
-                    _ => false
-                }
+            RequestKind::Caravan(d) => match &other.kind {
+                RequestKind::Caravan(o) => d.ambush_room == o.ambush_room,
+                _ => false,
             },
             // RoomRequest::SCORE(request)  => {
             //     ScoreRequest::try_from(other.to_owned()).ok()
             //         .is_some_and(|another|
             //             request.target.id == another.target.id)
             // },
-            RequestKind::Dismantle(d)  => {
-                match &other.kind {
-                    RequestKind::Dismantle(o) => d.id == o.id && d.workplace == o.workplace,
-                    _ => false
-                }
+            RequestKind::Dismantle(d) => match &other.kind {
+                RequestKind::Dismantle(o) => d.id == o.id && d.workplace == o.workplace,
+                _ => false,
             },
-            RequestKind::Crash(d)  => {
-                match &other.kind {
-                    RequestKind::Crash(o) => d.id == o.id,
-                    _ => false
-                }
+            RequestKind::Crash(d) => match &other.kind {
+                RequestKind::Crash(o) => d.id == o.id,
+                _ => false,
             },
-            RequestKind::Pull(d)  => {
-                match &other.kind {
-                    RequestKind::Pull(o) => d.creep_name.as_str() == o.creep_name.as_str(),
-                    _ => false
-                }
+            RequestKind::Pull(d) => match &other.kind {
+                RequestKind::Pull(o) => d.creep_name.as_str() == o.creep_name.as_str(),
+                _ => false,
             },
-            RequestKind::Factory(d)  => {
-                match &other.kind {
-                    RequestKind::Factory(o) => d.resource == o.resource,
-                    _ => false
-                }
+            RequestKind::Factory(d) => match &other.kind {
+                RequestKind::Factory(o) => d.resource == o.resource,
+                _ => false,
             },
-            RequestKind::Lab(d)  => {
-                match &other.kind {
-                    RequestKind::Lab(o) => d.resource == o.resource,
-                    _ => false
-                }
+            RequestKind::Lab(d) => match &other.kind {
+                RequestKind::Lab(o) => d.resource == o.resource,
+                _ => false,
             },
-            RequestKind::Transfer(d)  => {
-                match &other.kind {
-                    RequestKind::Transfer(o) => d.destination == o.destination && d.resource == o.resource,
-                    _ => false
+            RequestKind::Transfer(d) => match &other.kind {
+                RequestKind::Transfer(o) => {
+                    d.destination == o.destination && d.resource == o.resource
                 }
+                _ => false,
             },
         }
     }
@@ -305,7 +284,7 @@ pub enum RequestKind {
     Book(BookData),
     Pull(PullData),
     Defend(DefendData),
-    Protect(ProtectData), //protect a room from hostile existance, 
+    Protect(ProtectData), //protect a room from hostile existance,
     Destroy(DestroyData), //make target position walkable
     Crash(CrashData),
     Powerbank(PowerbankData),
@@ -318,27 +297,27 @@ pub enum RequestKind {
 impl Display for RequestKind {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         match self {
-            RequestKind::Pickup(d)          => write!(f, "Pickup({:?})", d),
-            RequestKind::Withdraw(d)      => write!(f, "Withdraw({:?})", d),
-            RequestKind::Carry(d)            => write!(f, "Carry({:?})", d),
-            RequestKind::LongRangeWithdraw(d)  => write!(f, "LongRangeWithdraw({:?})", d),
-            RequestKind::SafeMode(d)            => write!(f, "SafeMode({:?})", d),
-            RequestKind::Caravan(d)        => write!(f, "Caravan({:?})", d),
-            RequestKind::Repair(d)          => write!(f, "Repair({:?})", d),
-            RequestKind::Dismantle(d)    => write!(f, "Dismantle({:?})", d),
-            RequestKind::Build(d)            => write!(f, "Build({:?})", d),
-            RequestKind::Claim(d)            => write!(f, "Claim({:?})", d),
-            RequestKind::Book(d)              => write!(f, "Book({:?})", d),
-            RequestKind::Pull(d)              => write!(f, "Pull({:?})", d),
-            RequestKind::Defend(d)          => write!(f, "Defend({:?})", d),
-            RequestKind::Protect(d)        => write!(f, "Protect({:?})", d), 
-            RequestKind::Destroy(d)        => write!(f, "Destroy({:?})", d),
-            RequestKind::Crash(d)            => write!(f, "Crash({:?})", d),
-            RequestKind::Powerbank(d)    => write!(f, "Powerbank({:?})", d),
-            RequestKind::Deposit(d)        => write!(f, "Deposit({:?})", d),
-            RequestKind::Factory(d)        => write!(f, "Factory({:?})", d),
-            RequestKind::Lab(d)                => write!(f, "Lab({:?})", d),
-            RequestKind::Transfer(d)      => write!(f, "Transfer({:?})", d),
+            RequestKind::Pickup(d) => write!(f, "Pickup({:?})", d),
+            RequestKind::Withdraw(d) => write!(f, "Withdraw({:?})", d),
+            RequestKind::Carry(d) => write!(f, "Carry({:?})", d),
+            RequestKind::LongRangeWithdraw(d) => write!(f, "LongRangeWithdraw({:?})", d),
+            RequestKind::SafeMode(d) => write!(f, "SafeMode({:?})", d),
+            RequestKind::Caravan(d) => write!(f, "Caravan({:?})", d),
+            RequestKind::Repair(d) => write!(f, "Repair({:?})", d),
+            RequestKind::Dismantle(d) => write!(f, "Dismantle({:?})", d),
+            RequestKind::Build(d) => write!(f, "Build({:?})", d),
+            RequestKind::Claim(d) => write!(f, "Claim({:?})", d),
+            RequestKind::Book(d) => write!(f, "Book({:?})", d),
+            RequestKind::Pull(d) => write!(f, "Pull({:?})", d),
+            RequestKind::Defend(d) => write!(f, "Defend({:?})", d),
+            RequestKind::Protect(d) => write!(f, "Protect({:?})", d),
+            RequestKind::Destroy(d) => write!(f, "Destroy({:?})", d),
+            RequestKind::Crash(d) => write!(f, "Crash({:?})", d),
+            RequestKind::Powerbank(d) => write!(f, "Powerbank({:?})", d),
+            RequestKind::Deposit(d) => write!(f, "Deposit({:?})", d),
+            RequestKind::Factory(d) => write!(f, "Factory({:?})", d),
+            RequestKind::Lab(d) => write!(f, "Lab({:?})", d),
+            RequestKind::Transfer(d) => write!(f, "Transfer({:?})", d),
         }
     }
 }
@@ -354,7 +333,7 @@ pub enum RequestError {
     #[error("{0}: no squad_id provided")]
     EmptySquadId(String),
     #[error("invalid squad_id: {0}")]
-    InvalidSquadId(String)
+    InvalidSquadId(String),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -362,11 +341,16 @@ pub struct CreepHostile {
     pub name: String,
     pub owner: String,
     pub parts: Vec<BodyPart>,
-    pub ticks_to_live: Option<u32>
+    pub ticks_to_live: Option<u32>,
 }
 
 impl CreepHostile {
-    pub fn new(name: String, owner: String, parts: Vec<BodyPart>, ticks_to_live: Option<u32>) -> Self {
+    pub fn new(
+        name: String,
+        owner: String,
+        parts: Vec<BodyPart>,
+        ticks_to_live: Option<u32>,
+    ) -> Self {
         Self { name, owner, parts, ticks_to_live }
     }
 }
@@ -375,7 +359,7 @@ impl CreepHostile {
 pub struct BodyPart {
     pub boosted: bool,
     pub part: Part,
-    pub hits: u32
+    pub hits: u32,
 }
 
 impl TryFrom<Task> for Request {
@@ -383,42 +367,72 @@ impl TryFrom<Task> for Request {
 
     fn try_from(task: Task) -> Result<Self, Self::Error> {
         match task {
-            Task::Book(id, pos) =>
-                Ok(Request::new(RequestKind::Book(BookData::new(id, pos)), Assignment::Single(None))),
-            Task::Claim(id, pos) =>
-                Ok(Request::new(RequestKind::Claim(ClaimData::new(id, pos)), Assignment::Single(None))),
-            Task::Repair(id, pos, times) =>
-                Ok(Request::new(RequestKind::Repair(RepairData::new(id, pos, times)), Assignment::Single(None))),
-            Task::Build(id, pos) =>
-                Ok(Request::new(RequestKind::Build(BuildData::new(id, pos)), Assignment::Single(None))),
-            Task::Carry(from, to, resource, amount, _) =>
-                Ok(Request::new(RequestKind::Carry(CarryData::new(from, to, resource, amount)), Assignment::Single(None))),
-            Task::Withdraw(pos, id, resources) =>
-                Ok(Request::new(RequestKind::Withdraw(WithdrawData::new(id, pos, resources)), Assignment::Single(None))),
-            Task::LongRangeWithdraw(pos, id, resource, amount) =>
-                Ok(Request::new(RequestKind::LongRangeWithdraw(LRWData::new(id, pos, resource, amount)), Assignment::Single(None))),
-            Task::GenerateSafeMode(pos, id, storage_id) =>
-                Ok(Request::new(RequestKind::SafeMode(SMData::new(id, pos, storage_id)), Assignment::Single(None))),
-            Task::TakeResource(id) =>
-                Ok(Request::new(RequestKind::Pickup(PickupData::new(id)), Assignment::Single(None))),
-            Task::PullTo(creep_name, destination) =>
-                Ok(Request::new(RequestKind::Pull(PullData::new(creep_name, destination)), Assignment::Single(None))),
-            Task::Dismantle(id, workplace) =>
-                Ok(Request::new(RequestKind::Dismantle(DismantleData::new(id, workplace)), Assignment::Single(None))),
-            Task::DepositHarvest(pos, id) =>
-                Ok(Request::new(RequestKind::Deposit(DepositData::new(id, pos, 1)), Assignment::Squads(Vec::new()))),
-            Task::PowerbankAttack(pos, id, _) =>
-                Ok(Request::new(RequestKind::Powerbank(PowerbankData::new(id, pos, 1)), Assignment::Squads(Vec::new()))),
-            Task::Crash(id, pos) =>
-                Ok(Request::new(RequestKind::Crash(CrashData::new(id, pos)), Assignment::Single(None))),
+            Task::Book(id, pos) => Ok(Request::new(
+                RequestKind::Book(BookData::new(id, pos)),
+                Assignment::Single(None),
+            )),
+            Task::Claim(id, pos) => Ok(Request::new(
+                RequestKind::Claim(ClaimData::new(id, pos)),
+                Assignment::Single(None),
+            )),
+            Task::Repair(id, pos, times) => Ok(Request::new(
+                RequestKind::Repair(RepairData::new(id, pos, times)),
+                Assignment::Single(None),
+            )),
+            Task::Build(id, pos) => Ok(Request::new(
+                RequestKind::Build(BuildData::new(id, pos)),
+                Assignment::Single(None),
+            )),
+            Task::Carry(from, to, resource, amount, _) => Ok(Request::new(
+                RequestKind::Carry(CarryData::new(from, to, resource, amount)),
+                Assignment::Single(None),
+            )),
+            Task::Withdraw(pos, id, resources) => Ok(Request::new(
+                RequestKind::Withdraw(WithdrawData::new(id, pos, resources)),
+                Assignment::Single(None),
+            )),
+            Task::LongRangeWithdraw(pos, id, resource, amount) => Ok(Request::new(
+                RequestKind::LongRangeWithdraw(LRWData::new(id, pos, resource, amount)),
+                Assignment::Single(None),
+            )),
+            Task::GenerateSafeMode(pos, id, storage_id) => Ok(Request::new(
+                RequestKind::SafeMode(SMData::new(id, pos, storage_id)),
+                Assignment::Single(None),
+            )),
+            Task::TakeResource(id) => {
+                Ok(Request::new(RequestKind::Pickup(PickupData::new(id)), Assignment::Single(None)))
+            }
+            Task::PullTo(creep_name, destination) => Ok(Request::new(
+                RequestKind::Pull(PullData::new(creep_name, destination)),
+                Assignment::Single(None),
+            )),
+            Task::Dismantle(id, workplace) => Ok(Request::new(
+                RequestKind::Dismantle(DismantleData::new(id, workplace)),
+                Assignment::Single(None),
+            )),
+            Task::DepositHarvest(pos, id) => Ok(Request::new(
+                RequestKind::Deposit(DepositData::new(id, pos, 1)),
+                Assignment::Squads(Vec::new()),
+            )),
+            Task::PowerbankAttack(pos, id, _) => Ok(Request::new(
+                RequestKind::Powerbank(PowerbankData::new(id, pos, 1)),
+                Assignment::Squads(Vec::new()),
+            )),
+            Task::Crash(id, pos) => Ok(Request::new(
+                RequestKind::Crash(CrashData::new(id, pos)),
+                Assignment::Single(None),
+            )),
             Task::Defend(room_name, room_requested) => {
                 if room_requested {
-                    Ok(Request::new(RequestKind::Defend(DefendData::new(room_name)), Assignment::Multi(HashSet::new())))
+                    Ok(Request::new(
+                        RequestKind::Defend(DefendData::new(room_name)),
+                        Assignment::Multi(HashSet::new()),
+                    ))
                 } else {
                     Err(())
                 }
-            },
-            _ => Err(())
+            }
+            _ => Err(()),
         }
     }
 }

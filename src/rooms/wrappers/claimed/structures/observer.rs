@@ -1,5 +1,6 @@
 use log::*;
 use rand::Rng;
+
 use crate::rooms::wrappers::claimed::Claimed;
 
 //e6s20 - e24s20
@@ -11,13 +12,15 @@ impl Claimed {
         if let Some(observer) = &self.observer {
             let x = get_random(-5, 5);
             let y = get_random(-5, 5);
-    
+
             if let Some(target) = self.get_name().checked_add((x, y)) {
                 let res = observer.observe_room(target);
-                    match res {
-                        Ok(_) => {},
-                        Err(err) => error!("room: {} observation {} error: {:?}", self.get_name(), target, err)
+                match res {
+                    Ok(_) => {}
+                    Err(err) => {
+                        error!("room: {} observation {} error: {:?}", self.get_name(), target, err)
                     }
+                }
             } else {
                 error!("{} invalid observation coords: x:{}, y: {}", self.get_name(), x, y);
             }
