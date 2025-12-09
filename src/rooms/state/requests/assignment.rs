@@ -104,13 +104,10 @@ impl Assignment {
                 }
             }
             Assignment::Squads(squads) => {
-                let id = match squad_id {
-                    Some(id) => id,
-                    None => {
-                        return Err(RequestError::InvalidAssignment(
-                            "can't drop None from Assignment::Squad".to_string(),
-                        ));
-                    }
+                let Some(id) = squad_id else {
+                    return Err(RequestError::InvalidAssignment(
+                        "can't drop None from Assignment::Squad".to_string(),
+                    ));
                 };
 
                 if let Some(index) = squads.iter().position(|s| s.id == id) {
@@ -179,13 +176,10 @@ impl Assignment {
                 }
             }
             Assignment::Squads(squads) => {
-                let id = match squad_id {
-                    Some(id) => id,
-                    None => {
-                        return Err(RequestError::InvalidAssignment(
-                            "None can't be assigned to Assignment::Squad".to_string(),
-                        ));
-                    }
+                let Some(id) = squad_id else {
+                    return Err(RequestError::InvalidAssignment(
+                        "None can't be assigned to Assignment::Squad".to_string(),
+                    ));
                 };
 
                 if let Some(squad) = squads.iter_mut().find(|s| s.id == id) {

@@ -1,11 +1,11 @@
 use std::cmp::min;
 
-use screeps::{Direction, RoomXY};
+use screeps::{Direction, RoomXY, constants::extra::ROOM_SIZE};
 
 use super::OuterRectangle;
 
-pub const ROOM_SIZE: usize = screeps::constants::extra::ROOM_SIZE as usize;
-pub const ROOM_AREA: usize = ROOM_SIZE * ROOM_SIZE;
+// pub const ROOM_SIZE: u8 = screeps::constants::extra::ROOM_SIZE;
+pub const ROOM_AREA: usize = ROOM_SIZE as usize * ROOM_SIZE as usize;
 
 #[inline]
 pub fn diagonal_neighbors(xy: &RoomXY) -> impl Iterator<Item = RoomXY> {
@@ -26,12 +26,12 @@ pub const fn outside_rect(xy: &RoomXY, rectangle: OuterRectangle) -> bool {
 
 #[inline]
 pub const fn to_index(xy: RoomXY) -> usize {
-    (xy.x.u8() as usize) + ROOM_SIZE * (xy.y.u8() as usize)
+    (xy.x.u8() as usize) + ROOM_SIZE as usize * (xy.y.u8() as usize)
 }
 
 fn iter_xy() -> impl Iterator<Item = RoomXY> {
     (0..ROOM_AREA)
-        .map(|i| unsafe { RoomXY::unchecked_new((i % ROOM_SIZE) as u8, (i / ROOM_SIZE) as u8) })
+        .map(|i| unsafe { RoomXY::unchecked_new((i % ROOM_SIZE as usize) as u8, (i / ROOM_SIZE as usize) as u8) })
 }
 
 #[inline]

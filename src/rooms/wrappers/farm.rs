@@ -89,7 +89,7 @@ impl Farm {
                                 //add 50 ticks to make sure a request with collapse timer has been
                                 // created
                                 EffectType::NaturalEffect(_) => Some(effect.ticks_remaining() + 50),
-                                _ => None,
+                                EffectType::PowerEffect(_) => None,
                             }
                         })
                     })
@@ -260,7 +260,7 @@ impl Farm {
                         )),
                         Assignment::Single(None),
                     )))
-                } else if container.hits() < ((container.hits_max() as f32 * 0.75) as u32)
+                } else if container.hits() * 4 < container.hits_max() * 2
                     && planned_containers.contains(&container.pos().xy())
                 {
                     Some(RoomEvent::Request(Request::new(

@@ -385,20 +385,15 @@ pub fn find_walkable_positions_near_by(position: Position, exclude_edge: bool) -
     get_positions_near_by(position, 1, true, exclude_edge)
         .into_iter()
         .map(|elem| RoomPosition::new(elem.0, elem.1, position.room_name()).into())
-        .filter(is_walkable)
+        .filter(|pos| is_walkable(*pos))
         .collect::<Vec<Position>>()
 }
 
-pub fn is_walkable(position: &Position) -> bool {
+pub fn is_walkable(position: Position) -> bool {
     match position.look() {
         Ok(results) => results.iter().all(|look_result| {
             match look_result {
-                LookResult::Creep(_) => false,
-                LookResult::PowerCreep(_) => false,
-                LookResult::Deposit(_) => false,
-                LookResult::Mineral(_) => false,
-                // LookResult::ScoreCollector(_) => false,
-                // LookResult::ScoreContainer(_) => false,
+                LookResult::Creep(_) | LookResult::PowerCreep(_) | LookResult::Deposit(_) | LookResult::Mineral(_) => false,
                 LookResult::Structure(s) => match StructureObject::from(s.to_owned()) {
                     StructureObject::StructureRampart(rampart) => rampart.my(),
                     StructureObject::StructureRoad(_) => true,
@@ -429,7 +424,8 @@ pub fn find_source_near(pos: Position, room: &Room) -> Option<Source> {
 }
 
 pub fn has_enough_space(container: &dyn HasStore, amount: u32) -> bool {
-    container.store().get_free_capacity(None) >= amount as i32
+    u32::try_from(container.store().get_free_capacity(None)).ok()
+        .is_some_and(|in_store| in_store >= amount)
 }
 
 pub fn get_place_to_store(room: &Room) -> Option<StructureObject> {
@@ -460,9 +456,6 @@ pub fn try_heal(creep: &Creep) {
     match find_closest_injured(creep) {
         Some(injured) => {
             match creep.pos().get_range_to(injured.pos()) {
-                0 => {
-                    let _ = creep.heal(creep);
-                }
                 1 => {
                     let _ = creep.heal(&injured);
                 }

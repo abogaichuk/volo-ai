@@ -5,7 +5,7 @@ use std::str::FromStr;
 use itertools::Itertools;
 use log::{error, debug, info};
 use screeps::pathfinder::SearchGoal;
-use screeps::{HasPosition, Position, RoomName, RoomXY, game};
+use screeps::{Position, RoomName, RoomXY, game};
 
 use super::{PlannedCell, RoomPart, RoomPlan, RoomPlannerError, RoomStructure};
 use crate::commons::is_cpu_on_low;
@@ -222,7 +222,6 @@ impl Farm {
         for xy in structures
             .get(&self.get_name())
             .ok_or(RoomPlannerError::ContainerPlacementError)?
-            .iter()
         {
             let cell = PlannedCell::new(*xy, RoomStructure::Container(RoomPart::Red), 0, None);
             plans.entry(self.get_name()).and_modify(|plan| plan.add_cell(cell));

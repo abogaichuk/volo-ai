@@ -25,7 +25,7 @@ impl fmt::Debug for Scout {
 }
 
 impl Kind for Scout {
-    fn respawn_timeout(&self, _: Option<&Creep>) -> Option<u32> {
+    fn respawn_timeout(&self, _: Option<&Creep>) -> Option<usize> {
         Some(1)
     }
 

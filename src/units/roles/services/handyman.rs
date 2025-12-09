@@ -1,3 +1,7 @@
+#![allow(clippy::cast_possible_wrap)]
+#![allow(clippy::cast_possible_truncation)]
+#![allow(clippy::cast_sign_loss)]
+#![allow(clippy::cast_precision_loss)]
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::fmt;
@@ -93,7 +97,7 @@ impl Kind for HandyMan {
         body
     }
 
-    fn respawn_timeout(&self, _: Option<&Creep>) -> Option<u32> {
+    fn respawn_timeout(&self, _: Option<&Creep>) -> Option<usize> {
         Some(800)
     }
 
@@ -101,7 +105,7 @@ impl Kind for HandyMan {
         home.get_available_boost(creep, self.boosts(creep))
             .map(|(id, body_part)| {
                 let parts_number = creep.body().iter().filter(|bp| bp.part() == body_part).count();
-                Task::Boost(id, Some(parts_number as u32))
+                Task::Boost(id, u32::try_from(parts_number).ok())
             })
             .or_else(|| {
                 self.workplace.map(|workplace| {
@@ -210,6 +214,7 @@ fn repair_near(creep: &Creep, room: &Room) -> Option<Task> {
     // .next()
 }
 
+#[allow(clippy::cast_possible_wrap)]
 fn fiil_near(creep: &Creep, room: &Room) -> Option<Task> {
     room.find(find::STRUCTURES, None).iter().find_map(|s| match s {
         StructureObject::StructureTower(t)

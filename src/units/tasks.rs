@@ -158,7 +158,7 @@ impl Task {
                             );
                             TaskResult::StillWorking(Task::Provoke(5, range), Some(goal))
                         }
-                        _ => match range {
+                        Ordering::Equal => match range {
                             5 => {
                                 say_message(creep);
                                 TaskResult::StillWorking(Task::Provoke(ticks, range), None)

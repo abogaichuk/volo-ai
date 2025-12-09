@@ -29,7 +29,7 @@ pub fn plan(
         let (planned_roads, planned_structures) = room_plan.partition_by_roads_or_not();
         let container = place_for_container(
             storage,
-            source,
+            *source,
             planned_roads.iter().map(|c| c.xy).collect(),
             planned_structures.iter().map(|c| c.xy).collect(),
             grid,
@@ -61,7 +61,7 @@ pub fn plan(
         }
 
         let road = search_result.path().into_iter().rev().enumerate().map(|(i, step)| {
-            let distance = if grid.get(&step.xy()).is_some_and(super::super::RoomPart::is_internal) {
+            let distance = if grid.get(&step.xy()).is_some_and(|part| part.is_internal()) {
                 0
             } else {
                 let cell = PlannedCell::new(step.xy(), RoomStructure::Road(i), 0, None);
@@ -76,7 +76,7 @@ pub fn plan(
         });
         room_plan.add_cells(road);
 
-        let link = walkable_neighbors(&container.xy, grid)
+        let link = walkable_neighbors(container.xy, grid)
             .filter(|xy| !room_plan.is_occupied(*xy))
             .min_by_key(|xy| xy.get_range_to(storage.xy()))
             .map(|xy| {

@@ -84,7 +84,7 @@ impl Kind for RemoteUpgrader {
         body
     }
 
-    fn respawn_timeout(&self, _: Option<&Creep>) -> Option<u32> {
+    fn respawn_timeout(&self, _: Option<&Creep>) -> Option<usize> {
         Some(750)
     }
 
@@ -92,7 +92,7 @@ impl Kind for RemoteUpgrader {
         home.get_available_boost(creep, self.boosts(creep))
             .map(|(id, body_part)| {
                 let parts_number = creep.body().iter().filter(|bp| bp.part() == body_part).count();
-                Task::Boost(id, Some(parts_number as u32))
+                Task::Boost(id, u32::try_from(parts_number).ok())
             })
             .or_else(|| {
                 (creep.store().get_used_capacity(Some(ResourceType::Energy)) > 0)
@@ -100,7 +100,7 @@ impl Kind for RemoteUpgrader {
             })
             .or_else(|| {
                 self.workplace.map(|workplace| {
-                    if let Some(source) = home.find_source_near(&workplace) {
+                    if let Some(source) = home.find_source_near(workplace) {
                         Task::Harvest(workplace, source)
                     } else {
                         Task::MoveMe(workplace.room_name(), Walker::Exploring(false))

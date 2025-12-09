@@ -124,7 +124,7 @@ impl Kind for Fighter {
         home.get_available_boost(creep, self.boosts(creep))
             .map(|(id, body_part)| {
                 let parts_number = creep.body().iter().filter(|bp| bp.part() == body_part).count();
-                Task::Boost(id, Some(parts_number as u32))
+                Task::Boost(id, u32::try_from(parts_number).ok())
             })
             .or_else(|| self.target.map(|target| Task::Protect(target, None)))
             .unwrap_or_default()

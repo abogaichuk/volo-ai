@@ -6,7 +6,7 @@ use crate::commons::find_container_with;
 use crate::rooms::state::requests::assignment::Assignment;
 use crate::rooms::state::requests::{CarryData, Request, RequestKind};
 use crate::rooms::wrappers::claimed::Claimed;
-use crate::utils::constants::MAX_CARRY_REQUEST_AMOUNT;
+use crate::utils::constants::{MAX_CARRY_REQUEST_AMOUNT, MIN_CARRY_REQUEST_AMOUNT};
 
 const GHODIUM_LOAD_CAPACITY: u32 = 5000;
 
@@ -16,7 +16,7 @@ impl Claimed {
             if nuker.store().get_used_capacity(Some(ResourceType::Energy))
                 < nuker.store().get_capacity(Some(ResourceType::Energy))
             {
-                find_container_with(ResourceType::Energy, Some(150000), self.storage(), None, None)
+                find_container_with(ResourceType::Energy, Some(150_000), self.storage(), None, None)
                     .map(|(id, _)| {
                         Request::new(
                             RequestKind::Carry(CarryData::new(
@@ -24,8 +24,8 @@ impl Claimed {
                                 nuker.raw_id(),
                                 ResourceType::Energy,
                                 min(
-                                    nuker.store().get_free_capacity(Some(ResourceType::Energy))
-                                        as u32,
+                                    u32::try_from(nuker.store().get_free_capacity(Some(ResourceType::Energy))).ok()
+                                        .unwrap_or(MIN_CARRY_REQUEST_AMOUNT),
                                     MAX_CARRY_REQUEST_AMOUNT,
                                 ),
                             )),

@@ -45,7 +45,7 @@ pub fn spawn_space(
         .sorted_by_key(|square| square.center().get_range_to(shifted_center))
         .take(4)
         .flat_map(super::Square::cells)
-        .filter(|cell| !is_wall(walls, cell))
+        .filter(|cell| !is_wall(walls, *cell))
         .collect();
 
     let mut used = vec![false; candidates.len()];

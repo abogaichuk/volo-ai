@@ -22,10 +22,7 @@ pub fn run_power_creeps(
         .collect();
 
     for (name, memory) in states.iter_mut() {
-        let pc = match p_creeps.remove(name) {
-            Some(pc) => pc,
-            _ => continue, //gc will clear them
-        };
+        let Some(pc) = p_creeps.remove(name) else { continue };
 
         if let Some(room_name) = memory.get_home().as_ref() {
             if let Some(mut unit) =
@@ -120,7 +117,7 @@ impl PcUnit<'_, '_, '_> {
                         let _ = self.creep.withdraw(storage, ResourceType::Ops, None);
                         None
                     } else {
-                        build_goal(storage.pos(), CLOSE_RANGE_ACTION, None)
+                        Some(build_goal(storage.pos(), CLOSE_RANGE_ACTION, None))
                     }
                 } else {
                     warn!("room: {} resource ops not enough!!", self.home.name());
@@ -132,7 +129,7 @@ impl PcUnit<'_, '_, '_> {
                         let _ = self.creep.use_power(PowerType::OperateTower, Some(tower));
                         None
                     } else {
-                        build_goal(tower.pos(), LONG_RANGE_ACTION, None)
+                        Some(build_goal(tower.pos(), LONG_RANGE_ACTION, None))
                     }
                 } else {
                     None
@@ -146,7 +143,7 @@ impl PcUnit<'_, '_, '_> {
                         let _ = self.creep.use_power(PowerType::Fortify, Some(rampart));
                         None
                     } else {
-                        build_goal(rampart.pos(), LONG_RANGE_ACTION, None)
+                        Some(build_goal(rampart.pos(), LONG_RANGE_ACTION, None))
                     }
                 } else {
                     None
@@ -167,7 +164,7 @@ impl PcUnit<'_, '_, '_> {
                 }
                 None
             } else {
-                build_goal(source.pos(), LONG_RANGE_ACTION, None)
+                Some(build_goal(source.pos(), LONG_RANGE_ACTION, None))
             }
         } else if let (Some(storage), Some(_)) =
             (self.home.full_storage_without_effect(), self.get_power(PowerType::OperateStorage))
@@ -180,7 +177,7 @@ impl PcUnit<'_, '_, '_> {
                         let _ = self.creep.withdraw(storage, ResourceType::Ops, None);
                         None
                     } else {
-                        build_goal(storage.pos(), CLOSE_RANGE_ACTION, None)
+                        Some(build_goal(storage.pos(), CLOSE_RANGE_ACTION, None))
                     }
                 } else {
                     warn!("room: {} resource ops not enough!!", self.home.name());
@@ -199,7 +196,7 @@ impl PcUnit<'_, '_, '_> {
                     }
                     None
                 } else {
-                    build_goal(storage.pos(), LONG_RANGE_ACTION, None)
+                    Some(build_goal(storage.pos(), LONG_RANGE_ACTION, None))
                 }
             }
         } else if self.home.mineral_without_effect()
@@ -215,11 +212,11 @@ impl PcUnit<'_, '_, '_> {
                 }
                 None
             } else {
-                build_goal(self.home.mineral().pos(), LONG_RANGE_ACTION, None)
+                Some(build_goal(self.home.mineral().pos(), LONG_RANGE_ACTION, None))
             }
         } else if let (Some(spawn), Some(_)) =
             (self.home.spawn_without_effect(), self.get_power(PowerType::OperateSpawn))
-            && self.home.is_power_enabled(&PowerType::OperateSpawn)
+            && self.home.is_power_enabled(PowerType::OperateSpawn)
         {
             if self.creep.store().get_used_capacity(Some(ResourceType::Ops)) < 100 {
                 if let Some(storage) = self.home.storage()
@@ -229,7 +226,7 @@ impl PcUnit<'_, '_, '_> {
                         let _ = self.creep.withdraw(storage, ResourceType::Ops, None);
                         None
                     } else {
-                        build_goal(storage.pos(), CLOSE_RANGE_ACTION, None)
+                        Some(build_goal(storage.pos(), CLOSE_RANGE_ACTION, None))
                     }
                 } else {
                     warn!("room: {} resource ops not enough!!", self.home.name());
@@ -248,13 +245,13 @@ impl PcUnit<'_, '_, '_> {
                     }
                     None
                 } else {
-                    build_goal(spawn.pos(), LONG_RANGE_ACTION, None)
+                    Some(build_goal(spawn.pos(), LONG_RANGE_ACTION, None))
                 }
             }
         } else if let (Some(factory), Some(_), true) = (
             self.home.factory_without_effect(),
             self.get_power(PowerType::OperateFactory),
-            self.home.is_power_enabled(&PowerType::OperateFactory),
+            self.home.is_power_enabled(PowerType::OperateFactory),
         ) {
             if self.creep.store().get_used_capacity(Some(ResourceType::Ops)) < 100 {
                 if let Some(storage) = self.home.storage()
@@ -264,7 +261,7 @@ impl PcUnit<'_, '_, '_> {
                         let _ = self.creep.withdraw(storage, ResourceType::Ops, None);
                         None
                     } else {
-                        build_goal(storage.pos(), CLOSE_RANGE_ACTION, None)
+                        Some(build_goal(storage.pos(), CLOSE_RANGE_ACTION, None))
                     }
                 } else {
                     warn!("room: {} resource ops not enough!!", self.home.name());
@@ -283,7 +280,7 @@ impl PcUnit<'_, '_, '_> {
                     }
                     None
                 } else {
-                    build_goal(factory.pos(), LONG_RANGE_ACTION, None)
+                    Some(build_goal(factory.pos(), LONG_RANGE_ACTION, None))
                 }
             }
         } else if self.creep.store().get_used_capacity(Some(ResourceType::Ops))
@@ -296,7 +293,7 @@ impl PcUnit<'_, '_, '_> {
                     let _ = self.creep.transfer(storage, ResourceType::Ops, None);
                     None
                 } else {
-                    build_goal(storage.pos(), CLOSE_RANGE_ACTION, None)
+                    Some(build_goal(storage.pos(), CLOSE_RANGE_ACTION, None))
                 }
             } else {
                 warn!("room: {}, storage is full!!", self.home.name());
@@ -304,7 +301,7 @@ impl PcUnit<'_, '_, '_> {
             }
         } else if controller_without_effect(self.home.controller())
             && self.get_power(PowerType::OperateController).is_some()
-            && self.home.is_power_enabled(&PowerType::OperateController)
+            && self.home.is_power_enabled(PowerType::OperateController)
         {
             if self.creep.store().get_used_capacity(Some(ResourceType::Ops)) < 200 {
                 if let Some(storage) = self.home.storage()
@@ -314,7 +311,7 @@ impl PcUnit<'_, '_, '_> {
                         let _ = self.creep.withdraw(storage, ResourceType::Ops, None);
                         None
                     } else {
-                        build_goal(storage.pos(), CLOSE_RANGE_ACTION, None)
+                        Some(build_goal(storage.pos(), CLOSE_RANGE_ACTION, None))
                     }
                 } else {
                     warn!("room: {} resource ops not enough!!", self.home.name());
@@ -336,7 +333,7 @@ impl PcUnit<'_, '_, '_> {
                     }
                     None
                 } else {
-                    build_goal(self.home.controller().pos(), LONG_RANGE_ACTION, None)
+                    Some(build_goal(self.home.controller().pos(), LONG_RANGE_ACTION, None))
                 }
             }
         } else {
@@ -352,7 +349,7 @@ impl PcUnit<'_, '_, '_> {
                 let _ = self.creep.renew(power_spawn);
                 None
             } else {
-                build_goal(power_spawn.pos(), CLOSE_RANGE_ACTION, None)
+                Some(build_goal(power_spawn.pos(), CLOSE_RANGE_ACTION, None))
             }
         } else {
             warn!("power_creep: {} no powerspawn found for renew!!", self.creep.name());
@@ -425,7 +422,7 @@ impl PcUnit<'_, '_, '_> {
 fn controller_without_effect(controller: &StructureController) -> bool {
     !controller.effects().into_iter().any(|effect: Effect| match effect.effect() {
         EffectType::PowerEffect(p) => matches!(p, PowerType::OperateController),
-        _ => false,
+        EffectType::NaturalEffect(_) => false,
     })
 }
 
@@ -434,7 +431,7 @@ fn enable_controller(creep: &PowerCreep, controller: &StructureController) -> Op
         let _ = creep.enable_room(controller);
         None
     } else {
-        build_goal(controller.pos(), CLOSE_RANGE_ACTION, None)
+        Some(build_goal(controller.pos(), CLOSE_RANGE_ACTION, None))
     }
 }
 
@@ -442,13 +439,11 @@ fn build_goal(
     pos: Position,
     range: u32,
     danger_zones: Option<(RoomName, Vec<RoomXY>)>,
-) -> Option<MovementGoal> {
-    Some(
-        MovementGoalBuilder::new(pos)
-            .range(range)
-            .profile(MovementProfile::SwampFiveToOne)
-            .avoid_creeps(false)
-            .danger_zones(danger_zones)
-            .build(),
-    )
+) -> MovementGoal {
+    MovementGoalBuilder::new(pos)
+        .range(range)
+        .profile(MovementProfile::SwampFiveToOne)
+        .avoid_creeps(false)
+        .danger_zones(danger_zones)
+        .build()
 }

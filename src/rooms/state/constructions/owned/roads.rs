@@ -162,7 +162,7 @@ impl RoadConfig {
                             RoomCoordinate::unchecked_new(y),
                         )
                     };
-                    if grid.get(&cell).is_some_and(super::super::RoomPart::is_internal)
+                    if grid.get(&cell).is_some_and(|part| part.is_internal())
                         && !occupied.contains(&cell)
                     {
                         roads.insert(cell);

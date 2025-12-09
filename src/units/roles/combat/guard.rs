@@ -70,10 +70,10 @@ impl Kind for Guard {
 
     fn get_task(&self, creep: &Creep, home: &mut Shelter) -> Task {
         home.get_available_boost(creep, self.boosts(creep))
-            .map(|(id, body_part)| {
-                let parts_number = creep.body().iter().filter(|bp| bp.part() == body_part).count();
-                Task::Boost(id, Some(parts_number as u32))
-            })
-            .unwrap_or_else(|| Task::DefendHome)
+            .map_or_else(
+                || Task::DefendHome,
+                |(id, body_part)| Task::Boost(id, u32::try_from(
+                    creep.body().iter().filter(|bp| bp.part() == body_part).count()).ok()
+                ))
     }
 }

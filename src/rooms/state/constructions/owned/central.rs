@@ -11,7 +11,7 @@ use crate::rooms::state::constructions::{
 };
 
 pub fn central_square(
-    target: &RoomXY,
+    target: RoomXY,
     spawn: Option<RoomXY>,
     roads: &HashSet<RoomXY>,
     squares: &mut Vec<Square>,
@@ -41,7 +41,7 @@ pub fn central_square(
                 .collect();
 
             if squares.len() == 4
-                && let Some(guide_direction) = road.get_direction_to(*target)
+                && let Some(guide_direction) = road.get_direction_to(target)
             {
                 places.push(CentralSquare::new(*road, guide_direction, squares));
             }
@@ -49,10 +49,10 @@ pub fn central_square(
     }
 
     if let Some(central) =
-        places.into_iter().min_by_key(|place| place.cross_road().get_range_to(*target))
+        places.into_iter().min_by_key(|place| place.cross_road().get_range_to(target))
     {
-        let placed: Vec<&Square> = central.squares().values().collect();
-        squares.retain(|s| !placed.contains(&s));
+        let existed: Vec<&Square> = central.squares().values().collect();
+        squares.retain(|s| !existed.contains(&s));
 
         Ok(central)
     } else {

@@ -20,7 +20,7 @@ pub fn plan(
 
     let container = place_for_container(
         storage,
-        &mineral,
+        mineral,
         planned_roads.iter().map(|c| c.xy).collect(),
         planned_structures.iter().map(|c| c.xy).collect(),
         grid,
@@ -46,7 +46,7 @@ pub fn plan(
     }
 
     let road = search_result.path().into_iter().rev().enumerate().map(|(i, step)| {
-        let distance = if grid.get(&step.xy()).is_some_and(super::super::RoomPart::is_internal) {
+        let distance = if grid.get(&step.xy()).is_some_and(|part| part.is_internal()) {
             0
         } else {
             let cell = PlannedCell::new(step.xy(), RoomStructure::Road(i), 6, None);

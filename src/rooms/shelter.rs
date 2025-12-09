@@ -5,7 +5,7 @@ use log::{error, info, warn, debug};
 use screeps::game::market::Order;
 use screeps::game::{self};
 use screeps::{
-    Creep, Effect, EffectType, HasHits, HasId, HasPosition, HasStore, Mineral, ObjectId, OrderType,
+    Creep, Effect, EffectType, HasId, HasPosition, HasStore, Mineral, ObjectId, OrderType,
     Part, Position, PowerType, RawObjectId, ResourceType, Room, RoomName, RoomObjectProperties,
     Source, StructureController, StructureFactory, StructureLab, StructureLink,
     StructurePowerSpawn, StructureRampart, StructureSpawn, StructureStorage, StructureTerminal,
@@ -132,11 +132,11 @@ impl<'s> Shelter<'s> {
                     }
                 }
                 RoomEvent::CancelRespawn(role) => {
-                    creeps.iter_mut().for_each(|creep| {
+                    for creep in creeps.iter_mut() {
                         if creep.1.role == role {
                             creep.1.respawned = true;
                         }
-                    });
+                    }
                 }
                 RoomEvent::AddPower(power) => {
                     self.state.powers.insert(power);
@@ -310,8 +310,8 @@ impl<'s> Shelter<'s> {
         self.state.intrusion
     }
 
-    pub fn is_power_enabled(&self, power: &PowerType) -> bool {
-        self.state.powers.contains(power)
+    pub fn is_power_enabled(&self, power: PowerType) -> bool {
+        self.state.powers.contains(&power)
     }
 
     pub fn closest_empty_structure(&self, to: &dyn HasPosition) -> Option<Box<dyn Fillable>> {
@@ -398,8 +398,8 @@ impl<'s> Shelter<'s> {
         (self.base.labs.inputs(), self.base.labs.outputs())
     }
 
-    pub fn lab_for_boost(&self, resources: &[ResourceType; 2]) -> Option<ObjectId<StructureLab>> {
-        resources.iter().find_map(|res| self.base.labs.boost_lab(res))
+    pub fn lab_for_boost(&self, resources: [ResourceType; 2]) -> Option<ObjectId<StructureLab>> {
+        resources.iter().find_map(|res| self.base.labs.boost_lab(*res))
     }
 
     pub const fn mineral(&self) -> &Mineral {
@@ -414,7 +414,7 @@ impl<'s> Shelter<'s> {
         self.base.all_sources()
     }
 
-    pub fn find_source_near(&self, pos: &Position) -> Option<ObjectId<Source>> {
+    pub fn find_source_near(&self, pos: Position) -> Option<ObjectId<Source>> {
         self.base
             .sources
             .iter()
@@ -448,7 +448,7 @@ impl<'s> Shelter<'s> {
             .unique()
             .filter_map(|part| all_boosts.get(&part).map(|resoucres| (part, resoucres)))
             .find_map(|resources_for_part| {
-                self.lab_for_boost(resources_for_part.1).map(|id| (id, resources_for_part.0))
+                self.lab_for_boost(*resources_for_part.1).map(|id| (id, resources_for_part.0))
             })
     }
 
@@ -472,7 +472,7 @@ impl<'s> Shelter<'s> {
         self.base.towers.iter().find(|tower| {
             !tower.effects().into_iter().any(|effect: Effect| match effect.effect() {
                 EffectType::PowerEffect(p) => matches!(p, PowerType::OperateTower),
-                _ => false,
+                EffectType::NaturalEffect(_) => false,
             })
         })
     }
@@ -481,7 +481,7 @@ impl<'s> Shelter<'s> {
         self.base.spawns.iter().find(|spawn| {
             !spawn.effects().into_iter().any(|effect: Effect| match effect.effect() {
                 EffectType::PowerEffect(p) => matches!(p, PowerType::OperateSpawn),
-                _ => false,
+                EffectType::NaturalEffect(_) => false,
             })
         })
     }
@@ -490,14 +490,14 @@ impl<'s> Shelter<'s> {
         self.base.factory.as_ref().filter(|factory| {
             !factory.effects().into_iter().any(|effect: Effect| match effect.effect() {
                 EffectType::PowerEffect(p) => matches!(p, PowerType::OperateFactory),
-                _ => false,
+                EffectType::NaturalEffect(_) => false,
             })
         })
     }
 
     pub fn full_storage_without_effect(&self) -> Option<&StructureStorage> {
         self.base.storage().filter(|storage| {
-            storage.effects().is_empty() && storage.store().get_used_capacity(None) > 990000
+            storage.effects().is_empty() && storage.store().get_used_capacity(None) > 990_000
         })
     }
 
@@ -506,7 +506,7 @@ impl<'s> Shelter<'s> {
             && !self.base.mineral.effects().into_iter().any(|effect: Effect| {
                 match effect.effect() {
                     EffectType::PowerEffect(p) => matches!(p, PowerType::RegenMineral),
-                    _ => false,
+                    EffectType::NaturalEffect(_) => false,
                 }
             })
     }
@@ -518,7 +518,7 @@ impl<'s> Shelter<'s> {
                 EffectType::PowerEffect(p) => {
                     matches!(p, PowerType::RegenSource if { effect.ticks_remaining() > 30 })
                 }
-                _ => false,
+                EffectType::NaturalEffect(_) => false,
             })
         })
     }

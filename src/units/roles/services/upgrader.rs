@@ -44,8 +44,8 @@ impl Kind for Upgrader {
         MovementProfile::RoadsOneToTwo
     }
 
-    fn respawn_timeout(&self, creep: Option<&Creep>) -> Option<u32> {
-        creep.map(|c| c.body().len() as u32 * 3).or(Some(0))
+    fn respawn_timeout(&self, creep: Option<&Creep>) -> Option<usize> {
+        creep.map(|c| c.body().len() * 3).or(Some(0))
     }
 
     fn boosts(&self, creep: &Creep) -> HashMap<Part, [ResourceType; 2]> {
@@ -60,7 +60,7 @@ impl Kind for Upgrader {
         home.get_available_boost(creep, self.boosts(creep))
             .map(|(id, body_part)| {
                 let parts_number = creep.body().iter().filter(|bp| bp.part() == body_part).count();
-                Task::Boost(id, Some(parts_number as u32))
+                Task::Boost(id, u32::try_from(parts_number).ok())
             })
             .or_else(|| {
                 home.find_container_in_range(home.controller().pos(), 2).map(|(id, pos)| {

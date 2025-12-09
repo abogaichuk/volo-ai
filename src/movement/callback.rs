@@ -62,8 +62,8 @@ pub fn prefer_swamp_callback(
 pub fn closest_in_room_range(
     grid: &HashMap<RoomXY, RoomPart>,
 ) -> impl FnMut(RoomName, CostMatrix) -> SingleRoomCostResult + use<'_> {
-    |_: RoomName, mut matrix: CostMatrix| -> SingleRoomCostResult {
-        for (xy, part) in grid.iter() {
+    move |_: RoomName, mut matrix: CostMatrix| -> SingleRoomCostResult {
+        for (xy, part) in grid {
             match part {
                 RoomPart::Wall | RoomPart::Exit => matrix.set_xy(*xy, 0xff),
                 _ => {}
@@ -84,7 +84,7 @@ pub fn construction_single_room(
     move |_: RoomName| -> MultiRoomCostResult {
         let mut matrix = LocalCostMatrix::new();
 
-        for (xy, part) in grid.iter() {
+        for (xy, part) in grid {
             if unwalkable.contains(xy) {
                 matrix.set_xy(*xy, 0xff);
             } else {
@@ -115,7 +115,7 @@ pub fn construction_multi_rooms(
                 }
             }
             if let Some(buildings) = planned.get(&room_name) {
-                for xy in buildings.iter() {
+                for xy in buildings {
                     structures.insert(*xy);
                 }
             }
@@ -221,7 +221,7 @@ fn cost_matrix(room_name: RoomName, options: &PathOptions, prefer_swamp: bool) -
             let penalty = 0xa;
 
             //trying to avoid attackable cells
-            for xy in danger_zones.1.iter() {
+            for xy in &danger_zones.1 {
                 match new_matrix.get(*xy) {
                     0xff => {} //cell is unwalkable -> do nothing
                     1 => {

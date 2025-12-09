@@ -56,7 +56,7 @@ pub trait Kind {
         Task::Idle(10)
     }
 
-    fn respawn_timeout(&self, _: Option<&Creep>) -> Option<u32> {
+    fn respawn_timeout(&self, _: Option<&Creep>) -> Option<usize> {
         None
     }
 
@@ -84,11 +84,9 @@ const fn default_parts_priority(part: Part) -> i8 {
     match part {
         Part::Tough => 0,
         Part::Carry => 1,
-        Part::Work => 2,
-        Part::Claim => 2,
+        Part::Work | Part::Claim => 2,
         Part::Move => 3,
-        Part::RangedAttack => 4,
-        Part::Attack => 4,
+        Part::RangedAttack | Part::Attack => 4,
         Part::Heal => 10,
         _ => 5,
     }
@@ -97,11 +95,9 @@ const fn default_parts_priority(part: Part) -> i8 {
 const fn pvp_parts_priority(part: Part) -> i8 {
     match part {
         Part::Tough => 0,
-        Part::Work => 1,
-        Part::Claim => 1,
+        Part::Work | Part::Claim => 1,
         Part::Carry => 2,
-        Part::RangedAttack => 4,
-        Part::Attack => 4,
+        Part::RangedAttack | Part::Attack => 4,
         Part::Move => 7,
         Part::Heal => 10,
         _ => 5,
@@ -219,21 +215,11 @@ impl Role {
             Role::Hauler(_) => 8,
             Role::Miner(_) => 7,
             Role::Defender(_) => 6,
-            // Role::Hauler(_) => 6,
             Role::Trader(_) => 5,
-            Role::Overseer(_) => 4,
-            Role::Upgrader(_) => 4,
-            Role::PBAttacker(_) => 4,
-            Role::PBHealer(_) => 4,
-            Role::DepositMiner(_) => 4,
-            Role::PBCarrier(_) => 3,
-            Role::DepositHauler(_) => 3,
-            Role::SkMiner(_) => 2,
-            Role::Booker(_) => 2,
-            Role::HouseKeeper(_) => 2,
-            Role::Carrier(_) => 1,
-            Role::Dismantler(_) => 1,
-            Role::Puller(_) => 1,
+            Role::Overseer(_) | Role::Upgrader(_) | Role::PBAttacker(_) | Role::PBHealer(_) | Role::DepositMiner(_) => 4,
+            Role::PBCarrier(_) | Role::DepositHauler(_) => 3,
+            Role::SkMiner(_) | Role::Booker(_) | Role::HouseKeeper(_) => 2,
+            Role::Carrier(_) | Role::Dismantler(_) | Role::Puller(_) => 1,
             Role::Scout(_) => -1,
             _ => 0,
         }

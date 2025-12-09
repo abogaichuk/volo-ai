@@ -48,7 +48,7 @@ pub enum MovementProfile {
 
 impl MovementProfile {
     pub fn search_options(
-        &self,
+        self,
         options: PathOptions,
         flee: bool,
         max_rooms: u8,
@@ -119,7 +119,7 @@ impl Movement {
 
     pub fn swap_move(&self) {
         // look for idle creeps where we actively have creeps saying they intend to move
-        for (dest_pos, moving_direction) in self.moving_creeps.iter() {
+        for (dest_pos, moving_direction) in &self.moving_creeps {
             if let Some(creep) = self.idle_creeps.get(dest_pos) {
                 let backward_direction = -*moving_direction;
                 creep.move_direction(backward_direction);
@@ -138,7 +138,7 @@ impl Movement {
         if cfg!(feature = "path-visuals") {
             let mut points = vec![];
             let mut cursor_pos = current_position;
-            for step in path_state.path[path_state.path_progress..].iter() {
+            for step in &path_state.path[path_state.path_progress..] {
                 cursor_pos = cursor_pos + *step;
                 if cursor_pos.room_name() != current_position.room_name() {
                     break;

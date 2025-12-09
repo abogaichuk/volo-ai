@@ -64,7 +64,7 @@ pub(in crate::rooms::state::requests) fn transfer_handler(
 
             if transaction_cost > terminal_energy {
                 let lack = transaction_cost - terminal_energy;
-                if free_capacity < lack as i32 {
+                if i32::try_from(lack).is_ok_and(|lack| free_capacity < lack) {
                     if let Some(unload_event) = home.unload(terminal, &[data.resource]) {
                         events.push(unload_event);
                     } else {
@@ -80,7 +80,7 @@ pub(in crate::rooms::state::requests) fn transfer_handler(
                 }
             } else if transfer_amount > terminal_resource {
                 let lack = transfer_amount - terminal_resource;
-                if free_capacity < lack as i32 {
+                if i32::try_from(lack).is_ok_and(|lack| free_capacity < lack) {
                     if let Some(unload_event) = home.unload(terminal, &[data.resource]) {
                         // events.push(RoomEvent::Request(RoomRequest::Transfer(self)));
                         events.push(unload_event);

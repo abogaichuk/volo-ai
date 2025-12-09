@@ -82,10 +82,7 @@ impl Walker {
                         .iter()
                         .find_map(|structure| match structure {
                             StructureObject::StructureRoad(road)
-                                if road.hits() < (road.hits_max() as f32 / 1.5) as u32 =>
-                            {
-                                Some(road)
-                            }
+                                if road.hits() * 3 < road.hits_max() * 2 => Some(road),
                             _ => None,
                         })
                         .and_then(|road| creep.repair(road).ok());
@@ -147,12 +144,12 @@ fn get_danger_zones(room_name: RoomName, enemies: &[Creep]) -> Option<(RoomName,
         .flatten()
         .collect();
 
-    cells_under_attack.extend(flags_as_danger_zones(&room_name));
+    cells_under_attack.extend(flags_as_danger_zones(room_name));
 
     if cells_under_attack.is_empty() { None } else { Some((room_name, cells_under_attack)) }
 }
 
-fn flags_as_danger_zones(&room_name: &RoomName) -> HashSet<RoomXY> {
+fn flags_as_danger_zones(room_name: RoomName) -> HashSet<RoomXY> {
     let room = game::rooms().get(room_name).expect("expect room");
     find_flags(&room)
         .iter()

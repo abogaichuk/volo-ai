@@ -333,7 +333,7 @@ fn get_closest_walkable_rampart(
     boosted_enemies: &[Creep],
 ) -> Option<StructureRampart> {
     find_ramparts(home_room)
-        .filter(|rampart| rampart.pos().is_equal_to(to) || is_walkable(&rampart.pos()))
+        .filter(|rampart| rampart.pos().is_equal_to(to) || is_walkable(rampart.pos()))
         .filter_map(|rampart| min_distance(rampart, boosted_enemies))
         .reduce(|acc, item| if item.1 < acc.1 { item } else { acc })
         .map(|item| item.0)

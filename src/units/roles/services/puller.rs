@@ -60,7 +60,7 @@ impl Kind for Puller {
         home.get_available_boost(creep, self.boosts(creep))
             .map(|(id, body_part)| {
                 let parts_number = creep.body().iter().filter(|bp| bp.part() == body_part).count();
-                Task::Boost(id, Some(parts_number as u32))
+                Task::Boost(id, u32::try_from(parts_number).ok())
             })
             .or_else(|| get_active_job(home, creep).map(|req| req.kind.into()))
             .or_else(|| {

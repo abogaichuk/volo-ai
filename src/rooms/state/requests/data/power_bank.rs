@@ -115,8 +115,8 @@ pub(in crate::rooms::state::requests) fn powerbank_handler(
                     let another_attacker =
                         find_hostiles_nearby(&pb_room, vec![Part::Attack], &power_bank).count();
 
-                    if (power_bank.hits() < 600000 && another_attacker > 0)
-                        || power_bank.hits() < 400000
+                    if (power_bank.hits() < 600_000 && another_attacker > 0)
+                        || power_bank.hits() < 400_000
                     {
                         if let Some(squad_id) = assignment.new_squad(data.id.to_string(), meta) {
                             meta.update(Status::Carry);
@@ -125,9 +125,10 @@ pub(in crate::rooms::state::requests) fn powerbank_handler(
                                 Some(squad_id),
                                 Some(home.name()),
                             ));
+
                             events.push(RoomEvent::Spawn(
                                 pb_c,
-                                (data.amount as f32 / 1600_f32).round() as usize,
+                                ((data.amount  + 800) / 160) as usize
                             ));
                         } else {
                             warn!("creation new squad error: {:?}", data);

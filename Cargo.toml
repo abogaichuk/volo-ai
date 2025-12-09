@@ -62,5 +62,8 @@ mmo = ["screeps-game-api/mmo"]
 [lints.clippy]
 all = { level = "warn", priority = -1 }
 pedantic = { level = "warn", priority = -1 }
-explicit_iter_loop = "allow"
+needless_pass_by_value = "allow"
+unused = "allow"
+too_many_lines = "allow"
+unused_self = "allow"
 # nursery = "warn"

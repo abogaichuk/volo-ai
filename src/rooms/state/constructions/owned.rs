@@ -52,7 +52,7 @@ impl Claimed {
         //todo guide cell could be an exit from farm to a base
         let guide = guide_cell(ctrl, &sources, perimeter.rectangle())?;
 
-        let central = central_square(&guide, initial_spawn, &roads, &mut squares, &walls)?;
+        let central = central_square(guide, initial_spawn, &roads, &mut squares, &walls)?;
         let spawns = spawn_space(&central, initial_spawn, &squares, &walls)?;
 
         let mut plan = RoomPlan::new(central.plan()?);
@@ -128,7 +128,7 @@ fn room_grid(
         for x in 0..screeps::ROOM_SIZE {
             let xy = unsafe { RoomXY::unchecked_new(x, y) };
 
-            if is_wall(walls, &xy) {
+            if is_wall(walls, xy) {
                 grid.insert(xy, RoomPart::Wall);
             } else if xy.is_room_edge() {
                 grid.insert(xy, RoomPart::Exit);
@@ -169,7 +169,7 @@ fn room_grid(
 
 fn place_for_container(
     storage: Position,
-    target: &RoomXY,
+    target: RoomXY,
     roads: HashSet<RoomXY>,
     unwalkable: HashSet<RoomXY>,
     grid: &HashMap<RoomXY, RoomPart>,
@@ -181,12 +181,12 @@ fn place_for_container(
     empty_cells
         .into_iter()
         .map(|xy| walkable_range(storage.into(), xy, grid))
-        .min_by(|r1, r2| cmp_routes(r1, r2, &storage))
+        .min_by(|r1, r2| cmp_routes(r1, r2, storage))
         .or_else(|| {
             road_cells
                 .into_iter()
                 .map(|xy| walkable_range(storage.into(), xy, grid))
-                .min_by(|r1, r2| cmp_routes(r1, r2, &storage))
+                .min_by(|r1, r2| cmp_routes(r1, r2, storage))
         })
         .map(|(xy, _)| xy)
 }
@@ -195,7 +195,7 @@ fn walkable_range(from: RoomPosition, to: RoomXY, grid: &HashMap<RoomXY, RoomPar
     (to, find_path_in_room(from, to, 0, closest_in_room_range(grid)))
 }
 
-fn cmp_routes(r1: &Route, r2: &Route, from: &Position) -> std::cmp::Ordering {
+fn cmp_routes(r1: &Route, r2: &Route, from: Position) -> std::cmp::Ordering {
     use std::cmp::Ordering::Equal;
     match r1.1.len().cmp(&r2.1.len()) {
         Equal => {
@@ -212,10 +212,10 @@ fn cmp_routes(r1: &Route, r2: &Route, from: &Position) -> std::cmp::Ordering {
     }
 }
 
-fn walkable_neighbors<'a>(
-    xy: &'a RoomXY,
-    grid: &'a HashMap<RoomXY, RoomPart>,
-) -> impl Iterator<Item = RoomXY> + use<'a> {
+fn walkable_neighbors(
+    xy: RoomXY,
+    grid: &HashMap<RoomXY, RoomPart>,
+) -> impl Iterator<Item = RoomXY> + use<'_> {
     xy.neighbors()
         .into_iter()
         .filter(|neighbor| grid.get(neighbor).is_some_and(|part| !part.is_wall()))
@@ -276,7 +276,7 @@ impl Perimeter {
         let mut natural_walls = Vec::new();
         let mut ramparts = Vec::new();
         for p in path {
-            if is_wall(walls, &p) {
+            if is_wall(walls, p) {
                 natural_walls.push(p);
             } else {
                 ramparts.push(p);
@@ -293,8 +293,8 @@ impl Perimeter {
         &self.ramparts
     }
 
-    fn near_rampart(&self, xy: &RoomXY) -> bool {
-        self.ramparts.iter().any(|rampart| rampart.get_range_to(*xy) == 1)
+    fn near_rampart(&self, xy: RoomXY) -> bool {
+        self.ramparts.iter().any(|rampart| rampart.get_range_to(xy) == 1)
     }
 
     fn full_path(&self) -> impl Iterator<Item = &RoomXY> {
@@ -389,6 +389,6 @@ impl Square {
             self.center.saturating_add((-1, 0)),
         ]
         .iter()
-        .all(|xy| !is_wall(walls, xy) && spawn.is_none_or(|spawn_xy| xy != spawn_xy))
+        .all(|xy| !is_wall(walls, *xy) && spawn.is_none_or(|spawn_xy| xy != spawn_xy))
     }
 }

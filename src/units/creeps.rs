@@ -120,7 +120,7 @@ impl CrUnit<'_, '_, '_> {
                 let _ = self.creep.suicide();
                 None
             }
-            _ => None,
+            TaskResult::Completed => None,
         }
     }
 
@@ -179,7 +179,7 @@ impl CrUnit<'_, '_, '_> {
     fn try_respawn(&mut self) {
         if !self.memory.respawned
             && self.creep.ticks_to_live().is_some_and(|ticks| {
-                ticks < self.memory.role.respawn_timeout(Some(&self.creep)).unwrap_or_default()
+                (ticks as usize) < self.memory.role.respawn_timeout(Some(&self.creep)).unwrap_or_default()
             })
         {
             debug!("time to respawn {}", self.creep.name());

@@ -103,6 +103,7 @@ pub struct Perimetr {
     average: f64,
 }
 
+#[allow(clippy::trivially_copy_pass_by_ref)]
 fn serialize_f64<S>(value: &f64, serializer: S) -> Result<S::Ok, S::Error>
 where
     S: Serializer,

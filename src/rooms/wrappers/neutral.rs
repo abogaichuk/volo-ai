@@ -86,12 +86,9 @@ impl Neutral {
                         .and_then(|ic| {
                             ic.effects().iter().find_map(|effect| {
                                 match effect.effect() {
-                                    //add 50 ticks to make sure a request with collapse timer has
-                                    // been created
-                                    EffectType::NaturalEffect(_) => {
-                                        Some(effect.ticks_remaining() + 50)
-                                    }
-                                    _ => None,
+                                    //add 50 ticks to make sure a request with collapse timer has been created
+                                    EffectType::NaturalEffect(_) => Some(effect.ticks_remaining() + 50),
+                                    EffectType::PowerEffect(_) => None,
                                 }
                             })
                         })
@@ -146,7 +143,7 @@ impl Neutral {
 
     fn power_bank_events(&self) -> impl Iterator<Item = ColonyEvent> + '_ {
         self.power_banks.iter().filter_map(|pb| {
-            if pb.ticks_to_decay() > 4000 && pb.power() >= 4500 && pb.hits() == 2000000 {
+            if pb.ticks_to_decay() > 4000 && pb.power() >= 4500 && pb.hits() == 2_000_000 {
                 Some(ColonyEvent::Powerbank(pb.id(), pb.pos(), pb.power()))
             } else {
                 None

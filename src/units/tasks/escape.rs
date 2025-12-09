@@ -52,7 +52,7 @@ pub fn escape(position: Position, creep: &Creep, role: &Role, enemies: Vec<Creep
 }
 
 fn find_walkable_positions_remoted_from(position: Position, range: u32) -> Option<Position> {
-    get_positions_ranged_from(position, range).find(|pos| !pos.is_room_edge() && is_walkable(pos))
+    get_positions_ranged_from(position, range).find(|pos| !pos.is_room_edge() && is_walkable(*pos))
 }
 
 fn all_positions(room_name: RoomName) -> impl Iterator<Item = Position> {

@@ -77,41 +77,38 @@ pub fn take_from_structure(
                         TaskResult::Completed
                     }
                     Err(err) => {
-                        match err {
+                        if err == WithdrawErrorCode::NotEnoughResources {
                             //additional attempt to withdraw at least some amount of resources
-                            WithdrawErrorCode::NotEnoughResources => {
-                                if let Ok(()) = creep.withdraw(container, resource, None) {
-                                    info!(
-                                        "{} additional attempt to whithdow {} from pos {}",
-                                        creep.name(),
-                                        resource,
-                                        pos
-                                    );
-                                    let _ = creep.say("💰", false); //money bag
-                                    TaskResult::Completed
-                                } else {
-                                    if game::time().is_multiple_of(10) {
-                                        error!(
-                                            "creep: {} can't withdraw resource: {} from: {}, error: {:?}",
-                                            creep.name(),
-                                            resource,
-                                            id,
-                                            err
-                                        );
-                                    }
-                                    TaskResult::Abort
-                                }
-                            }
-                            _ => {
-                                error!(
-                                    "creep: {} can't withdraw resource: {} from: {}, error: {:?}",
+                            if let Ok(()) = creep.withdraw(container, resource, None) {
+                                info!(
+                                    "{} additional attempt to whithdow {} from pos {}",
                                     creep.name(),
                                     resource,
-                                    id,
-                                    err
+                                    pos
                                 );
+                                let _ = creep.say("💰", false); //money bag
+                                TaskResult::Completed
+                            } else {
+                                if game::time().is_multiple_of(10) {
+                                    error!(
+                                        "creep: {} can't withdraw resource: {} from: {}, error: {:?}",
+                                        creep.name(),
+                                        resource,
+                                        id,
+                                        err
+                                    );
+                                }
                                 TaskResult::Abort
                             }
+                        } else {
+                            error!(
+                                "creep: {} can't withdraw resource: {} from: {}, error: {:?}",
+                                creep.name(),
+                                resource,
+                                id,
+                                err
+                            );
+                            TaskResult::Abort
                         }
                     }
                 }
@@ -265,8 +262,12 @@ pub fn long_range_withdraw(
     role: &Role,
     enemies: Vec<Creep>,
 ) -> TaskResult {
-    let take_amount = cmp::min(creep.store().get_free_capacity(None) as u32, amount);
+    //todo check cases when free amount is negative value
+    let take_amount = cmp::min(
+        u32::try_from(creep.store().get_free_capacity(None)).ok().unwrap_or_default(),
+        amount);
     debug!("{} lrw take amount: {}, amount: {}", creep.name(), take_amount, amount);
+
     match take_from_structure(pos, id, resource, Some(take_amount), creep, role, enemies) {
         TaskResult::StillWorking(_, movement_goal) => TaskResult::StillWorking(
             Task::LongRangeWithdraw(pos, id, resource, amount),

@@ -34,6 +34,7 @@ impl LabData {
     }
 }
 
+#[allow(clippy::similar_names)]
 pub(in crate::rooms::state::requests) fn lab_handler(
     data: &mut LabData,
     meta: &mut Meta,

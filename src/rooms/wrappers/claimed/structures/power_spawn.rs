@@ -7,7 +7,7 @@ use crate::rooms::state::requests::assignment::Assignment;
 use crate::rooms::state::requests::{CarryData, Request, RequestKind};
 use crate::rooms::wrappers::claimed::Claimed;
 const POWER_LOAD_CAPACITY: u32 = 100;
-const MIN_ENERGY_AMOUNT: u32 = 250000;
+const MIN_ENERGY_AMOUNT: u32 = 250_000;
 
 impl Claimed {
     pub(crate) fn run_power(&self) -> Option<Request> {

@@ -40,9 +40,9 @@ pub(super) fn walk_border(from: RoomXY, to: RoomXY, walls: &Walls) -> Vec<RoomXY
 
         while distance > 0 {
             let next = cur.saturating_add_direction(direction);
-            if is_wall(walls, &cur) {
+            if is_wall(walls, cur) {
                 path.push(cur); //todo push next if it's last?
-                if !is_wall(walls, &next) {
+                if !is_wall(walls, next) {
                     let another_next = cur.saturating_add_direction(secondary_dir);
                     let p = cut_edge(another_next, direction, secondary_dir, distance, walls);
                     if !p.is_empty() {
@@ -55,7 +55,7 @@ pub(super) fn walk_border(from: RoomXY, to: RoomXY, walls: &Walls) -> Vec<RoomXY
                 //rampart here, check secondary direction is natural wall
                 path.push(cur);
                 let another_next = cur.saturating_add_direction(secondary_dir);
-                if !is_wall(walls, &next) && is_wall(walls, &another_next) {
+                if !is_wall(walls, next) && is_wall(walls, another_next) {
                     //try cut to the bottom
                     let p = cut_edge(another_next, direction, secondary_dir, distance, walls);
                     if !p.is_empty() {
@@ -91,7 +91,7 @@ fn cut_edge(
     let next = start.saturating_add_direction(primary_dir);
     if distance == 0 {
         path.push(start);
-    } else if is_wall(walls, &next) {
+    } else if is_wall(walls, next) {
         let segment = cut_edge(next, primary_dir, secondary_dir, distance - 1, walls);
         if !segment.is_empty() {
             //reached the distance
@@ -100,7 +100,7 @@ fn cut_edge(
         }
     } else {
         let another_next = start.saturating_add_direction(secondary_dir);
-        let segments = if is_wall(walls, &another_next) {
+        let segments = if is_wall(walls, another_next) {
             cut_edge(another_next, primary_dir, secondary_dir, distance, walls)
         } else {
             Vec::new()
@@ -121,6 +121,7 @@ fn cut_edge(
 
 /// Returns *all* rectangles with the smallest safe-core size that yield ≥
 /// `TARGET_MIN_SAFE_CELLS`.
+#[allow(clippy::similar_names)]
 fn minimal_rectangles(spawn: Option<RoomXY>, sources: &[RoomXY], sat: &Sat) -> Vec<OuterRectangle> {
     let mut sizes: Vec<(u8, u8)> = Vec::new();
     for w in MIN_CORE..=MAX_CORE {
@@ -136,17 +137,17 @@ fn minimal_rectangles(spawn: Option<RoomXY>, sources: &[RoomXY], sat: &Sat) -> V
     let mut results_at_min_size: Option<Vec<OuterRectangle>> = None;
 
     for (w, h) in sizes {
-        let outer_w: u16 = u16::from(w) + 2 * u16::from(SAFE_RANGE);
-        let outer_h: u16 = u16::from(h) + 2 * u16::from(SAFE_RANGE);
+        let outer_w: u8 = w + 2 * SAFE_RANGE;
+        let outer_h: u8 = h + 2 * SAFE_RANGE;
 
-        let max_x0 = BUILD_MAX.saturating_sub((outer_w as u8) - 1);
-        let max_y0 = BUILD_MAX.saturating_sub((outer_h as u8) - 1);
+        let max_x0 = BUILD_MAX.saturating_sub((outer_w ) - 1);
+        let max_y0 = BUILD_MAX.saturating_sub((outer_h) - 1);
 
         let mut found: Vec<OuterRectangle> = Vec::new();
         for y0 in BUILD_MIN..=max_y0 {
             for x0 in BUILD_MIN..=max_x0 {
-                let x1 = x0 + (outer_w as u8) - 1;
-                let y1 = y0 + (outer_h as u8) - 1;
+                let x1 = x0 + outer_w - 1;
+                let y1 = y0 + outer_h - 1;
 
                 // at least 1 source should be inside or near the rectangle
                 if !sources.iter().any(|&s| source_near_rect(s, x0, y0, x1, y1, 1)) {
@@ -231,11 +232,11 @@ const fn rect_walls(sat: &Sat, x0: u8, y0: u8, x1: u8, y1: u8) -> u16 {
 }
 
 #[inline]
-pub fn build_sat(walls: &[[bool; ROOM_SIZE]; ROOM_SIZE]) -> Sat {
-    let mut sat = [[0u16; ROOM_SIZE]; ROOM_SIZE];
+pub fn build_sat(walls: &[[bool; ROOM_SIZE as usize]; ROOM_SIZE as usize]) -> Sat {
+    let mut sat = [[0u16; ROOM_SIZE as usize]; ROOM_SIZE as usize];
 
-    for y in 0..ROOM_SIZE {
-        for x in 0..ROOM_SIZE {
+    for y in 0..ROOM_SIZE as usize {
+        for x in 0..ROOM_SIZE as usize {
             let v = u16::from(walls[y][x]); // 0 or 1
 
             // sums from neighbors; use 0 when on the border

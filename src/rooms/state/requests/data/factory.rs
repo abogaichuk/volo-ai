@@ -39,34 +39,30 @@ pub(in crate::rooms::state::requests) fn factory_handler(
     match meta.status {
         Status::InProgress => {
             //if free space
-            if factory.store().get_free_capacity(None) >= MAX_CARRY_REQUEST_AMOUNT as i32 {
-                if let Some(component) = get_missing_component(factory, &recipe) {
-                    let request_amount = component.1 * (data.amount / recipe.amount);
-                    let factory_amount = factory.store().get_used_capacity(Some(component.0));
+            if i32::try_from(MAX_CARRY_REQUEST_AMOUNT).ok()
+                .is_some_and(|max| factory.store().get_free_capacity(None) >= max)
+            {
+                let mut load_events = Vec::new();
+                for (res, amount) in get_missing_components(factory, &recipe) {
+                    let request_amount = amount * (data.amount / recipe.amount);
+                    let factory_amount = factory.store().get_used_capacity(Some(res));
 
                     if let Some(load_event) = home.supply_resources(
                         factory.raw_id(),
-                        component.0,
+                        res,
                         min(request_amount - factory_amount, MAX_CARRY_REQUEST_AMOUNT),
                     ) {
-                        events.push(load_event);
-                        meta.update(Status::OnHold);
+                        load_events.push(load_event);
                     } else {
-                        debug!(
-                            "{} can't find missing component: {} for request: {:?}",
-                            home.name(),
-                            component.0,
-                            data
-                        );
                         meta.update(Status::Aborted);
+                        break;
                     }
                 }
-                // else if recipe.level.is_some() &&
-                // !home.is_power_enabled(&screeps::PowerType::OperateFactory) {
-                //     events.push(RoomEvent::AddPower(screeps::PowerType::OperateFactory));
-                // }
-                else if recipe.level.is_none()
-                    && home.is_power_enabled(&screeps::PowerType::OperateFactory)
+
+                if !load_events.is_empty() {
+                    events.extend(load_events);
+                } else if recipe.level.is_none()
+                    && home.is_power_enabled(screeps::PowerType::OperateFactory)
                 {
                     events.push(RoomEvent::DeletePower(screeps::PowerType::OperateFactory));
                 } else if factory.cooldown() == 0 {
@@ -90,22 +86,18 @@ pub(in crate::rooms::state::requests) fn factory_handler(
                             }
                         }
                         Err(err) => {
-                            match err {
-                                //if busy wait for powercreep effect
-                                ProduceErrorCode::Busy => {
-                                    events.push(RoomEvent::AddPower(
-                                        screeps::PowerType::OperateFactory,
-                                    ));
-                                }
-                                _ => {
-                                    meta.update(Status::Aborted);
-                                    error!(
-                                        "{} factory error: {:?}, request: {:?}",
-                                        home.name(),
-                                        err,
-                                        data
-                                    );
-                                }
+                            if err == ProduceErrorCode::Busy {
+                                events.push(RoomEvent::AddPower(
+                                    screeps::PowerType::OperateFactory,
+                                ));
+                            } else {
+                                meta.update(Status::Aborted);
+                                error!(
+                                    "{} factory error: {:?}, request: {:?}",
+                                    home.name(),
+                                    err,
+                                    data
+                                );
                             }
                         }
                     }
@@ -143,13 +135,13 @@ pub(in crate::rooms::state::requests) fn factory_handler(
     events
 }
 
-fn get_missing_component(
+fn get_missing_components(
     factory: &StructureFactory,
     recipe: &FactoryRecipe,
-) -> Option<(ResourceType, u32)> {
+) -> impl Iterator<Item = (ResourceType, u32)> {
     recipe
         .components
         .clone()
         .into_iter()
-        .find(|(resource, amount)| factory.store().get_used_capacity(Some(*resource)) < *amount)
+        .filter(|(resource, amount)| factory.store().get_used_capacity(Some(*resource)) < *amount)
 }

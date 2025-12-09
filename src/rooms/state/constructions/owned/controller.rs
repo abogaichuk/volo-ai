@@ -20,7 +20,7 @@ pub fn plan(
 
     let container = place_for_container(
         storage,
-        &ctrl,
+        ctrl,
         planned_roads.iter().map(|c| c.xy).collect(),
         planned_structures.iter().map(|c| c.xy).collect(),
         grid,
@@ -46,7 +46,7 @@ pub fn plan(
     }
 
     let road = search_result.path().into_iter().rev().enumerate().map(|(i, step)| {
-        let distance = if grid.get(&step.xy()).is_some_and(super::super::RoomPart::is_internal) {
+        let distance = if grid.get(&step.xy()).is_some_and(|part| part.is_internal()) {
             0
         } else {
             let cell = PlannedCell::new(step.xy(), RoomStructure::Road(i), 0, None);
@@ -61,14 +61,14 @@ pub fn plan(
     });
     room_plan.add_cells(road);
 
-    let link = walkable_neighbors(&container.xy, grid)
+    let link = walkable_neighbors(container.xy, grid)
         .find(|xy| xy.is_near_to(ctrl))
         .map(|xy| PlannedCell::new(xy, RoomStructure::Link(LinkType::Ctrl), 5, None))
         .ok_or(RoomPlannerError::ControllerPlacementFailure)?;
 
     room_plan.add_cell(link);
     room_plan.add_cells(
-        walkable_neighbors(&ctrl, grid)
+        walkable_neighbors(ctrl, grid)
             .map(|xy| PlannedCell::new(xy, RoomStructure::Rampart(false), 8, None)),
     );
 

@@ -52,8 +52,8 @@ impl Kind for Hauler {
         }
     }
 
-    fn respawn_timeout(&self, creep: Option<&Creep>) -> Option<u32> {
-        creep.map(|c| c.body().len() as u32 * 3).or(Some(0))
+    fn respawn_timeout(&self, creep: Option<&Creep>) -> Option<usize> {
+        creep.map(|c| c.body().len() * 3).or(Some(0))
     }
 
     fn get_task(&self, creep: &Creep, home: &mut Shelter) -> Task {
@@ -70,7 +70,7 @@ impl Kind for Hauler {
                             .expect("expect resource in a creep!");
 
                         if let Some(structure) = home.closest_empty_structure(creep)
-                            && can_fill(structure.free_capacity() as u32, creep)
+                            && can_fill(structure.free_capacity(), creep)
                         {
                             return Task::FillStructure(structure);
                         }
@@ -109,9 +109,11 @@ impl Kind for Hauler {
     }
 }
 
-fn can_fill(str_free_capacity: u32, creep: &Creep) -> bool {
+fn can_fill(str_free_capacity: i32, creep: &Creep) -> bool {
     let energy_in_store = creep.store().get_used_capacity(Some(ResourceType::Energy));
-    str_free_capacity <= energy_in_store || energy_in_store == creep.store().get_capacity(None)
+    u32::try_from(str_free_capacity).ok()
+        .is_some_and(|free_capacity| free_capacity <= energy_in_store
+            || energy_in_store == creep.store().get_capacity(None))
 }
 
 fn take_energy(home: &Shelter, creep: &Creep) -> Option<Task> {
@@ -149,28 +151,14 @@ fn take_energy(home: &Shelter, creep: &Creep) -> Option<Task> {
 
 fn get_active_job(home: &Shelter, creep: &Creep) -> Option<Request> {
     home.requests()
-        .find(|r| match &r.kind {
-            RequestKind::Withdraw(_)
-                if matches!(*r.status(), Status::InProgress) && r.assigned_to(&creep.name()) =>
-            {
-                true
-            }
-            RequestKind::Pickup(_)
-                if matches!(*r.status(), Status::InProgress) && r.assigned_to(&creep.name()) =>
-            {
-                true
-            }
-            _ => false,
-        })
+        .find(|r| matches!(&r.kind, RequestKind::Withdraw(_) | RequestKind::Pickup(_)
+            if matches!(*r.status(), Status::InProgress) && r.assigned_to(&creep.name())))
         .cloned()
 }
 
 fn get_new_job(home: &Shelter) -> Option<Request> {
     home.requests()
-        .find(|r| match &r.kind {
-            RequestKind::Withdraw(_) if matches!(*r.status(), Status::Created) => true,
-            RequestKind::Pickup(_) if matches!(*r.status(), Status::Created) => true,
-            _ => false,
-        })
+        .find(|r| matches!(&r.kind, RequestKind::Withdraw(_) | RequestKind::Pickup(_)
+            if matches!(*r.status(), Status::Created)))
         .cloned()
 }

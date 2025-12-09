@@ -80,8 +80,8 @@ impl Claimed {
         let sources = room.find(find::SOURCES, None);
         let hostiles = room.find(find::HOSTILE_CREEPS, None);
         let my_creeps = room.find(find::MY_CREEPS, None);
-        let my_pcreeps = room.find(find::MY_POWER_CREEPS, None);
-        let nukes = room.find(find::NUKES, None);
+        let my_power_creeps = room.find(find::MY_POWER_CREEPS, None);
+        let landing_nukes = room.find(find::NUKES, None);
         let cs = room.find(find::CONSTRUCTION_SITES, None);
         let tombs = room.find(find::TOMBSTONES, None);
         let dropped = room.find(find::DROPPED_RESOURCES, None);
@@ -139,7 +139,7 @@ impl Claimed {
                     if let Some(factory) = factory.as_ref() {
                         total += factory.store().get_used_capacity(Some(*res));
                     }
-                    for lab in labs.iter() {
+                    for lab in &labs {
                         total += lab.store().get_used_capacity(Some(*res));
                     }
 
@@ -173,8 +173,8 @@ impl Claimed {
             walls,
             hostiles,
             my_creeps,
-            my_pcreeps,
-            nukes,
+            my_pcreeps: my_power_creeps,
+            nukes: landing_nukes,
             tombs,
             cs,
             dropped,
@@ -219,9 +219,7 @@ impl Claimed {
                                 missed_buildings(self.get_name(), plan).collect();
                             let cpu_start = game::cpu::get_used();
                             if !buildings.is_empty() {
-                                buildings.into_iter().for_each(|(xy, str_type)| {
-                                    // info!("{} place cs: {} at {}", self.get_name(), str_type,
-                                    // xy);
+                                for (xy, str_type) in buildings {
                                     match self.room.create_construction_site(
                                         xy.x.u8(),
                                         xy.y.u8(),
@@ -239,7 +237,7 @@ impl Claimed {
                                             );
                                         }
                                     }
-                                });
+                                }
                                 let cpu_used = game::cpu::get_used() - cpu_start;
                                 info!("{} created cs cpu used: {}", self.get_name(), cpu_used);
                                 None
@@ -544,13 +542,13 @@ impl Claimed {
         let is_alive = room_memory.find_roles(&upgrader, creeps).next().is_some();
         let energy_amount = storage.store().get_used_capacity(Some(ResourceType::Energy));
 
-        if self.controller.level() == 8 && energy_amount > 250000 && !is_alive {
+        if self.controller.level() == 8 && energy_amount > 250_000 && !is_alive {
             Some(RoomEvent::Spawn(upgrader, 1))
-        } else if self.controller.level() == 8 && energy_amount < 150000 {
+        } else if self.controller.level() == 8 && energy_amount < 150_000 {
             Some(RoomEvent::CancelRespawn(upgrader))
-        } else if energy_amount > 150000 && !is_alive {
+        } else if energy_amount > 150_000 && !is_alive {
             Some(RoomEvent::Spawn(upgrader, 1))
-        } else if energy_amount < 15000 {
+        } else if energy_amount < 15_000 {
             Some(RoomEvent::CancelRespawn(upgrader))
         } else {
             None
@@ -562,10 +560,10 @@ impl Claimed {
         if let Some(plan) = plan {
             let planned_roads = plan.roads();
             for road in &self.roads {
-                if road.hits() < (road.hits_max() as f32 * 0.5) as u32
+                if road.hits() * 4 < road.hits_max() * 2
                     && planned_roads.contains(&road.pos().xy())
                 {
-                    let attempts = if road.hits_max() == 5000 { 2 } else { 5 };
+                    let attempts = if road.hits_max() == 5_000 { 2 } else { 5 };
                     requests.push(Request::new(
                         RequestKind::Repair(RepairData::with_max_attempts_and_hits(
                             road.id().into_type(),

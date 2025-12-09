@@ -261,8 +261,8 @@ impl ColonyEvent {
             ColonyEvent::BlackList(username) => {
                 state.black_list.insert(username);
             }
-            ColonyEvent::Stats(name, stats) => {
-                let _ = state.statistic.update(name, stats);
+            ColonyEvent::Stats(name, room_stat) => {
+                let _ = state.statistic.update(name, room_stat);
             }
         }
     }

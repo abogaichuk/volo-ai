@@ -73,7 +73,8 @@ fn select_best_spread(
         // Update best (prefer larger set when sums tie).
         if cur_sum > best_sum || (cur_sum == best_sum && chosen.len() > best_idxs.len()) {
             best_sum = cur_sum;
-            best_idxs = chosen.clone();
+            // best_idxs = chosen.clone();
+            best_idxs.clone_from(&chosen);
         }
 
         // Stop if full or out of candidates.
@@ -114,7 +115,7 @@ fn red_parts_near_ramparts(perimeter: &Perimeter, grid: &HashMap<RoomXY, RoomPar
             let xy = unsafe {
                 RoomXY::new(RoomCoordinate::unchecked_new(x), RoomCoordinate::unchecked_new(y))
             };
-            if grid.get(&xy).is_some_and(super::super::RoomPart::is_red) && perimeter.near_rampart(&xy) {
+            if grid.get(&xy).is_some_and(|part| part.is_red()) && perimeter.near_rampart(xy) {
                 attack_zones.push(xy);
             }
         }

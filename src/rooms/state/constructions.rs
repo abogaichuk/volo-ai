@@ -6,19 +6,18 @@ use std::mem;
 use itertools::{Either, Itertools};
 use screeps::constants::Terrain;
 use screeps::local::RoomXY;
+use screeps::ROOM_SIZE;
 use screeps::{Position, ResourceType, RoomName, StructureType};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-
-use self::xy_util::ROOM_SIZE;
 
 mod farm;
 mod owned;
 mod xy_util;
 
 type OuterRectangle = (u8, u8, u8, u8);
-type Walls = [[bool; ROOM_SIZE]; ROOM_SIZE];
-type Sat = [[u16; ROOM_SIZE]; ROOM_SIZE];
+type Walls = [[bool; ROOM_SIZE as usize]; ROOM_SIZE as usize];
+type Sat = [[u16; ROOM_SIZE as usize]; ROOM_SIZE as usize];
 
 #[derive(Error, Debug, Eq, PartialEq)]
 pub enum RoomPlannerError {
@@ -151,18 +150,6 @@ impl RoomPlan {
         self.planned_cells.iter().filter(|c| matches!(c.structure, RoomStructure::Lab(_)))
     }
 
-    // pub fn boosts_in_use(&self) -> HashSet<ResourceType> {
-    //     self.get_labs()
-    //         .filter_map(|cell| match cell.structure {
-    //             RoomStructure::Lab(status) => match status {
-    //                 LabStatus::Boost(resource) => Some(resource),
-    //                 _ => None
-    //             }
-    //             _ => None
-    //         })
-    //         .collect()
-    // }
-
     pub fn delete(&mut self, cell: PlannedCell) -> bool {
         self.planned_cells.remove(&cell)
     }
@@ -262,27 +249,27 @@ pub enum RoomPart {
 }
 
 impl RoomPart {
-    pub const fn is_internal(&self) -> bool {
+    pub const fn is_internal(self) -> bool {
         matches!(self, RoomPart::Green | RoomPart::Yellow | RoomPart::Orange)
     }
 
-    pub const fn is_partially_safe(&self) -> bool {
+    pub const fn is_partially_safe(self) -> bool {
         matches!(self, RoomPart::Yellow | RoomPart::Orange)
     }
 
-    pub const fn is_safe(&self) -> bool {
+    pub const fn is_safe(self) -> bool {
         matches!(self, RoomPart::Green | RoomPart::Protected)
     }
 
-    pub const fn is_wall(&self) -> bool {
+    pub const fn is_wall(self) -> bool {
         matches!(self, RoomPart::Wall)
     }
 
-    pub const fn is_red(&self) -> bool {
+    pub const fn is_red(self) -> bool {
         matches!(self, RoomPart::Red)
     }
 
-    pub const fn is_yellow(&self) -> bool {
+    pub const fn is_yellow(self) -> bool {
         matches!(self, RoomPart::Yellow)
     }
 }
@@ -381,7 +368,7 @@ impl TryFrom<RoomStructure> for StructureType {
             RoomStructure::Container(_) => Ok(StructureType::Container),
             RoomStructure::Nuker => Ok(StructureType::Nuker),
             RoomStructure::Factory => Ok(StructureType::Factory),
-            _ => Err("unmapped structure!"),
+            RoomStructure::Empty => Err("unmapped structure!"),
         }
     }
 }
@@ -450,9 +437,9 @@ where
 /* ---------------- helpers ---------------- */
 
 pub fn build_wall_bitmap<T: TerrainSource>(src: &T) -> Walls {
-    let mut m = [[false; ROOM_SIZE]; ROOM_SIZE];
-    for y in 0..ROOM_SIZE as u8 {
-        for x in 0..ROOM_SIZE as u8 {
+    let mut m = [[false; ROOM_SIZE as usize]; ROOM_SIZE as usize];
+    for y in 0..ROOM_SIZE {
+        for x in 0..ROOM_SIZE {
             m[y as usize][x as usize] = src.terrain_at(x, y) == Terrain::Wall;
         }
     }
@@ -460,7 +447,7 @@ pub fn build_wall_bitmap<T: TerrainSource>(src: &T) -> Walls {
 }
 
 #[inline]
-const fn is_wall(walls: &Walls, p: &RoomXY) -> bool {
+const fn is_wall(walls: &Walls, p: RoomXY) -> bool {
     walls[p.y.u8() as usize][p.x.u8() as usize]
 }
 

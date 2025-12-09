@@ -39,7 +39,7 @@ impl Claimed {
                 ));
             }
 
-            if container.hits() < ((container.hits_max() as f32 * 0.75) as u32) {
+            if container.hits() * 4 < container.hits_max() * 2 {
                 requests.push(Request::new(
                     RequestKind::Repair(RepairData::with_max_attempts_and_hits(
                         container.id().into_type(),

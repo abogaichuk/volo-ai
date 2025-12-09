@@ -27,7 +27,7 @@ impl Claimed {
                 self.update_lab_state(&state.boosts)
                     .or_else(|| self.labs.boosts().iter()
                         //load resources for boost
-                        .find_map(|(res, lab)| self.keep_boost_ready(res, lab)))
+                        .find_map(|(res, lab)| self.keep_boost_ready(*res, lab)))
                     .or_else(|| {
                         let in_progress = state.requests.iter()
                             .any(|r| matches!(r.kind, RequestKind::Lab(_)) &&
@@ -83,11 +83,11 @@ impl Claimed {
             })
     }
 
-    fn keep_boost_ready(&self, resource: &ResourceType, lab: &StructureLab) -> Option<RoomEvent> {
+    fn keep_boost_ready(&self, resource: ResourceType, lab: &StructureLab) -> Option<RoomEvent> {
         self.load_lab(lab, (ResourceType::Energy, MIN_ENERGY_AMOUNT)) //supply energy
             .or_else(|| {
-                self.unload(lab, &[*resource]) //unload resources
-                .or_else(|| self.load_lab(lab, (*resource, MIN_RESOURCE_AMOUNT)))
+                self.unload(lab, &[resource]) //unload resources
+                .or_else(|| self.load_lab(lab, (resource, MIN_RESOURCE_AMOUNT)))
             }) //load boost resource
     }
 
@@ -184,7 +184,7 @@ impl Labs {
         &self.boosts
     }
 
-    pub(crate) fn boost_lab(&self, resource: &ResourceType) -> Option<ObjectId<StructureLab>> {
-        self.boosts.get(resource).map(screeps::HasId::id)
+    pub(crate) fn boost_lab(&self, resource: ResourceType) -> Option<ObjectId<StructureLab>> {
+        self.boosts.get(&resource).map(screeps::HasId::id)
     }
 }

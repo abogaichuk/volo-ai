@@ -1,4 +1,5 @@
 use std::str::FromStr;
+use std::fmt::Write;
 
 use log::info;
 use ordered_float::OrderedFloat;
@@ -145,7 +146,8 @@ pub fn requests(room_name: String) -> String {
                 Some(claimed) => {
                     let mut result = format!("room: {room_name} requests: \n");
                     for (i, request) in claimed.requests.iter().enumerate() {
-                        result.push_str(&format!("{i}: {request} \n"));
+                        let _ = writeln!(result, "{i}: {request} ");
+                        // result.push_str(&format!("{i}: {request} \n"));
                     }
                     result
                 }

@@ -51,8 +51,8 @@ impl Kind for HouseKeeper {
         MovementProfile::RoadsOneToTwo
     }
 
-    fn respawn_timeout(&self, creep: Option<&Creep>) -> Option<u32> {
-        creep.map(|c| c.body().len() as u32 * 3).or(Some(0))
+    fn respawn_timeout(&self, creep: Option<&Creep>) -> Option<usize> {
+        creep.map(|c| c.body().len() * 3).or(Some(0))
     }
 
     fn boosts(&self, creep: &Creep) -> HashMap<Part, [ResourceType; 2]> {
@@ -68,7 +68,7 @@ impl Kind for HouseKeeper {
         home.get_available_boost(creep, self.boosts(creep))
             .map(|(id, body_part)| {
                 let parts_number = creep.body().iter().filter(|bp| bp.part() == body_part).count();
-                Task::Boost(id, Some(parts_number as u32))
+                Task::Boost(id, u32::try_from(parts_number).ok())
             })
             .or_else(|| {
                 (creep.store().get_used_capacity(Some(ResourceType::Energy)) == 0)
@@ -158,19 +158,8 @@ fn has_energy(structure: &StructureObject) -> bool {
 
 fn get_active_job(home: &Shelter, creep: &Creep) -> Option<Request> {
     home.requests()
-        .find(|r| match &r.kind {
-            RequestKind::Repair(_)
-                if matches!(*r.status(), Status::InProgress) && r.assigned_to(&creep.name()) =>
-            {
-                true
-            }
-            RequestKind::Build(_)
-                if matches!(*r.status(), Status::InProgress) && r.assigned_to(&creep.name()) =>
-            {
-                true
-            }
-            _ => false,
-        })
+        .find(|r| matches!(&r.kind, RequestKind::Repair(_) | RequestKind::Build(_)
+            if matches!(*r.status(), Status::InProgress) && r.assigned_to(&creep.name())))
         .cloned()
 }
 

@@ -1,4 +1,3 @@
-#![allow(unused)]
 use std::cell::RefCell;
 
 use getrandom::register_custom_getrandom;
@@ -51,13 +50,10 @@ pub fn game_loop() {
     debug!("loop done! cpu: {}", game::cpu::get_used() - cpu_start);
 }
 
-const fn clippy_fix_test(x: i32) -> i32 {
-    x
-}
-
 // implement a custom randomness generator for the getrandom crate,
 // because the `js` feature expects the Node.js WebCrypto API to be available
 // (it's not available in the Screeps Node.js environment)
+#[allow(clippy::unnecessary_wraps)]
 fn custom_getrandom(buf: &mut [u8]) -> Result<(), getrandom::Error> {
     let mut rng = StdRng::seed_from_u64(js_sys::Math::random().to_bits());
     rng.fill_bytes(buf);

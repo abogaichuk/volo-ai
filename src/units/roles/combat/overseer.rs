@@ -71,8 +71,8 @@ impl Kind for Overseer {
         }
     }
 
-    fn respawn_timeout(&self, creep: Option<&Creep>) -> Option<u32> {
-        creep.map(|c| c.body().len() as u32 * 3 + 100).or(Some(0))
+    fn respawn_timeout(&self, creep: Option<&Creep>) -> Option<usize> {
+        creep.map(|c| c.body().len() * 3 + 100).or(Some(0))
     }
 
     fn get_task(&self, creep: &Creep, home: &mut Shelter) -> Task {

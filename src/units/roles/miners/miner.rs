@@ -52,8 +52,8 @@ impl Kind for Miner {
         MovementProfile::RoadsOneToTwo
     }
 
-    fn respawn_timeout(&self, creep: Option<&Creep>) -> Option<u32> {
-        creep.map(|c| c.body().len() as u32 * 3).or(Some(0))
+    fn respawn_timeout(&self, creep: Option<&Creep>) -> Option<usize> {
+        creep.map(|c| c.body().len() * 3).or(Some(0))
     }
 
     fn get_task(&self, _: &Creep, home: &mut Shelter) -> Task {
@@ -78,7 +78,7 @@ fn limit_based_on_source_effects(workplace: Option<Position>) -> usize {
                     .and_then(|effects| {
                         effects.into_iter().find(|effect| match effect.effect() {
                             EffectType::PowerEffect(p) => matches!(p, PowerType::RegenSource),
-                            _ => false,
+                            EffectType::NaturalEffect(_) => false,
                         })
                     })
                     .and_then(|effect| effect.level())

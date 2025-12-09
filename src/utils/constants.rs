@@ -16,10 +16,10 @@ pub const FARM_ROOMS_PICKUP_RESOURCE_THRESHOLD: u32 = 1600;
 
 pub const DEPOSIT_REQUEST_THRESHOLD: u32 = 35;
 
-pub const MIN_PERIMETR_HITS: u32 = 100000;
+pub const MIN_PERIMETR_HITS: u32 = 100_000;
 // pub const MIN_PERIMETR_HITS: u32 = 1000000;
-pub const MAX_RAMPART_HITS: u32 = 299000000;
-pub const MAX_WALL_HITS: u32 = 100000;
+pub const MAX_RAMPART_HITS: u32 = 299_000_000;
+pub const MAX_WALL_HITS: u32 = 100_000;
 
 pub const ROOM_NUMBER_RE: &str = r"^[WE]([0-9]+)[NS]([0-9]+)$";
 /// Won't do pathing for moving creeps if current-tick CPU spend is above this
@@ -57,7 +57,7 @@ pub const HANDYMAN_ENERGY_PICKUP_THRESHOLD: u32 = 600;
 pub const HANDYMAN_ENERGY_WITHDRAW_THRESHOLD: u32 = 500;
 
 /// Hostile room avoidance timeout
-pub const AVOID_HOSTILE_ROOM_TIMEOUT: u32 = 100000;
+pub const AVOID_HOSTILE_ROOM_TIMEOUT: u32 = 100_000;
 
 pub const LONG_RANGE_ACTION: u32 = CREEP_RANGED_ACTION_RANGE as u32;
 pub const CLOSE_RANGE_ACTION: u32 = 1;

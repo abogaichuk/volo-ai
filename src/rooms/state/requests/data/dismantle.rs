@@ -43,7 +43,7 @@ pub(in crate::rooms::state::requests) fn dismantle_handler(
             *assignment = Assignment::Single(None);
         }
         Status::OnHold => {
-            if is_walkable(&data.workplace) {
+            if is_walkable(data.workplace) {
                 meta.update(Status::Created);
             }
         }
