@@ -33,7 +33,7 @@ impl Assignment {
         match self {
             Assignment::Squads(squads) => {
                 let squad_index = squads.len() + 1;
-                let squad_id = format!("{}_{}", id_part, squad_index);
+                let squad_id = format!("{id_part}_{squad_index}");
 
                 let squad = Squad { id: squad_id.clone(), members: HashSet::new() };
 
@@ -89,8 +89,7 @@ impl Assignment {
                         Ok(())
                     } else {
                         Err(RequestError::InvalidAssignment(format!(
-                            "doer {} is not working on Assignment::Single({})",
-                            doer, by
+                            "doer {doer} is not working on Assignment::Single({by})"
                         )))
                     }
                 }
@@ -100,8 +99,7 @@ impl Assignment {
                     Ok(())
                 } else {
                     Err(RequestError::InvalidAssignment(format!(
-                        "doer {} is not working on Assignment::Multi({:?})",
-                        doer, set
+                        "doer {doer} is not working on Assignment::Multi({set:?})"
                     )))
                 }
             }
@@ -124,7 +122,7 @@ impl Assignment {
                     }
                     Ok(())
                 } else {
-                    Err(RequestError::InvalidAssignment(format!("squad id {} not found!", id)))
+                    Err(RequestError::InvalidAssignment(format!("squad id {id} not found!")))
                 }
             }
         }
@@ -139,13 +137,11 @@ impl Assignment {
             Assignment::None => {
                 if let Some(d) = doer {
                     Err(RequestError::InvalidAssignment(format!(
-                        "doer {} can't be assigned to None",
-                        d
+                        "doer {d} can't be assigned to None"
                     )))
                 } else if let Some(s) = squad_id {
                     Err(RequestError::InvalidAssignment(format!(
-                        "squad_id {} can't be assigned to None",
-                        s
+                        "squad_id {s} can't be assigned to None"
                     )))
                 } else {
                     Ok(())
@@ -238,9 +234,9 @@ impl Display for Assignment {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         match self {
             Assignment::None => write!(f, "None"),
-            Assignment::Single(name) => write!(f, "Single({:?})", name),
-            Assignment::Multi(names) => write!(f, "Multi({:?})", names),
-            Assignment::Squads(squads) => write!(f, "Squads({:?})", squads),
+            Assignment::Single(name) => write!(f, "Single({name:?})"),
+            Assignment::Multi(names) => write!(f, "Multi({names:?})"),
+            Assignment::Squads(squads) => write!(f, "Squads({squads:?})"),
         }
     }
 }

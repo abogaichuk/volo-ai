@@ -2,7 +2,7 @@
 use std::cell::RefCell;
 
 use getrandom::register_custom_getrandom;
-use log::*;
+use log::debug;
 use rand::rngs::StdRng;
 use rand::{RngCore, SeedableRng};
 use screeps::game;
@@ -43,18 +43,16 @@ pub fn game_loop() {
     GLOBAL_MEMORY.with(|mem_refcell| {
         let mut colony = mem_refcell.borrow_mut();
 
-        if colony.rooms.is_empty() {
-            panic!("parsing error occured..");
-        }
+        assert!(!colony.rooms.is_empty(), "parsing error occured..");
 
         colony.run_tick();
-        colony.write()
+        colony.write();
     });
     debug!("loop done! cpu: {}", game::cpu::get_used() - cpu_start);
 }
 
-fn clippy_fix_test(x: i32) -> i32 {
-    return x;
+const fn clippy_fix_test(x: i32) -> i32 {
+    x
 }
 
 // implement a custom randomness generator for the getrandom crate,

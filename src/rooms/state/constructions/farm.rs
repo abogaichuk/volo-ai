@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::str::FromStr;
 
 use itertools::Itertools;
-use log::*;
+use log::{error, debug, info};
 use screeps::pathfinder::SearchGoal;
 use screeps::{HasPosition, Position, RoomName, RoomXY, game};
 

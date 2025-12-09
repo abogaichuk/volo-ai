@@ -11,7 +11,7 @@ pub struct PullData {
 }
 
 impl PullData {
-    pub fn new(creep_name: String, destination: Position) -> Self {
+    pub const fn new(creep_name: String, destination: Position) -> Self {
         Self { creep_name, destination }
     }
 }

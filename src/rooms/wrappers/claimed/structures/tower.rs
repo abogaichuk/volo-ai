@@ -1,4 +1,4 @@
-use log::*;
+use log::info;
 use screeps::objects::Creep;
 use screeps::prelude::*;
 use screeps::{INVADER_USERNAME, Part, Position, PowerCreep};
@@ -85,7 +85,7 @@ impl Claimed {
     fn mass_attack(&self, target: &Creep) {
         self.towers.iter().for_each(|tower| {
             let _ = tower.attack(target);
-        })
+        });
     }
 }
 

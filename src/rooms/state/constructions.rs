@@ -82,11 +82,11 @@ pub struct RoomPlan {
 }
 
 impl RoomPlan {
-    pub fn new(planned_cells: HashSet<PlannedCell>) -> Self {
+    pub const fn new(planned_cells: HashSet<PlannedCell>) -> Self {
         Self { planned_cells, built_lvl: 0 }
     }
 
-    pub fn increment_lvl(&mut self) {
+    pub const fn increment_lvl(&mut self) {
         if self.built_lvl < 8 {
             self.built_lvl += 1;
         }
@@ -96,7 +96,7 @@ impl RoomPlan {
         self.planned_cells.iter().any(|cell| cell.xy == xy)
     }
 
-    pub fn built_lvl(&self) -> u8 {
+    pub const fn built_lvl(&self) -> u8 {
         self.built_lvl
     }
 
@@ -262,27 +262,27 @@ pub enum RoomPart {
 }
 
 impl RoomPart {
-    pub fn is_internal(&self) -> bool {
+    pub const fn is_internal(&self) -> bool {
         matches!(self, RoomPart::Green | RoomPart::Yellow | RoomPart::Orange)
     }
 
-    pub fn is_partially_safe(&self) -> bool {
+    pub const fn is_partially_safe(&self) -> bool {
         matches!(self, RoomPart::Yellow | RoomPart::Orange)
     }
 
-    pub fn is_safe(&self) -> bool {
+    pub const fn is_safe(&self) -> bool {
         matches!(self, RoomPart::Green | RoomPart::Protected)
     }
 
-    pub fn is_wall(&self) -> bool {
+    pub const fn is_wall(&self) -> bool {
         matches!(self, RoomPart::Wall)
     }
 
-    pub fn is_red(&self) -> bool {
+    pub const fn is_red(&self) -> bool {
         matches!(self, RoomPart::Red)
     }
 
-    pub fn is_yellow(&self) -> bool {
+    pub const fn is_yellow(&self) -> bool {
         matches!(self, RoomPart::Yellow)
     }
 }
@@ -412,11 +412,11 @@ pub struct PlannedCell {
 }
 
 impl PlannedCell {
-    pub fn new(xy: RoomXY, structure: RoomStructure, b_lvl: u8, r_lvl: Option<u8>) -> Self {
+    pub const fn new(xy: RoomXY, structure: RoomStructure, b_lvl: u8, r_lvl: Option<u8>) -> Self {
         Self { xy, structure, b_lvl, r_lvl }
     }
 
-    pub fn searchable(xy: RoomXY, structure: RoomStructure) -> Self {
+    pub const fn searchable(xy: RoomXY, structure: RoomStructure) -> Self {
         Self { xy, structure, b_lvl: 0, r_lvl: None }
     }
 }
@@ -460,7 +460,7 @@ pub fn build_wall_bitmap<T: TerrainSource>(src: &T) -> Walls {
 }
 
 #[inline]
-fn is_wall(walls: &Walls, p: &RoomXY) -> bool {
+const fn is_wall(walls: &Walls, p: &RoomXY) -> bool {
     walls[p.y.u8() as usize][p.x.u8() as usize]
 }
 

@@ -1,4 +1,4 @@
-use log::*;
+use log::{debug, warn};
 use screeps::{
     Creep, HasPosition, ObjectId, RawObjectId, ResourceType, SharedCreepProperties,
     StructureContainer, StructureController, game,
@@ -22,7 +22,7 @@ pub fn upgrade(
             && creep.pos().room_name() == controller.pos().room_name()
         {
             match creep.upgrade_controller(&controller) {
-                Ok(_) => {
+                Ok(()) => {
                     let _ = creep.say("⬆", false);
                     if creep.store().get_used_capacity(Some(ResourceType::Energy)) < 30
                         && let Some(room_obj) =

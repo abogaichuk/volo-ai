@@ -1,7 +1,7 @@
 use std::fmt;
 
 use arrayvec::ArrayVec;
-use log::*;
+use log::warn;
 use screeps::{Creep, HasId, HasPosition, Part, RoomName, SharedCreepProperties};
 use serde::{Deserialize, Serialize};
 
@@ -18,12 +18,12 @@ pub struct Carrier {
 
 impl fmt::Debug for Carrier {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if let Some(home) = self.home { write!(f, "home: {}", home) } else { write!(f, "") }
+        if let Some(home) = self.home { write!(f, "home: {home}") } else { write!(f, "") }
     }
 }
 
 impl Carrier {
-    pub fn new(home: Option<RoomName>) -> Self {
+    pub const fn new(home: Option<RoomName>) -> Self {
         Self { home }
     }
 }
@@ -66,7 +66,7 @@ impl Kind for Carrier {
 
         let mut body = scale_parts.into_iter().collect::<ArrayVec<[Part; 50]>>();
         while can_scale(body.clone(), scale_parts.to_vec(), room_energy, 50) {
-            body.extend(scale_parts.iter().cloned());
+            body.extend(scale_parts.iter().copied());
         }
 
         body

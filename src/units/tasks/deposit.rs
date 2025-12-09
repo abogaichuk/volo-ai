@@ -1,4 +1,4 @@
-use log::*;
+use log::warn;
 use screeps::{
     Creep, Deposit, HasId, HasPosition, ObjectId, Part, Position, ResourceType,
     SharedCreepProperties, Tombstone, find, game,

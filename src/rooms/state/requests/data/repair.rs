@@ -15,11 +15,11 @@ pub struct RepairData {
 }
 
 impl RepairData {
-    pub fn new(id: ObjectId<Structure>, pos: Position, attempts: u8) -> Self {
+    pub const fn new(id: ObjectId<Structure>, pos: Position, attempts: u8) -> Self {
         Self { id, pos, hits: 100, attempts, attempts_max: 5 }
     }
 
-    pub fn with_max_attempts_and_hits(
+    pub const fn with_max_attempts_and_hits(
         id: ObjectId<Structure>,
         pos: Position,
         attempts_max: u8,
@@ -40,9 +40,9 @@ pub(in crate::rooms::state::requests) fn repair_handler(
                 *assignment = Assignment::Single(None);
             }
             _ => {}
-        };
+        }
     } else {
         meta.update(Status::Resolved);
-    };
+    }
     smallvec![]
 }

@@ -16,7 +16,7 @@ pub struct DismantleData {
 }
 
 impl DismantleData {
-    pub fn new(id: ObjectId<Structure>, workplace: Position) -> Self {
+    pub const fn new(id: ObjectId<Structure>, workplace: Position) -> Self {
         Self { id, workplace }
     }
 }

@@ -19,12 +19,12 @@ pub struct Booker {
 
 impl fmt::Debug for Booker {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if let Some(home) = self.home { write!(f, "home: {}", home) } else { write!(f, "") }
+        if let Some(home) = self.home { write!(f, "home: {home}") } else { write!(f, "") }
     }
 }
 
 impl Booker {
-    pub fn new(home: Option<RoomName>) -> Self {
+    pub const fn new(home: Option<RoomName>) -> Self {
         Self { home }
     }
 }
@@ -35,7 +35,7 @@ impl Kind for Booker {
 
         let mut body = scale_parts.into_iter().collect::<ArrayVec<[Part; 50]>>();
         while can_scale(body.clone(), scale_parts.to_vec(), room_energy, 14) {
-            body.extend(scale_parts.iter().cloned());
+            body.extend(scale_parts.iter().copied());
         }
 
         body.sort_by_key(|a| default_parts_priority(*a));

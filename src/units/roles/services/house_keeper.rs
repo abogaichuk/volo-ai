@@ -24,12 +24,12 @@ pub struct HouseKeeper {
 
 impl fmt::Debug for HouseKeeper {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if let Some(home) = self.home { write!(f, "home: {}", home) } else { write!(f, "") }
+        if let Some(home) = self.home { write!(f, "home: {home}") } else { write!(f, "") }
     }
 }
 
 impl HouseKeeper {
-    pub fn new(home: Option<RoomName>, boost: bool) -> Self {
+    pub const fn new(home: Option<RoomName>, boost: bool) -> Self {
         Self { home, boost }
     }
 }
@@ -40,7 +40,7 @@ impl Kind for HouseKeeper {
 
         let mut body = scale_parts.into_iter().collect::<ArrayVec<[Part; 50]>>();
         while can_scale(body.clone(), scale_parts.to_vec(), room_energy, 50) {
-            body.extend(scale_parts.iter().cloned());
+            body.extend(scale_parts.iter().copied());
         }
 
         body.sort_by_key(|a| default_parts_priority(*a));
@@ -153,8 +153,7 @@ fn get_closest_energy_container(creep: &Creep) -> Option<StructureObject> {
 fn has_energy(structure: &StructureObject) -> bool {
     structure
         .as_has_store()
-        .map(|storeable| storeable.store().get_used_capacity(Some(ResourceType::Energy)) > 500)
-        .unwrap_or(false)
+        .is_some_and(|storeable| storeable.store().get_used_capacity(Some(ResourceType::Energy)) > 500)
 }
 
 fn get_active_job(home: &Shelter, creep: &Creep) -> Option<Request> {

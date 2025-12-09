@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
 use std::iter::Iterator;
 
-use log::*;
+use log::{info, debug};
 use ordered_float::OrderedFloat;
 use screeps::{OrderType, PowerType, ResourceType, RoomName, game};
 use serde::{Deserialize, Serialize};
@@ -50,7 +50,7 @@ impl RoomState {
         if let Some(existed) = &mut self.plan {
             existed.add_cells(plan.planned_cells().into_iter());
         } else {
-            self.plan = Some(plan)
+            self.plan = Some(plan);
         }
     }
 
@@ -64,8 +64,8 @@ impl RoomState {
     }
 
     pub fn add_to_spawn(&mut self, role: Role, times: usize) {
-        info!("add {:?}: {} to spawn queue", role.clone(), times);
-        for _ in 1..times + 1 {
+        info!("add {:?}: {} to spawn queue", role, times);
+        for _ in 1..=times {
             self.spawns.push(role.clone());
             // self.spawns.insert(role.clone());
         }
@@ -131,15 +131,15 @@ pub struct FarmInfo {
 }
 
 impl FarmInfo {
-    pub fn update_status(&mut self, status: FarmStatus) {
+    pub const fn update_status(&mut self, status: FarmStatus) {
         self.farm_status = status;
     }
 
-    pub fn plan(&self) -> Option<&RoomPlan> {
+    pub const fn plan(&self) -> Option<&RoomPlan> {
         self.plan.as_ref()
     }
 
-    pub fn is_active(&self) -> bool {
+    pub const fn is_active(&self) -> bool {
         self.farm_status.is_active()
     }
 }
@@ -154,7 +154,7 @@ pub enum FarmStatus {
 }
 
 impl FarmStatus {
-    fn is_active(&self) -> bool {
+    const fn is_active(&self) -> bool {
         !matches!(self, FarmStatus::Suspended)
     }
 }
@@ -214,7 +214,7 @@ impl TradeData {
         Self { order_type, resource, price: OrderedFloat::default(), amount: 0 }
     }
 
-    pub fn with_price_and_amount(
+    pub const fn with_price_and_amount(
         order_type: OrderType,
         resource: ResourceType,
         price: OrderedFloat<f64>,

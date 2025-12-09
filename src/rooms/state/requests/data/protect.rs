@@ -18,7 +18,7 @@ pub struct ProtectData {
 }
 
 impl ProtectData {
-    pub fn new(room_name: RoomName, ctrl_level: u8) -> Self {
+    pub const fn new(room_name: RoomName, ctrl_level: u8) -> Self {
         Self { room_name, hostiles: Vec::new(), ctrl_level }
     }
 }
@@ -32,22 +32,19 @@ pub(in crate::rooms::state::requests) fn protect_handler(
     if meta.created_at + 1650 > game::time() && meta.status == Status::Created {
         meta.update(Status::InProgress);
 
-        match data.ctrl_level {
-            1..=4 => {
-                //low level ctrl, 1 tower max here
-                events.push(RoomEvent::Spawn(
-                    Role::Fighter(Fighter::new(data.room_name, home_name, false)),
-                    1,
-                ));
-            }
-            _ => {
-                //boost needed by default
-                events.push(RoomEvent::AddBoost(BoostReason::Pvp, 750));
-                events.push(RoomEvent::Spawn(
-                    Role::Fighter(Fighter::new(data.room_name, home_name, true)),
-                    1,
-                ));
-            }
+        if let 1..=4 = data.ctrl_level {
+            //low level ctrl, 1 tower max here
+            events.push(RoomEvent::Spawn(
+                Role::Fighter(Fighter::new(data.room_name, home_name, false)),
+                1,
+            ));
+        } else {
+            //boost needed by default
+            events.push(RoomEvent::AddBoost(BoostReason::Pvp, 750));
+            events.push(RoomEvent::Spawn(
+                Role::Fighter(Fighter::new(data.room_name, home_name, true)),
+                1,
+            ));
         }
     }
     events

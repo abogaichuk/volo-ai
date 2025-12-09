@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use log::*;
+use log::{info, warn, debug};
 use screeps::{Creep, HasPosition, Position, RoomName, SharedCreepProperties, game};
 use serde::{Deserialize, Serialize};
 
@@ -16,7 +16,7 @@ pub struct CrUnit<'m, 'h, 's> {
     home: &'h mut Shelter<'s>,
 }
 
-impl<'m, 'h, 's> CrUnit<'m, 'h, 's> {
+impl CrUnit<'_, '_, '_> {
     fn name(&self) -> String {
         self.creep.name()
     }
@@ -206,14 +206,14 @@ impl CreepMemory {
         Self { role, ..Default::default() }
     }
 
-    fn get_home(&self) -> Option<&RoomName> {
+    const fn get_home(&self) -> Option<&RoomName> {
         self.role.get_home()
     }
 }
 
-pub fn run_creeps<'s>(
+pub fn run_creeps(
     creeps_state: &mut HashMap<String, CreepMemory>,
-    homes: &mut HashMap<RoomName, Shelter<'s>>,
+    homes: &mut HashMap<RoomName, Shelter<'_>>,
     movement: &mut Movement,
 ) {
     let mut creeps: HashMap<String, Creep> = game::creeps().entries().collect();

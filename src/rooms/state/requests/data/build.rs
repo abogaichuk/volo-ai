@@ -12,7 +12,7 @@ pub struct BuildData {
 }
 
 impl BuildData {
-    pub fn new(id: Option<ObjectId<ConstructionSite>>, pos: Position) -> Self {
+    pub const fn new(id: Option<ObjectId<ConstructionSite>>, pos: Position) -> Self {
         Self { id, pos }
     }
 }
@@ -27,6 +27,6 @@ pub(in crate::rooms::state::requests) fn build_handler(
             *assignment = Assignment::Single(None);
         }
         _ => {}
-    };
+    }
     smallvec![]
 }

@@ -80,7 +80,7 @@ fn can_scale(
     }
 }
 
-fn default_parts_priority(part: Part) -> i8 {
+const fn default_parts_priority(part: Part) -> i8 {
     match part {
         Part::Tough => 0,
         Part::Carry => 1,
@@ -94,7 +94,7 @@ fn default_parts_priority(part: Part) -> i8 {
     }
 }
 
-fn pvp_parts_priority(part: Part) -> i8 {
+const fn pvp_parts_priority(part: Part) -> i8 {
     match part {
         Part::Tough => 0,
         Part::Work => 1,
@@ -144,7 +144,7 @@ pub enum Role {
 }
 
 impl Role {
-    pub fn set_home(&mut self, home: RoomName) {
+    pub const fn set_home(&mut self, home: RoomName) {
         match self {
             Role::Upgrader(r) => r.home = Some(home),
             Role::RemoteUpgrader(r) => r.home = Some(home),
@@ -177,7 +177,7 @@ impl Role {
         }
     }
 
-    pub fn get_home(&self) -> Option<&RoomName> {
+    pub const fn get_home(&self) -> Option<&RoomName> {
         match self {
             Role::Upgrader(r) => r.home.as_ref(),
             Role::RemoteUpgrader(r) => r.home.as_ref(),
@@ -213,7 +213,7 @@ impl Role {
 
     //todo add invaded role priority
     /// The higher the more important
-    pub fn role_priority(&self) -> i8 {
+    pub const fn role_priority(&self) -> i8 {
         match self {
             Role::Guard(_) => 9,
             Role::Hauler(_) => 8,
@@ -279,6 +279,6 @@ impl Display for Role {
             Role::SkMiner(_) => "sk_miner",
             Role::Fighter(_) => "fighter",
         };
-        write!(f, "{}", name)
+        write!(f, "{name}")
     }
 }

@@ -1,6 +1,6 @@
 use std::cmp::min;
 
-use log::*;
+use log::{debug, info, error, warn};
 use screeps::action_error_codes::ProduceErrorCode;
 use screeps::{FactoryRecipe, HasId, ResourceType, StructureFactory, game};
 use serde::{Deserialize, Serialize};
@@ -19,7 +19,7 @@ pub struct FactoryData {
 }
 
 impl FactoryData {
-    pub fn new(resource: ResourceType, amount: u32) -> Self {
+    pub const fn new(resource: ResourceType, amount: u32) -> Self {
         Self { resource, amount }
     }
 }
@@ -71,7 +71,7 @@ pub(in crate::rooms::state::requests) fn factory_handler(
                     events.push(RoomEvent::DeletePower(screeps::PowerType::OperateFactory));
                 } else if factory.cooldown() == 0 {
                     match factory.produce(data.resource) {
-                        Ok(_) => {
+                        Ok(()) => {
                             debug!(
                                 "{} factory produced: OK request.amount: {}",
                                 home.name(),
@@ -104,14 +104,14 @@ pub(in crate::rooms::state::requests) fn factory_handler(
                                         home.name(),
                                         err,
                                         data
-                                    )
+                                    );
                                 }
                             }
                         }
                     }
                 }
             } else if let Some(unload_event) =
-                home.unload(factory, &recipe.components.keys().cloned().collect::<Vec<_>>())
+                home.unload(factory, &recipe.components.keys().copied().collect::<Vec<_>>())
             {
                 events.push(unload_event);
             } else {
@@ -139,7 +139,7 @@ pub(in crate::rooms::state::requests) fn factory_handler(
         //     events.push(RoomEvent::Request(RoomRequest::Factory(self)));
         // }
         _ => {}
-    };
+    }
     events
 }
 

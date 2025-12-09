@@ -16,7 +16,7 @@ pub struct LRWData {
 }
 
 impl LRWData {
-    pub fn new(id: RawObjectId, pos: Position, resource: ResourceType, amount: u32) -> Self {
+    pub const fn new(id: RawObjectId, pos: Position, resource: ResourceType, amount: u32) -> Self {
         Self { id, pos, resource, amount }
     }
 }
@@ -44,7 +44,7 @@ pub(in crate::rooms::state::requests) fn lrw_handler(
                 *assignment = Assignment::Single(None);
             }
             _ => {}
-        };
+        }
     }
     events
 }

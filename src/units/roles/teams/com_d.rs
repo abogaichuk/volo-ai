@@ -17,17 +17,17 @@ pub struct ComDismantler {
 impl fmt::Debug for ComDismantler {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if let Some(home) = self.home {
-            write!(f, "home: {}, ", home)?;
+            write!(f, "home: {home}, ")?;
         }
         if let Some(squad_id) = &self.squad_id {
-            write!(f, "squad_id: {}", squad_id)?;
+            write!(f, "squad_id: {squad_id}")?;
         }
         write!(f, "")
     }
 }
 
 impl ComDismantler {
-    pub fn new(squad_id: Option<String>, home: Option<RoomName>) -> Self {
+    pub const fn new(squad_id: Option<String>, home: Option<RoomName>) -> Self {
         Self { squad_id, home }
     }
 }

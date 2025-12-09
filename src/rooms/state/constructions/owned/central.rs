@@ -61,7 +61,7 @@ pub fn central_square(
 }
 
 impl CentralSquare {
-    pub fn new(
+    pub const fn new(
         cross_road: RoomXY,
         guide_dir: Direction,
         squares: HashMap<Direction, Square>,
@@ -69,15 +69,15 @@ impl CentralSquare {
         Self { cross_road, guide_dir, squares }
     }
 
-    pub fn guide_dir(&self) -> Direction {
+    pub const fn guide_dir(&self) -> Direction {
         self.guide_dir
     }
 
-    pub fn cross_road(&self) -> &RoomXY {
+    pub const fn cross_road(&self) -> &RoomXY {
         &self.cross_road
     }
 
-    pub fn squares(&self) -> &HashMap<Direction, Square> {
+    pub const fn squares(&self) -> &HashMap<Direction, Square> {
         &self.squares
     }
 

@@ -21,17 +21,17 @@ pub struct Fighter {
 impl fmt::Debug for Fighter {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if let Some(home) = self.home {
-            write!(f, "home: {}, ", home)?;
+            write!(f, "home: {home}, ")?;
         }
         if let Some(target) = &self.target {
-            write!(f, "target: {}", target)?;
+            write!(f, "target: {target}")?;
         }
         write!(f, "")
     }
 }
 
 impl Fighter {
-    pub fn new(target: RoomName, home: RoomName, boost: bool) -> Self {
+    pub const fn new(target: RoomName, home: RoomName, boost: bool) -> Self {
         Self { target: Some(target), home: Some(home), boost }
     }
 }
@@ -86,7 +86,7 @@ impl Kind for Fighter {
 
         let mut body = basic_parts.into_iter().collect::<ArrayVec<[Part; 50]>>();
         while can_scale(body.clone(), scale_parts.to_vec(), room_energy, 50) {
-            body.extend(scale_parts.iter().cloned());
+            body.extend(scale_parts.iter().copied());
         }
 
         body.sort_by_key(|a| pvp_parts_priority(*a));

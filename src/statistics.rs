@@ -137,7 +137,7 @@ impl Perimetr {
             }
         }
 
-        let average = sum as f64 / len as f64;
+        let average = f64::from(sum) / f64::from(len);
         Self { min, max, average }
     }
 }

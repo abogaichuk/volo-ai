@@ -15,7 +15,7 @@ pub struct SMData {
 }
 
 impl SMData {
-    pub fn new(id: ObjectId<StructureController>, pos: Position, storage_id: RawObjectId) -> Self {
+    pub const fn new(id: ObjectId<StructureController>, pos: Position, storage_id: RawObjectId) -> Self {
         Self { id, pos, storage_id }
     }
 }
@@ -37,6 +37,6 @@ pub(in crate::rooms::state::requests) fn sm_handler(
             *assignment = Assignment::Single(None);
         }
         _ => {}
-    };
+    }
     events
 }

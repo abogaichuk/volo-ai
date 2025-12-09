@@ -14,7 +14,7 @@ pub struct ClaimData {
 }
 
 impl ClaimData {
-    pub fn new(id: ObjectId<StructureController>, pos: Position) -> Self {
+    pub const fn new(id: ObjectId<StructureController>, pos: Position) -> Self {
         Self { id, pos }
     }
 }
@@ -38,6 +38,6 @@ pub(in crate::rooms::state::requests) fn claim_handler(
             }
         }
         _ => {}
-    };
+    }
     events
 }

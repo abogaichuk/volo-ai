@@ -214,7 +214,7 @@ fn reaction_third_tier(
     }
 }
 
-fn default_handler(
+const fn default_handler(
     _res: ResourceType,
     _amount: u32,
     _resources: &Resources,
@@ -304,7 +304,7 @@ fn composite_handler(
     }
 }
 
-fn ops_handler(
+const fn ops_handler(
     _res: ResourceType,
     ops: u32,
     _resources: &Resources,
@@ -352,7 +352,7 @@ fn mineral_handler(
 fn get_compressed_resource(resource: ResourceType) -> Option<ResourceType> {
     resource.commodity_recipe().and_then(|recipe| {
         recipe.components.iter().find_map(|(component, _)| {
-            if *component != ResourceType::Energy { Some(*component) } else { None }
+            if *component == ResourceType::Energy { None } else { Some(*component) }
         })
     })
 }

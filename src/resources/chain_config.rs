@@ -9,7 +9,7 @@ pub struct FactoryChainConfig {
 }
 
 impl FactoryChainConfig {
-    pub fn random_chain(&self) -> &Chain {
+    pub const fn random_chain(&self) -> &Chain {
         //todo get chain randomly?
         // once(self.chain).chain(self.opt1).chain(self.opt2);
         &self.chain
@@ -23,7 +23,7 @@ pub struct Chain {
     pub amount: u32,
 }
 
-pub fn factory_chain_config(res: ResourceType) -> Option<FactoryChainConfig> {
+pub const fn factory_chain_config(res: ResourceType) -> Option<FactoryChainConfig> {
     use ResourceType::*;
 
     Some(match res {

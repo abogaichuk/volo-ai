@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use std::fmt;
 
 use itertools::Itertools;
-use log::*;
+use log::warn;
 use screeps::{
     ConstructionSite, Creep, Deposit, HasPosition, Mineral, ObjectId, Part, Position, RawObjectId,
     Resource, ResourceType, RoomCoordinate, RoomName, SOURCE_KEEPER_USERNAME, Source, Structure,
@@ -427,63 +427,63 @@ impl fmt::Debug for Task {
         match &self {
             Task::DefendHome => write!(f, "Task::DefendHome"),
             Task::Speak => write!(f, "Task::Speak"),
-            Task::Idle(ticks) => write!(f, "Task::Idle[{}]", ticks),
-            Task::Provoke(ticks, range) => write!(f, "Task::Provoke[{}, {}]", ticks, range),
-            Task::Portal(pos) => write!(f, "Task::Portal[{}]", pos),
+            Task::Idle(ticks) => write!(f, "Task::Idle[{ticks}]"),
+            Task::Provoke(ticks, range) => write!(f, "Task::Provoke[{ticks}, {range}]"),
+            Task::Portal(pos) => write!(f, "Task::Portal[{pos}]"),
             Task::MoveMe(room_name, walk_type) => {
-                write!(f, "Task::MoveMe[{}, {:?}]", room_name, walk_type)
+                write!(f, "Task::MoveMe[{room_name}, {walk_type:?}]")
             }
-            Task::Flee(range) => write!(f, "Task::Flee[{}]", range),
-            Task::Escape(pos) => write!(f, "Task::Escape[{}]", pos),
-            Task::Hide(pos, timeout) => write!(f, "Task::Hide[{}, {}]", pos, timeout),
+            Task::Flee(range) => write!(f, "Task::Flee[{range}]"),
+            Task::Escape(pos) => write!(f, "Task::Escape[{pos}]"),
+            Task::Hide(pos, timeout) => write!(f, "Task::Hide[{pos}, {timeout}]"),
             Task::Upgrade(id, container_id) => {
-                write!(f, "Task::Upgrade[{}, {:?}]", id, container_id)
+                write!(f, "Task::Upgrade[{id}, {container_id:?}]")
             }
-            Task::TakeResource(id) => write!(f, "Task::TakeResource[{}]", id),
-            Task::FindHeal(room_name) => write!(f, "Task::FindHeal[{}]", room_name),
+            Task::TakeResource(id) => write!(f, "Task::TakeResource[{id}]"),
+            Task::FindHeal(room_name) => write!(f, "Task::FindHeal[{room_name}]"),
             Task::Oversee(room_name, target) => {
-                write!(f, "Task::Oversee[{}, {:?}]", room_name, target)
+                write!(f, "Task::Oversee[{room_name}, {target:?}]")
             }
-            Task::Boost(id, parts) => write!(f, "Task::Boost[{}, {:?}]", id, parts),
-            Task::Crash(id, pos) => write!(f, "Task::Crash[{}, {:?}]", id, pos),
+            Task::Boost(id, parts) => write!(f, "Task::Boost[{id}, {parts:?}]"),
+            Task::Crash(id, pos) => write!(f, "Task::Crash[{id}, {pos:?}]"),
             Task::Defend(room_name, room_requested) => {
-                write!(f, "Task::Defend[{}, {}]", room_name, room_requested)
+                write!(f, "Task::Defend[{room_name}, {room_requested}]")
             }
-            Task::Protect(pos, target_pos) => write!(f, "Task::Protect[{}, {:?}]", pos, target_pos),
-            Task::Build(id, pos) => write!(f, "Task::Build[{:?}, {}]", id, pos),
-            Task::Repair(id, pos, times) => write!(f, "Task::Repair[{}, {}, {}]", id, pos, times),
+            Task::Protect(pos, target_pos) => write!(f, "Task::Protect[{pos}, {target_pos:?}]"),
+            Task::Build(id, pos) => write!(f, "Task::Build[{id:?}, {pos}]"),
+            Task::Repair(id, pos, times) => write!(f, "Task::Repair[{id}, {pos}, {times}]"),
             Task::HarvestEnergyForever(id, pos) => {
-                write!(f, "Task::HarvestEnergyForever[{}, {}]", id, pos)
+                write!(f, "Task::HarvestEnergyForever[{id}, {pos}]")
             }
-            Task::HarvestMineral(id, pos) => write!(f, "Task::HarvestMineral[{}, {}]", id, pos),
-            Task::Harvest(pos, id) => write!(f, "Task::Harvest[{}, {}]", id, pos),
+            Task::HarvestMineral(id, pos) => write!(f, "Task::HarvestMineral[{id}, {pos}]"),
+            Task::Harvest(pos, id) => write!(f, "Task::Harvest[{id}, {pos}]"),
             Task::HarvestAndUpgrade(pos, id, ctrl_id) => {
-                write!(f, "Task::HarvestAndUpgrade[{}, {}, {}]", pos, id, ctrl_id)
+                write!(f, "Task::HarvestAndUpgrade[{pos}, {id}, {ctrl_id}]")
             }
             Task::PowerbankAttack(pos, id, members) => {
-                write!(f, "Task::PowerbankAttack[{}, {}, {:?}]", id, pos, members)
+                write!(f, "Task::PowerbankAttack[{id}, {pos}, {members:?}]")
             }
             Task::PowerbankHeal(pos, id, members) => {
-                write!(f, "Task::PowerbankHeal[{}, {}, {:?}]", id, pos, members)
+                write!(f, "Task::PowerbankHeal[{id}, {pos}, {members:?}]")
             }
-            Task::PowerbankCarry(pos, id) => write!(f, "Task::PowerbankCarry[{}, {}]", id, pos),
-            Task::DepositHarvest(pos, id) => write!(f, "Task::DepositHarvest[{}, {}]", id, pos),
-            Task::DepositCarry(pos) => write!(f, "Task::DepositCarry[{}]", pos),
-            Task::Dismantle(id, pos) => write!(f, "Task::Dismantle[{}, {}]", id, pos),
-            Task::PullTo(name, pos) => write!(f, "Task::PullTo[{}, {}]", name, pos),
-            Task::Book(id, pos) => write!(f, "Task::Book[{}, {}]", id, pos),
-            Task::Claim(id, pos) => write!(f, "Task::Claim[{}, {}]", id, pos),
+            Task::PowerbankCarry(pos, id) => write!(f, "Task::PowerbankCarry[{id}, {pos}]"),
+            Task::DepositHarvest(pos, id) => write!(f, "Task::DepositHarvest[{id}, {pos}]"),
+            Task::DepositCarry(pos) => write!(f, "Task::DepositCarry[{pos}]"),
+            Task::Dismantle(id, pos) => write!(f, "Task::Dismantle[{id}, {pos}]"),
+            Task::PullTo(name, pos) => write!(f, "Task::PullTo[{name}, {pos}]"),
+            Task::Book(id, pos) => write!(f, "Task::Book[{id}, {pos}]"),
+            Task::Claim(id, pos) => write!(f, "Task::Claim[{id}, {pos}]"),
             Task::TakeFromStructure(pos, id, resource, amount) => {
-                write!(f, "Task::TakeFromStructure[{}, {}, {}, {:?}]", pos, id, resource, amount)
+                write!(f, "Task::TakeFromStructure[{pos}, {id}, {resource}, {amount:?}]")
             }
             Task::Withdraw(pos, id, resources) => {
-                write!(f, "Task::Withdraw[{}, {}, {:?}]", pos, id, resources)
+                write!(f, "Task::Withdraw[{pos}, {id}, {resources:?}]")
             }
             Task::LongRangeWithdraw(pos, id, resource, amount) => {
-                write!(f, "Task::LongRangeWithdraw[{}, {}, {}, {}]", pos, id, resource, amount)
+                write!(f, "Task::LongRangeWithdraw[{pos}, {id}, {resource}, {amount}]")
             }
             Task::GenerateSafeMode(pos, id, storage_id) => {
-                write!(f, "Task::GenerateSafeMode[{}, {}, {}]", pos, id, storage_id)
+                write!(f, "Task::GenerateSafeMode[{pos}, {id}, {storage_id}]")
             }
             Task::FillStructure(structure) => {
                 write!(f, "Task::FillStructure[{}]", structure.position())
@@ -491,10 +491,10 @@ impl fmt::Debug for Task {
             // Task::FillStructures(empty_structures) => write!(f, "Task::FillStructures[{:?}]",
             // empty_structures),
             Task::DeliverToStructure(pos, id, resource, amount) => {
-                write!(f, "Task::DeliverToStructure[{}, {}, {}, {:?}]", pos, id, resource, amount)
+                write!(f, "Task::DeliverToStructure[{pos}, {id}, {resource}, {amount:?}]")
             }
             Task::Carry(from, to, resource, amount, _) => {
-                write!(f, "Task::Carry[{}, {}, {}, {}]", from, to, resource, amount)
+                write!(f, "Task::Carry[{from}, {to}, {resource}, {amount}]")
             }
         }
     }

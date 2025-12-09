@@ -31,7 +31,7 @@ pub(crate) enum ColonyOrder {
 }
 
 impl ColonyOrder {
-    pub(crate) fn timeout(&self) -> u32 {
+    pub(crate) const fn timeout(&self) -> u32 {
         match self {
             ColonyOrder::Powerbank(p) => p.timeout,
             ColonyOrder::Deposit(d) => d.timeout,

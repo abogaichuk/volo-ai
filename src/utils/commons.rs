@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::iter::{Empty, Iterator, Once};
 use std::str::FromStr;
 
-use log::*;
+use log::{debug, warn};
 use rand::Rng;
 use regex::Regex;
 use screeps::look::{LookResult, STRUCTURES};
@@ -242,7 +242,7 @@ pub fn has_part(parts: &[Part], creep: &Creep, is_active: bool) -> bool {
 pub fn get_compressed_resource(resource: ResourceType) -> Option<ResourceType> {
     resource.commodity_recipe().and_then(|recipe| {
         recipe.components.iter().find_map(|(component, _)| {
-            if *component != ResourceType::Energy { Some(*component) } else { None }
+            if *component == ResourceType::Energy { None } else { Some(*component) }
         })
     })
 }
@@ -419,8 +419,7 @@ pub fn find_closest_exit(creep: &Creep, to: Option<RoomName>) -> Option<Position
     let room = creep.room().expect("expect creep is in a room!");
     let exit = to
         .and_then(|to_room| room.find_exit_to(to_room).ok())
-        .map(find::Exit::from)
-        .unwrap_or(find::Exit::All);
+        .map_or(find::Exit::All, find::Exit::from);
 
     creep.pos().find_closest_by_path(exit, None).map(|p| p.into())
 }
@@ -473,12 +472,12 @@ pub fn try_heal(creep: &Creep) {
                 _ => {
                     let _ = creep.heal(creep);
                 }
-            };
+            }
         }
         _ => {
             let _ = creep.heal(creep);
         }
-    };
+    }
 }
 
 pub fn find_closest_injured(to: &Creep) -> Option<Creep> {
@@ -517,19 +516,19 @@ pub fn capture_room_parts(re: &Regex, room_name: RoomName) -> Option<(u32, u32)>
     })
 }
 
-pub fn is_highway(f_mod: u32, s_mod: u32) -> bool {
+pub const fn is_highway(f_mod: u32, s_mod: u32) -> bool {
     f_mod == 0 || s_mod == 0
 }
 
-pub fn is_cross_road(f_mod: u32, s_mod: u32) -> bool {
+pub const fn is_cross_road(f_mod: u32, s_mod: u32) -> bool {
     f_mod == 0 && s_mod == 0
 }
 
-pub fn is_central(f_mod: u32, s_mod: u32) -> bool {
+pub const fn is_central(f_mod: u32, s_mod: u32) -> bool {
     f_mod == 5 && s_mod == 5
 }
 
-pub fn is_skr_walkway(f_rem: u32, s_rem: u32) -> bool {
+pub const fn is_skr_walkway(f_rem: u32, s_rem: u32) -> bool {
     (f_rem == 5 && (s_rem == 4 || s_rem == 6)) || (s_rem == 5 && (f_rem == 4 || f_rem == 6))
 }
 
@@ -546,7 +545,7 @@ pub fn room_xy(x: u8, y: u8) -> RoomXY {
 }
 
 //83 -> 85, 89 -> 90, 2 -> 5
-pub fn round_up_to_5(x: u32) -> u32 {
+pub const fn round_up_to_5(x: u32) -> u32 {
     let remainder = x % 5;
     if remainder == 0 { x } else { x.saturating_add(5 - remainder) }
 }

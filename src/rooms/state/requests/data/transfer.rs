@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use js_sys::JsString;
-use log::*;
+use log::{warn, info, error};
 use screeps::{HasId, ResourceType, RoomName, game};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
@@ -20,7 +20,7 @@ pub struct TransferData {
 }
 
 impl TransferData {
-    pub fn new(
+    pub const fn new(
         resource: ResourceType,
         amount: u32,
         destination: RoomName,
@@ -52,10 +52,10 @@ pub(in crate::rooms::state::requests) fn transfer_handler(
             );
 
             //if transfer energy -> min energy capacity = self.amount + transaction_cost
-            let transfer_amount = if data.resource != ResourceType::Energy {
-                data.amount
-            } else {
+            let transfer_amount = if data.resource == ResourceType::Energy {
                 data.amount + transaction_cost
+            } else {
+                data.amount
             };
 
             let terminal_energy = terminal.store().get_used_capacity(Some(ResourceType::Energy));
@@ -68,7 +68,7 @@ pub(in crate::rooms::state::requests) fn transfer_handler(
                     if let Some(unload_event) = home.unload(terminal, &[data.resource]) {
                         events.push(unload_event);
                     } else {
-                        warn!("{} terminal is full! request: {:?}", home.name(), data)
+                        warn!("{} terminal is full! request: {:?}", home.name(), data);
                     }
                 } else if let Some(load_event) =
                     home.supply_resources(terminal.raw_id(), ResourceType::Energy, lack)
@@ -76,7 +76,7 @@ pub(in crate::rooms::state::requests) fn transfer_handler(
                     meta.update(Status::OnHold);
                     events.push(load_event);
                 } else {
-                    warn!("{} not enough energy for request: {:?}", home.name(), data)
+                    warn!("{} not enough energy for request: {:?}", home.name(), data);
                 }
             } else if transfer_amount > terminal_resource {
                 let lack = transfer_amount - terminal_resource;
@@ -85,7 +85,7 @@ pub(in crate::rooms::state::requests) fn transfer_handler(
                         // events.push(RoomEvent::Request(RoomRequest::Transfer(self)));
                         events.push(unload_event);
                     } else {
-                        warn!("{} terminal is full! request: {:?}", home.name(), data)
+                        warn!("{} terminal is full! request: {:?}", home.name(), data);
                     }
                 } else if let Some(load_event) =
                     home.supply_resources(terminal.raw_id(), data.resource, lack)
@@ -94,7 +94,7 @@ pub(in crate::rooms::state::requests) fn transfer_handler(
                     events.push(load_event);
                 } else {
                     meta.update(Status::Aborted);
-                    warn!("{} not enough resource for request: {:?}", home.name(), data)
+                    warn!("{} not enough resource for request: {:?}", home.name(), data);
                 }
             } else if terminal.cooldown() == 0 {
                 match terminal.send(
@@ -103,7 +103,7 @@ pub(in crate::rooms::state::requests) fn transfer_handler(
                     data.destination,
                     data.description.as_deref(),
                 ) {
-                    Ok(_) => info!(
+                    Ok(()) => info!(
                         "room: {}, send {}: {} to {} successfully!",
                         home.name(),
                         data.amount,
@@ -111,7 +111,7 @@ pub(in crate::rooms::state::requests) fn transfer_handler(
                         data.destination
                     ),
                     Err(err) => error!("transfer error: {:?}", err),
-                };
+                }
                 meta.update(Status::Resolved);
             }
         }

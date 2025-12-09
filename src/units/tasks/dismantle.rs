@@ -1,4 +1,4 @@
-use log::*;
+use log::error;
 use screeps::{
     Creep, HasPosition, ObjectId, Position, SharedCreepProperties, Structure, StructureObject,
 };

@@ -2,7 +2,7 @@ use std::cmp;
 use std::collections::{HashMap, HashSet};
 
 use itertools::Itertools;
-use log::*;
+use log::debug;
 use screeps::{HasId, HasPosition, ObjectId, ResourceType, StructureLab, StructureStorage};
 
 use crate::commons::find_container_with;
@@ -34,7 +34,9 @@ impl Claimed {
                                 matches!(r.status(), Status::InProgress | Status::OnHold));
 
                         // if no in progress request
-                        if !in_progress {
+                        if in_progress {
+                            None
+                        } else {
                             //take a new one
                             if let Some(mut request) = new_request(&state.requests, storage) {
                                 request.join(None, None);
@@ -45,8 +47,6 @@ impl Claimed {
                                     .chain(self.labs.outputs.iter())
                                     .find_map(|lab| self.unload(lab, &[]))
                             }
-                        } else {
-                            None
                         }
                     }))
     }
@@ -180,7 +180,7 @@ impl Labs {
         &self.outputs
     }
 
-    fn boosts(&self) -> &HashMap<ResourceType, StructureLab> {
+    const fn boosts(&self) -> &HashMap<ResourceType, StructureLab> {
         &self.boosts
     }
 

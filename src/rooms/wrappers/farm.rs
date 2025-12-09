@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use log::*;
+use log::debug;
 use screeps::{
     Creep, EffectType, Event, HasHits, HasId, HasPosition, MaybeHasId, Mineral, Part, Room,
     RoomName, RoomObjectProperties, SOURCE_KEEPER_USERNAME, SharedCreepProperties, Source,
@@ -60,10 +60,10 @@ impl Farm {
             }
         }
 
-        Self { room, containers, roads, icore, mineral, sources, hostiles, keepers, events }
+        Self { room, hostiles, mineral, sources, containers, roads, icore, keepers, events }
     }
 
-    pub fn room(&self) -> &Room {
+    pub const fn room(&self) -> &Room {
         &self.room
     }
 
@@ -177,7 +177,7 @@ impl Farm {
         events
     }
 
-    fn check_log(&self) -> Option<RoomEvent> {
+    const fn check_log(&self) -> Option<RoomEvent> {
         //todo implement check logs logic
         // self.events.iter()
         //     .find(|event| )

@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use log::*;
+use log::{warn, debug};
 use screeps::RoomXY;
 use screeps::game::map;
 use screeps::local::{Position, RoomName};
@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use crate::movement::MovementProfile;
 use crate::movement::callback::PathOptions;
 use crate::utils::commons::is_cpu_on_low;
-use crate::utils::constants::*;
+use crate::utils::constants::MAX_ROOMS;
 
 // struct for specifying where a creep wants to move and the options the
 // pathfinder will need to know to get them there
@@ -34,7 +34,7 @@ pub struct MovementGoalBuilder {
 }
 
 impl MovementGoalBuilder {
-    pub fn new(pos: Position) -> Self {
+    pub const fn new(pos: Position) -> Self {
         Self {
             pos,
             range: 0,
@@ -45,12 +45,12 @@ impl MovementGoalBuilder {
         }
     }
 
-    pub fn range(mut self, range: u32) -> MovementGoalBuilder {
+    pub const fn range(mut self, range: u32) -> MovementGoalBuilder {
         self.range = range;
         self
     }
 
-    pub fn profile(mut self, profile: MovementProfile) -> MovementGoalBuilder {
+    pub const fn profile(mut self, profile: MovementProfile) -> MovementGoalBuilder {
         self.profile = profile;
         self
     }
@@ -63,12 +63,12 @@ impl MovementGoalBuilder {
         self
     }
 
-    pub fn avoid_creeps(mut self, avoid_creeps: bool) -> MovementGoalBuilder {
+    pub const fn avoid_creeps(mut self, avoid_creeps: bool) -> MovementGoalBuilder {
         self.avoid_creeps = avoid_creeps;
         self
     }
 
-    pub fn flee(mut self) -> MovementGoalBuilder {
+    pub const fn flee(mut self) -> MovementGoalBuilder {
         self.flee = true;
         self
     }

@@ -1,4 +1,4 @@
-use log::*;
+use log::warn;
 use screeps::action_error_codes::HarvestErrorCode;
 use screeps::{
     Creep, HasHits, HasId, HasPosition, Mineral, ObjectId, Position, ResourceType,
@@ -252,6 +252,6 @@ fn transfer_or_drop(workplace: Position, creep: &Creep) {
             _ => {
                 let _ = creep.drop(*resource, None);
             }
-        };
+        }
     }
 }

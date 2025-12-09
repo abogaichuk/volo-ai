@@ -61,7 +61,7 @@ pub enum Turn {
 
 impl Turn {
     #[inline]
-    pub fn toggle(self) -> Self {
+    pub const fn toggle(self) -> Self {
         match self {
             Self::First => Self::Second,
             Self::Second => Self::First,
@@ -76,18 +76,18 @@ pub struct Dash {
 }
 
 impl Dash {
-    pub fn new(y_turn: Turn, parity: Turn) -> Dash {
+    pub const fn new(y_turn: Turn, parity: Turn) -> Dash {
         Dash { y_turn, parity }
     }
 
-    fn y_turn(&self, y: u8) -> bool {
+    const fn y_turn(&self, y: u8) -> bool {
         match self.y_turn {
             Turn::First => y.is_multiple_of(2),
             Turn::Second => !y.is_multiple_of(2),
         }
     }
 
-    fn x_turn(&self, x: u8) -> bool {
+    const fn x_turn(&self, x: u8) -> bool {
         match self.parity {
             Turn::First => x.is_multiple_of(2),
             Turn::Second => !x.is_multiple_of(2),
@@ -151,7 +151,7 @@ impl RoadConfig {
         let (x0, y0, x1, y1) = rect;
         for y in y0..=y1 {
             if !self.dash.y_turn(y) {
-                turn = turn.toggle()
+                turn = turn.toggle();
             }
 
             for x in x0..=x1 {
@@ -197,7 +197,7 @@ impl RoadConfig {
         let (x0, y0, x1, y1) = rect;
         for y in y0..=y1 {
             if !self.dash.y_turn(y) {
-                turn = turn.toggle()
+                turn = turn.toggle();
             }
 
             for x in x0..=x1 {
@@ -256,7 +256,7 @@ pub struct RoadNet {
 }
 
 impl RoadNet {
-    fn new(config: RoadConfig, roads: HashSet<RoomXY>, squares: Vec<Square>) -> Self {
+    const fn new(config: RoadConfig, roads: HashSet<RoomXY>, squares: Vec<Square>) -> Self {
         Self { config, roads, squares }
     }
 

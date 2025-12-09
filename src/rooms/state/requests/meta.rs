@@ -17,7 +17,7 @@ impl Meta {
         self.updated_at = game::time();
     }
 
-    pub fn is_finished(&self) -> bool {
+    pub const fn is_finished(&self) -> bool {
         matches!(self.status, Status::Resolved | Status::Aborted)
     }
 }

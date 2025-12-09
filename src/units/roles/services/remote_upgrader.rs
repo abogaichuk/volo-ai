@@ -22,12 +22,12 @@ pub struct RemoteUpgrader {
 
 impl fmt::Debug for RemoteUpgrader {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if let Some(home) = self.home { write!(f, "home: {}", home) } else { write!(f, "") }
+        if let Some(home) = self.home { write!(f, "home: {home}") } else { write!(f, "") }
     }
 }
 
 impl RemoteUpgrader {
-    pub fn new(
+    pub const fn new(
         home: Option<RoomName>,
         workplace: Option<Position>,
         ctrl: ObjectId<StructureController>,
@@ -77,7 +77,7 @@ impl Kind for RemoteUpgrader {
 
         let mut body = basic_parts.into_iter().collect::<ArrayVec<[Part; 50]>>();
         while can_scale(body.clone(), scale_parts.to_vec(), room_energy, 50) {
-            body.extend(scale_parts.iter().cloned());
+            body.extend(scale_parts.iter().copied());
         }
 
         body.sort_by_key(|a| default_parts_priority(*a));

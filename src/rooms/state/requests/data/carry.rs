@@ -16,7 +16,7 @@ pub struct CarryData {
 }
 
 impl CarryData {
-    pub fn new(from: RawObjectId, to: RawObjectId, resource: ResourceType, amount: u32) -> Self {
+    pub const fn new(from: RawObjectId, to: RawObjectId, resource: ResourceType, amount: u32) -> Self {
         Self { from, to, resource, amount }
     }
 }

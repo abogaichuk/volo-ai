@@ -19,13 +19,13 @@ pub fn diagonal_neighbors(xy: &RoomXY) -> impl Iterator<Item = RoomXY> {
 }
 
 #[inline]
-pub fn outside_rect(xy: &RoomXY, rectangle: OuterRectangle) -> bool {
+pub const fn outside_rect(xy: &RoomXY, rectangle: OuterRectangle) -> bool {
     let (x0, y0, x1, y1) = rectangle;
     xy.x.u8() < x0 || xy.x.u8() > x1 || xy.y.u8() < y0 || xy.y.u8() > y1
 }
 
 #[inline]
-pub fn to_index(xy: RoomXY) -> usize {
+pub const fn to_index(xy: RoomXY) -> usize {
     (xy.x.u8() as usize) + ROOM_SIZE * (xy.y.u8() as usize)
 }
 
@@ -58,7 +58,7 @@ pub fn square_sides(xy: &RoomXY, multiplier: i8) -> impl Iterator<Item = RoomXY>
 }
 
 #[inline]
-pub fn clockwise_dir(direction: Direction) -> Direction {
+pub const fn clockwise_dir(direction: Direction) -> Direction {
     match direction {
         Direction::Right => Direction::BottomRight,
         Direction::BottomRight => Direction::Bottom,
@@ -72,7 +72,7 @@ pub fn clockwise_dir(direction: Direction) -> Direction {
 }
 
 #[inline]
-pub fn counter_clockwise_dir(direction: Direction) -> Direction {
+pub const fn counter_clockwise_dir(direction: Direction) -> Direction {
     match direction {
         Direction::Right => Direction::TopRight,
         Direction::TopRight => Direction::Top,

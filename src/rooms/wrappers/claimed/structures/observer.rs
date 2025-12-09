@@ -1,4 +1,4 @@
-use log::*;
+use log::error;
 use rand::Rng;
 
 use crate::rooms::wrappers::claimed::Claimed;
@@ -16,9 +16,9 @@ impl Claimed {
             if let Some(target) = self.get_name().checked_add((x, y)) {
                 let res = observer.observe_room(target);
                 match res {
-                    Ok(_) => {}
+                    Ok(()) => {}
                     Err(err) => {
-                        error!("room: {} observation {} error: {:?}", self.get_name(), target, err)
+                        error!("room: {} observation {} error: {:?}", self.get_name(), target, err);
                     }
                 }
             } else {

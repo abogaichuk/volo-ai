@@ -20,11 +20,11 @@ pub struct DefendData {
 }
 
 impl DefendData {
-    pub fn new(room_name: RoomName) -> Self {
+    pub const fn new(room_name: RoomName) -> Self {
         Self { room_name, hostiles: Vec::new() }
     }
 
-    pub fn with_hostiles(room_name: RoomName, hostiles: Vec<CreepHostile>) -> Self {
+    pub const fn with_hostiles(room_name: RoomName, hostiles: Vec<CreepHostile>) -> Self {
         Self { room_name, hostiles }
     }
 }
@@ -72,7 +72,7 @@ pub(in crate::rooms::state::requests) fn defend_handler(
                 }
             }
             _ => {}
-        };
+        }
     } else {
         meta.update(Status::Aborted);
     }

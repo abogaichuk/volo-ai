@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::fmt;
 
 use arrayvec::ArrayVec;
-use log::*;
+use log::{warn, debug};
 use screeps::constants::look::STRUCTURES;
 use screeps::objects::Creep;
 use screeps::prelude::*;
@@ -31,17 +31,17 @@ pub struct HandyMan {
 impl fmt::Debug for HandyMan {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if let Some(home) = self.home {
-            write!(f, "home: {}, ", home)?;
+            write!(f, "home: {home}, ")?;
         }
         if let Some(workplace) = &self.workplace {
-            write!(f, "workplace: {}", workplace)?;
+            write!(f, "workplace: {workplace}")?;
         }
         write!(f, "")
     }
 }
 
 impl HandyMan {
-    pub fn new(workplace: Option<Position>, home: Option<RoomName>, boost: bool) -> Self {
+    pub const fn new(workplace: Option<Position>, home: Option<RoomName>, boost: bool) -> Self {
         Self { workplace, home, boost }
     }
 }
@@ -86,7 +86,7 @@ impl Kind for HandyMan {
 
         let mut body = basic_parts.into_iter().collect::<ArrayVec<[Part; 50]>>();
         while can_scale(body.clone(), scale_parts.to_vec(), room_energy, 50) {
-            body.extend(scale_parts.iter().cloned());
+            body.extend(scale_parts.iter().copied());
         }
 
         body.sort_by_key(|a| default_parts_priority(*a));
@@ -279,7 +279,7 @@ fn find_startup_task(creep: &Creep, room: &Room) -> Task {
             //     return Task::Repair(w.id().into_type(), w.pos(), 10)
             // }
             _ => {}
-        };
+        }
     }
 
     // look for construction tasks next

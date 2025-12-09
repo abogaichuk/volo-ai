@@ -121,7 +121,7 @@ pub struct Caravan {
 }
 
 impl Caravan {
-    pub fn new(creeps: BTreeMap<String, u32>) -> Self {
+    pub const fn new(creeps: BTreeMap<String, u32>) -> Self {
         Self { screeps: creeps }
     }
 }
@@ -161,7 +161,6 @@ fn next_room(from: RoomName, direction: Direction) -> Option<RoomName> {
     let re = get_room_regex();
     next.filter(|room| {
         capture_room_numbers(&re, *room)
-            .map(|(f_num, s_num)| !(f_num % 10 == 0 && s_num % 10 == 0))
-            .unwrap_or(false)
+            .is_some_and(|(f_num, s_num)| !(f_num % 10 == 0 && s_num % 10 == 0))
     })
 }

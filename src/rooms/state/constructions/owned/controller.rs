@@ -52,11 +52,10 @@ pub fn plan(
             let cell = PlannedCell::new(step.xy(), RoomStructure::Road(i), 0, None);
             planned_roads
                 .get(&cell)
-                .map(|cell| match cell.structure {
+                .map_or(i, |cell| match cell.structure {
                     RoomStructure::Road(distance) => distance + i,
                     _ => i,
                 })
-                .unwrap_or(i)
         };
         PlannedCell::new(step.xy(), RoomStructure::Road(distance), 0, None)
     });

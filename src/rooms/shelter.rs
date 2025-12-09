@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use itertools::Itertools;
-use log::*;
+use log::{error, info, warn, debug};
 use screeps::game::market::Order;
 use screeps::game::{self};
 use screeps::{
@@ -177,7 +177,7 @@ impl<'s> Shelter<'s> {
                         self.state.trades.take(&TradeData::new(OrderType::Sell, resource))
                     {
                         match game::market::deal(&order_id, amount, Some(self.name())) {
-                            Ok(_) => {
+                            Ok(()) => {
                                 trade.amount -= amount;
                                 self.state.trades.insert(trade);
                                 info!("{} sell: {}", self.name(), resource);
@@ -200,7 +200,7 @@ impl<'s> Shelter<'s> {
                         self.state.trades.take(&TradeData::new(OrderType::Buy, resource))
                     {
                         match game::market::deal(&order_id, amount, Some(self.name())) {
-                            Ok(_) => {
+                            Ok(()) => {
                                 trade.amount -= amount;
                                 self.state.trades.insert(trade);
                                 info!("{} buy: {}", self.name(), resource);
@@ -224,7 +224,7 @@ impl<'s> Shelter<'s> {
                         self.state.last_intrusion = game::time();
                         colony_events.push(ColonyEvent::Notify(message, Some(30)));
                     } else {
-                        self.state.intrusion = false
+                        self.state.intrusion = false;
                     }
                 }
                 RoomEvent::NukeFalling => {
@@ -281,7 +281,7 @@ impl<'s> Shelter<'s> {
                    *     warn!("room event sos is not implemented yet!");
                    *     //todo colony help me
                    * } */
-            };
+            }
         }
         colony_events
     }
@@ -302,11 +302,11 @@ impl<'s> Shelter<'s> {
         self.base
     }
 
-    pub fn room(&self) -> &Room {
+    pub const fn room(&self) -> &Room {
         &self.base.room
     }
 
-    pub fn invasion(&self) -> bool {
+    pub const fn invasion(&self) -> bool {
         self.state.intrusion
     }
 
@@ -366,11 +366,11 @@ impl<'s> Shelter<'s> {
         self.state.add_to_spawn(role, times);
     }
 
-    pub fn storage(&self) -> Option<&StructureStorage> {
+    pub const fn storage(&self) -> Option<&StructureStorage> {
         self.base.storage()
     }
 
-    pub fn controller(&self) -> &StructureController {
+    pub const fn controller(&self) -> &StructureController {
         &self.base.controller
     }
 
@@ -382,15 +382,15 @@ impl<'s> Shelter<'s> {
             .map(|xy| Position::new(xy.x, xy.y, self.name()))
     }
 
-    pub fn power_spawn(&self) -> Option<&StructurePowerSpawn> {
+    pub const fn power_spawn(&self) -> Option<&StructurePowerSpawn> {
         self.base.power_spawn.as_ref()
     }
 
-    pub fn factory(&self) -> Option<&StructureFactory> {
+    pub const fn factory(&self) -> Option<&StructureFactory> {
         self.base.factory()
     }
 
-    pub fn terminal(&self) -> Option<&StructureTerminal> {
+    pub const fn terminal(&self) -> Option<&StructureTerminal> {
         self.base.terminal()
     }
 
@@ -402,7 +402,7 @@ impl<'s> Shelter<'s> {
         resources.iter().find_map(|res| self.base.labs.boost_lab(res))
     }
 
-    pub fn mineral(&self) -> &Mineral {
+    pub const fn mineral(&self) -> &Mineral {
         &self.base.mineral
     }
 

@@ -4,7 +4,7 @@ use std::iter::once;
 use std::str::FromStr;
 
 use js_sys::JsString;
-use log::*;
+use log::debug;
 use screeps::game::market::Order;
 use screeps::game::{self};
 use screeps::{HasId, MarketResourceType, OrderType, ResourceType, RoomName, StructureTerminal};
@@ -180,8 +180,8 @@ fn find_appropriate_highest_price_order(
             OrderWithTransactionCost {
                 id: order.id(),
                 amount: order.amount(),
-                summary: (order.price() * order.amount() as f64 - cost as f64)
-                    / order.amount() as f64,
+                summary: (order.price() * f64::from(order.amount()) - f64::from(cost))
+                    / f64::from(order.amount()),
             }
         })
         .fold(None, |acc, item| {
@@ -217,8 +217,8 @@ fn find_appropriate_lowest_price_order(
             OrderWithTransactionCost {
                 id: order.id(),
                 amount: order.amount(),
-                summary: (order.price() * order.amount() as f64 + cost as f64)
-                    / order.amount() as f64,
+                summary: (order.price() * f64::from(order.amount()) + f64::from(cost))
+                    / f64::from(order.amount()),
             }
         })
         .fold(None, |acc, item| {

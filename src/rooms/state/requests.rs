@@ -7,7 +7,7 @@ pub use data::{
     DestroyData, DismantleData, FactoryData, LRWData, LabData, PickupData, PowerbankData,
     ProtectData, PullData, RepairData, SMData, TransferData, WithdrawData,
 };
-use log::*;
+use log::error;
 use screeps::Part;
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
@@ -62,11 +62,11 @@ impl Request {
         Self { assignment, kind, meta: Meta::default() }
     }
 
-    pub fn with_meta(kind: RequestKind, assignment: Assignment, meta: Meta) -> Self {
+    pub const fn with_meta(kind: RequestKind, assignment: Assignment, meta: Meta) -> Self {
         Self { assignment, kind, meta }
     }
 
-    pub fn status(&self) -> &Status {
+    pub const fn status(&self) -> &Status {
         &self.meta.status
     }
 
@@ -74,7 +74,7 @@ impl Request {
         self.assignment.has_member(name)
     }
 
-    pub fn created_at(&self) -> u32 {
+    pub const fn created_at(&self) -> u32 {
         self.meta.created_at
     }
 
@@ -118,7 +118,7 @@ impl Request {
                 }
             }
             Err(err) => error!("{}", err),
-        };
+        }
     }
 }
 
@@ -297,27 +297,27 @@ pub enum RequestKind {
 impl Display for RequestKind {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         match self {
-            RequestKind::Pickup(d) => write!(f, "Pickup({:?})", d),
-            RequestKind::Withdraw(d) => write!(f, "Withdraw({:?})", d),
-            RequestKind::Carry(d) => write!(f, "Carry({:?})", d),
-            RequestKind::LongRangeWithdraw(d) => write!(f, "LongRangeWithdraw({:?})", d),
-            RequestKind::SafeMode(d) => write!(f, "SafeMode({:?})", d),
-            RequestKind::Caravan(d) => write!(f, "Caravan({:?})", d),
-            RequestKind::Repair(d) => write!(f, "Repair({:?})", d),
-            RequestKind::Dismantle(d) => write!(f, "Dismantle({:?})", d),
-            RequestKind::Build(d) => write!(f, "Build({:?})", d),
-            RequestKind::Claim(d) => write!(f, "Claim({:?})", d),
-            RequestKind::Book(d) => write!(f, "Book({:?})", d),
-            RequestKind::Pull(d) => write!(f, "Pull({:?})", d),
-            RequestKind::Defend(d) => write!(f, "Defend({:?})", d),
-            RequestKind::Protect(d) => write!(f, "Protect({:?})", d),
-            RequestKind::Destroy(d) => write!(f, "Destroy({:?})", d),
-            RequestKind::Crash(d) => write!(f, "Crash({:?})", d),
-            RequestKind::Powerbank(d) => write!(f, "Powerbank({:?})", d),
-            RequestKind::Deposit(d) => write!(f, "Deposit({:?})", d),
-            RequestKind::Factory(d) => write!(f, "Factory({:?})", d),
-            RequestKind::Lab(d) => write!(f, "Lab({:?})", d),
-            RequestKind::Transfer(d) => write!(f, "Transfer({:?})", d),
+            RequestKind::Pickup(d) => write!(f, "Pickup({d:?})"),
+            RequestKind::Withdraw(d) => write!(f, "Withdraw({d:?})"),
+            RequestKind::Carry(d) => write!(f, "Carry({d:?})"),
+            RequestKind::LongRangeWithdraw(d) => write!(f, "LongRangeWithdraw({d:?})"),
+            RequestKind::SafeMode(d) => write!(f, "SafeMode({d:?})"),
+            RequestKind::Caravan(d) => write!(f, "Caravan({d:?})"),
+            RequestKind::Repair(d) => write!(f, "Repair({d:?})"),
+            RequestKind::Dismantle(d) => write!(f, "Dismantle({d:?})"),
+            RequestKind::Build(d) => write!(f, "Build({d:?})"),
+            RequestKind::Claim(d) => write!(f, "Claim({d:?})"),
+            RequestKind::Book(d) => write!(f, "Book({d:?})"),
+            RequestKind::Pull(d) => write!(f, "Pull({d:?})"),
+            RequestKind::Defend(d) => write!(f, "Defend({d:?})"),
+            RequestKind::Protect(d) => write!(f, "Protect({d:?})"),
+            RequestKind::Destroy(d) => write!(f, "Destroy({d:?})"),
+            RequestKind::Crash(d) => write!(f, "Crash({d:?})"),
+            RequestKind::Powerbank(d) => write!(f, "Powerbank({d:?})"),
+            RequestKind::Deposit(d) => write!(f, "Deposit({d:?})"),
+            RequestKind::Factory(d) => write!(f, "Factory({d:?})"),
+            RequestKind::Lab(d) => write!(f, "Lab({d:?})"),
+            RequestKind::Transfer(d) => write!(f, "Transfer({d:?})"),
         }
     }
 }
@@ -345,7 +345,7 @@ pub struct CreepHostile {
 }
 
 impl CreepHostile {
-    pub fn new(
+    pub const fn new(
         name: String,
         owner: String,
         parts: Vec<BodyPart>,

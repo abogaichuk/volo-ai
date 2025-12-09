@@ -2,7 +2,7 @@ use std::cmp::min;
 use std::collections::HashMap;
 use std::iter::once;
 
-use log::*;
+use log::{error, info};
 use screeps::{
     ConstructionSite, Creep, Event, HasHits, HasId, HasPosition, HasStore, INVADER_USERNAME,
     MaybeHasId, Mineral, Nuke, Part, PowerCreep, RESOURCES_ALL, RawObjectId, Resource,
@@ -107,7 +107,7 @@ impl Claimed {
                 StructureObject::StructureTower(tower)
                     if tower.store().get_used_capacity(Some(ResourceType::Energy)) > 0 =>
                 {
-                    towers.push(tower)
+                    towers.push(tower);
                 }
                 StructureObject::StructureSpawn(s) => spawns.push(s),
                 StructureObject::StructureExtension(e) => extensions.push(e),
@@ -228,7 +228,7 @@ impl Claimed {
                                         str_type,
                                         None,
                                     ) {
-                                        Ok(_) => {}
+                                        Ok(()) => {}
                                         Err(err) => {
                                             error!(
                                                 "{} can't create cs: {}, at: {}, err: {:?}",
@@ -388,15 +388,15 @@ impl Claimed {
         self.sources.iter().chain(self.farms.iter().flat_map(|farm| farm.sources.iter()))
     }
 
-    pub fn storage(&self) -> Option<&StructureStorage> {
+    pub const fn storage(&self) -> Option<&StructureStorage> {
         self.storage.as_ref()
     }
 
-    pub fn terminal(&self) -> Option<&StructureTerminal> {
+    pub const fn terminal(&self) -> Option<&StructureTerminal> {
         self.terminal.as_ref()
     }
 
-    pub fn factory(&self) -> Option<&StructureFactory> {
+    pub const fn factory(&self) -> Option<&StructureFactory> {
         self.factory.as_ref()
     }
 

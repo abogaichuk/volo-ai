@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::iter::once;
 
 use js_sys::JsString;
-use log::*;
+use log::{debug, info, error, warn};
 use screeps::game::map::get_room_linear_distance;
 use screeps::game::{self};
 use screeps::{ResourceType, RoomName, raw_memory};

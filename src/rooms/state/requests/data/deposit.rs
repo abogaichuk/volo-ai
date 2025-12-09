@@ -1,6 +1,6 @@
 use std::cmp::min;
 
-use log::*;
+use log::warn;
 use screeps::{Deposit, HasPosition, ObjectId, Part, Position, RoomName, find, game};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
@@ -21,7 +21,7 @@ pub struct DepositData {
 }
 
 impl DepositData {
-    pub fn new(id: ObjectId<Deposit>, pos: Position, empty_cells: usize) -> Self {
+    pub const fn new(id: ObjectId<Deposit>, pos: Position, empty_cells: usize) -> Self {
         Self { id, pos, empty_cells }
     }
 }
@@ -39,7 +39,7 @@ pub(in crate::rooms::state::requests) fn deposit_handler(
                 let dep_miner =
                     Role::DepositMiner(DepositMiner::new(Some(squad_id.clone()), Some(home_name)));
                 let dep_hauler = Role::DepositHauler(DepositHauler::new(
-                    Some(squad_id.clone()),
+                    Some(squad_id),
                     Some(home_name),
                 ));
 
@@ -72,7 +72,7 @@ pub(in crate::rooms::state::requests) fn deposit_handler(
                             Some(home_name),
                         ));
                         let dep_hauler = Role::DepositHauler(DepositHauler::new(
-                            Some(squad_id.clone()),
+                            Some(squad_id),
                             Some(home_name),
                         ));
 

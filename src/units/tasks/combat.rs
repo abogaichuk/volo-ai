@@ -1,6 +1,6 @@
 use std::cmp::Ordering;
 
-use log::*;
+use log::{debug, warn, info};
 use screeps::{
     Attackable, Creep, HasPosition, INVADER_USERNAME, ObjectId, Part, Position, Room,
     RoomCoordinate, RoomName, SOURCE_KEEPER_USERNAME, SYSTEM_USERNAME, SharedCreepProperties,
@@ -12,7 +12,7 @@ use crate::movement::MovementGoal;
 use crate::movement::walker::Walker;
 use crate::units::roles::Role;
 use crate::units::{Task, TaskResult, has_part, with_parts};
-use crate::utils::commons::*;
+use crate::utils::commons::{closest_attacker, find_closest_injured_my_creeps, closest_creep, find_walkable_positions_near_by, try_heal, find_ramparts, is_walkable, find_keeper_lairs};
 use crate::utils::constants::{CLOSE_RANGE_ACTION, LONG_RANGE_ACTION};
 
 //todo chase into another room task !
@@ -242,7 +242,22 @@ pub fn protect(
         }
     } else {
         //injured
-        if creep.pos().room_name() != room_name {
+        if creep.pos().room_name() == room_name {
+            //injured in a target room -> run away
+            let closest_exit =
+                creep.pos().find_closest_by_path(find::EXIT, None).map_or(Position::new(
+                        unsafe { RoomCoordinate::unchecked_new(25) },
+                        unsafe { RoomCoordinate::unchecked_new(25) },
+                        *role.get_home().expect("expect home room"),
+                    ), |rp| rp.into());
+
+            if let Some(any) = any_in_range_structure(creep, &structures) {
+                let _ = creep.ranged_attack(any);
+            }
+
+            let goal = Walker::Berserk.walk(closest_exit, 0, creep, role, hostiles);
+            TaskResult::StillWorking(Task::Protect(room_name, None), Some(goal))
+        } else {
             //injured outside the target room, wait for heal
             if creep.pos().is_room_edge()
                 && let Some(pos) = find_walkable_positions_near_by(creep.pos(), true).first()
@@ -256,23 +271,6 @@ pub fn protect(
                 TaskResult::StillWorking(Task::Protect(room_name, None), None)
                 //just wait
             }
-        } else {
-            //injured in a target room -> run away
-            let closest_exit =
-                creep.pos().find_closest_by_path(find::EXIT, None).map(|rp| rp.into()).unwrap_or(
-                    Position::new(
-                        unsafe { RoomCoordinate::unchecked_new(25) },
-                        unsafe { RoomCoordinate::unchecked_new(25) },
-                        *role.get_home().expect("expect home room"),
-                    ),
-                );
-
-            if let Some(any) = any_in_range_structure(creep, &structures) {
-                let _ = creep.ranged_attack(any);
-            }
-
-            let goal = Walker::Berserk.walk(closest_exit, 0, creep, role, hostiles);
-            TaskResult::StillWorking(Task::Protect(room_name, None), Some(goal))
         }
     }
 }

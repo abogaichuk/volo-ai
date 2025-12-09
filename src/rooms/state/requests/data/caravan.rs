@@ -14,7 +14,7 @@ pub struct CaravanData {
 }
 
 impl CaravanData {
-    pub fn new(ambush_room: RoomName) -> Self {
+    pub const fn new(ambush_room: RoomName) -> Self {
         Self { ambush_room }
     }
 }

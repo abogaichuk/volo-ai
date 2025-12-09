@@ -1,7 +1,7 @@
 use std::cmp;
 use std::collections::BTreeMap;
 
-use log::*;
+use log::warn;
 use screeps::{
     Creep, Deposit, EffectType, HasHits, HasId, HasPosition, OwnedStructureProperties,
     ResourceType, Room, RoomName, RoomObjectProperties, SYSTEM_USERNAME, SharedCreepProperties,

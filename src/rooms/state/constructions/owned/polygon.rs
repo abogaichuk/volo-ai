@@ -1,4 +1,4 @@
-use log::*;
+use log::warn;
 use screeps::Direction;
 use screeps::local::RoomXY;
 
@@ -131,13 +131,13 @@ fn minimal_rectangles(spawn: Option<RoomXY>, sources: &[RoomXY], sat: &Sat) -> V
             }
         }
     }
-    sizes.sort_by_key(|&(w, h)| (w as u16 * h as u16, w.min(h)));
+    sizes.sort_by_key(|&(w, h)| (u16::from(w) * u16::from(h), w.min(h)));
 
     let mut results_at_min_size: Option<Vec<OuterRectangle>> = None;
 
     for (w, h) in sizes {
-        let outer_w: u16 = (w as u16) + 2 * (SAFE_RANGE as u16);
-        let outer_h: u16 = (h as u16) + 2 * (SAFE_RANGE as u16);
+        let outer_w: u16 = u16::from(w) + 2 * u16::from(SAFE_RANGE);
+        let outer_h: u16 = u16::from(h) + 2 * u16::from(SAFE_RANGE);
 
         let max_x0 = BUILD_MAX.saturating_sub((outer_w as u8) - 1);
         let max_y0 = BUILD_MAX.saturating_sub((outer_h as u8) - 1);
@@ -195,10 +195,10 @@ fn minimal_rectangles(spawn: Option<RoomXY>, sources: &[RoomXY], sat: &Sat) -> V
 /// Rectangle is valid if source inside  or Chebyshev-distance ≤ r to the
 /// rectangle.
 fn source_near_rect(source: RoomXY, x0: u8, y0: u8, x1: u8, y1: u8, r: u8) -> bool {
-    let sx = source.x.u8() as i32;
-    let sy = source.y.u8() as i32;
-    let (x0, y0, x1, y1) = (x0 as i32, y0 as i32, x1 as i32, y1 as i32);
-    let r = r as i32;
+    let sx = i32::from(source.x.u8());
+    let sy = i32::from(source.y.u8());
+    let (x0, y0, x1, y1) = (i32::from(x0), i32::from(y0), i32::from(x1), i32::from(y1));
+    let r = i32::from(r);
     let dx = if sx < x0 {
         x0 - sx
     } else if sx > x1 {
@@ -219,7 +219,7 @@ fn source_near_rect(source: RoomXY, x0: u8, y0: u8, x1: u8, y1: u8, r: u8) -> bo
 /// apply inclusion–exclusion rectangle sum:
 /// returns number of natural-wall cells in [x0..=x1] × [y0..=y1].
 #[inline]
-fn rect_walls(sat: &Sat, x0: u8, y0: u8, x1: u8, y1: u8) -> u16 {
+const fn rect_walls(sat: &Sat, x0: u8, y0: u8, x1: u8, y1: u8) -> u16 {
     let (x0, y0, x1, y1) = (x0 as usize, y0 as usize, x1 as usize, y1 as usize);
 
     let a = sat[y1][x1];
@@ -236,7 +236,7 @@ pub fn build_sat(walls: &[[bool; ROOM_SIZE]; ROOM_SIZE]) -> Sat {
 
     for y in 0..ROOM_SIZE {
         for x in 0..ROOM_SIZE {
-            let v = walls[y][x] as u16; // 0 or 1
+            let v = u16::from(walls[y][x]); // 0 or 1
 
             // sums from neighbors; use 0 when on the border
             let up = if y > 0 { sat[y - 1][x] } else { 0 };

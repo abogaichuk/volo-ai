@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use log::*;
+use log::info;
 use ordered_float::OrderedFloat;
 use screeps::{
     OrderType, OwnedStructureProperties, ResourceType, RoomName, RoomXY, StructureObject,
@@ -27,10 +27,10 @@ pub fn info() -> String {
                 .1
                 .spawns
                 .iter()
-                .map(|spawn| format!("{:?}\n", spawn))
-                .reduce(|acc, line| format!("{}{}", acc, line))
+                .map(|spawn| format!("{spawn:?}\n"))
+                .reduce(|acc, line| format!("{acc}{line}"))
                 .unwrap_or_else(|| "[]".to_string());
-            let spawn_info = format!("     spawns: [{}\n]\n", spawns);
+            let spawn_info = format!("     spawns: [{spawns}\n]\n");
 
             let requests_info = format!("     requests size: {}\n", elem.1.requests.len());
 
@@ -42,7 +42,7 @@ pub fn info() -> String {
 
             // format!("{}{}{}{}{}", acc, room_header, spawn_info, requests_info,
             // perimetr_info)
-            format!("{}{}{}{}", acc, room_header, spawn_info, requests_info)
+            format!("{acc}{room_header}{spawn_info}{requests_info}")
         })
     })
 }
@@ -61,22 +61,22 @@ pub fn spawn(room_name: String, creep: JsValue) -> String {
                 GLOBAL_MEMORY.with(|mem_refcell| {
                     match mem_refcell.borrow_mut().rooms.get_mut(&room_name) {
                         Some(claimed) => {
-                            let message = format!("room_name: {}, added new {}", room_name, role);
+                            let message = format!("room_name: {room_name}, added new {role}");
                             claimed.add_to_spawn(role, 1);
                             message
                         }
                         _ => {
-                            format!("room: {} is not claimed room", room_name)
+                            format!("room: {room_name} is not claimed room")
                         }
                     }
                 })
             }
             Err(error) => {
-                format!("incorrect room name: {}", error)
+                format!("incorrect room name: {error}")
             }
         },
         Err(error) => {
-            format!("incorrect creep data: {}", error)
+            format!("incorrect creep data: {error}")
         }
     }
 }
@@ -90,19 +90,19 @@ pub fn request(room_name: String, request_js: JsValue) -> String {
                     Some(claimed) => {
                         claimed.requests.remove(&request);
                         claimed.requests.insert(request);
-                        format!("room_name: {}, added new request {:?}", room_name, request_js)
+                        format!("room_name: {room_name}, added new request {request_js:?}")
                     }
                     _ => {
-                        format!("room: {} is not claimed room", room_name)
+                        format!("room: {room_name} is not claimed room")
                     }
                 }
             }),
             Err(error) => {
-                format!("incorrect room name: {}", error)
+                format!("incorrect room name: {error}")
             }
         },
         Err(error) => {
-            format!("incorrect request data: {}", error)
+            format!("incorrect request data: {error}")
         }
     }
 }
@@ -132,7 +132,7 @@ pub fn claim_room(room_name: String) -> String {
             })
         }
         Err(error) => {
-            format!("incorrect room name: {}", error)
+            format!("incorrect room name: {error}")
         }
     }
 }
@@ -143,19 +143,19 @@ pub fn requests(room_name: String) -> String {
         Ok(room_name) => {
             GLOBAL_MEMORY.with(|mem_refcell| match mem_refcell.borrow().rooms.get(&room_name) {
                 Some(claimed) => {
-                    let mut result = format!("room: {} requests: \n", room_name);
+                    let mut result = format!("room: {room_name} requests: \n");
                     for (i, request) in claimed.requests.iter().enumerate() {
-                        result.push_str(&format!("{}: {} \n", i, request));
+                        result.push_str(&format!("{i}: {request} \n"));
                     }
                     result
                 }
                 _ => {
-                    format!("room: {} is not claimed room", room_name)
+                    format!("room: {room_name} is not claimed room")
                 }
             })
         }
         Err(error) => {
-            format!("incorrect room name: {}", error)
+            format!("incorrect room name: {error}")
         }
     }
 }
@@ -163,22 +163,22 @@ pub fn requests(room_name: String) -> String {
 #[wasm_bindgen]
 pub fn resolve_request(room_name: String, request: JsValue) -> String {
     match RoomName::from_str(&room_name) {
-        Ok(room_name) => match serde_wasm_bindgen::from_value::<Request>(request.clone()) {
+        Ok(room_name) => match serde_wasm_bindgen::from_value::<Request>(request) {
             Ok(request) => GLOBAL_MEMORY.with(|mem_refcell| {
                 if let Some(memory) = mem_refcell.borrow_mut().rooms.get_mut(&room_name) {
                     if memory.requests.remove(&request) {
-                        format!("resolved request(deleted): {:?}", request)
+                        format!("resolved request(deleted): {request:?}")
                     } else {
-                        format!("can't found request: {:?}", request)
+                        format!("can't found request: {request:?}")
                     }
                 } else {
-                    format!("room: {} is not claimed room", room_name)
+                    format!("room: {room_name} is not claimed room")
                 }
             }),
-            Err(err) => format!("incorrect request: {}", err),
+            Err(err) => format!("incorrect request: {err}"),
         },
         Err(error) => {
-            format!("incorrect room name: {}", error)
+            format!("incorrect room name: {error}")
         }
     }
 }
@@ -190,15 +190,15 @@ pub fn ccm(creep_name: String, creep_memory: JsValue) -> String {
             match shard_state.borrow_mut().creeps.entry(creep_name.clone()) {
                 std::collections::hash_map::Entry::Occupied(mut o) => {
                     o.insert(new_memory);
-                    format!("changed creep {} memory to : {:?}", creep_name, creep_memory)
+                    format!("changed creep {creep_name} memory to : {creep_memory:?}")
                 }
                 std::collections::hash_map::Entry::Vacant(_) => {
-                    format!("incorrect creep name: {}", creep_name)
+                    format!("incorrect creep name: {creep_name}")
                 }
             }
         }),
         Err(error) => {
-            format!("incorrect creep memory: {}", error)
+            format!("incorrect creep memory: {error}")
         }
     }
 }
@@ -229,19 +229,19 @@ pub fn add_farm(room_name: String, remote_name: String) -> String {
                         if game::rooms().get(remote_room).is_some() {
                             let farm = FarmInfo::default();
                             claimed.farms.insert(remote_room, farm);
-                            format!("room: {} added new remote: {}", room_name, remote_name)
+                            format!("room: {room_name} added new remote: {remote_name}")
                         } else {
-                            format!("remote: {} is not available right now", remote_name)
+                            format!("remote: {remote_name} is not available right now")
                         }
                     }
                     _ => {
-                        format!("room: {} is not claimed room", room_name)
+                        format!("room: {room_name} is not claimed room")
                     }
                 }
             }),
-            Err(err) => format!("incorrect remote room name: {}", err),
+            Err(err) => format!("incorrect remote room name: {err}"),
         },
-        Err(error) => format!("incorrect room name: {}", error),
+        Err(error) => format!("incorrect room name: {error}"),
     }
 }
 
@@ -262,14 +262,14 @@ pub fn add_boost(room_name: String, boost: u8, timeout: u32) -> String {
                         _ => BoostReason::Pvp,
                     };
                     claimed.boosts.insert(boost_reason, game::time() + timeout);
-                    format!("added {} to room: {}", boost, room_name)
+                    format!("added {boost} to room: {room_name}")
                 }
                 _ => {
-                    format!("room: {} is not claimed room", room_name)
+                    format!("room: {room_name} is not claimed room")
                 }
             }
         }),
-        Err(err) => format!("incorrect room name: {}", err),
+        Err(err) => format!("incorrect room name: {err}"),
     }
 }
 
@@ -290,14 +290,14 @@ pub fn delete_boost(room_name: String, boost: u8) -> String {
                         _ => BoostReason::Pvp,
                     };
                     claimed.boosts.remove(&boost_reason);
-                    format!("deleted {} from room: {}", boost, room_name)
+                    format!("deleted {boost} from room: {room_name}")
                 }
                 _ => {
-                    format!("room: {} is not claimed room", room_name)
+                    format!("room: {room_name} is not claimed room")
                 }
             }
         }),
-        Err(err) => format!("incorrect room name: {}", err),
+        Err(err) => format!("incorrect room name: {err}"),
     }
 }
 
@@ -320,15 +320,15 @@ pub fn trade(
                         amount,
                     );
                     claimed.trades.insert(trade);
-                    format!("room: {} added trade: {:?}", room_name, trade)
+                    format!("room: {room_name} added trade: {trade:?}")
                 }
                 _ => {
-                    format!("room: {} is not claimed room", room_name)
+                    format!("room: {room_name} is not claimed room")
                 }
             }
         }),
         Err(error) => {
-            format!("incorrect room name: {}", error)
+            format!("incorrect room name: {error}")
         }
     }
 }
@@ -340,15 +340,15 @@ pub fn clear_trades(room_name: String) -> String {
             match mem_refcell.borrow_mut().rooms.get_mut(&room_name) {
                 Some(claimed) => {
                     claimed.trades.retain(|_: &TradeData| false);
-                    format!("clear all trades for: {}", room_name)
+                    format!("clear all trades for: {room_name}")
                 }
                 _ => {
-                    format!("room: {} is not claimed room", room_name)
+                    format!("room: {room_name} is not claimed room")
                 }
             }
         }),
         Err(error) => {
-            format!("incorrect room name: {}", error)
+            format!("incorrect room name: {error}")
         }
     }
 }
@@ -358,10 +358,10 @@ pub fn avoid_room(room_name: String) -> String {
     match RoomName::from_str(&room_name) {
         Ok(room_name) => GLOBAL_MEMORY.with(|mem_refcell| {
             mem_refcell.borrow_mut().avoid_rooms.insert(room_name, u32::MAX);
-            format!("add room: {} to avoid set!", room_name)
+            format!("add room: {room_name} to avoid set!")
         }),
         Err(error) => {
-            format!("incorrect room name: {}", error)
+            format!("incorrect room name: {error}")
         }
     }
 }
@@ -388,10 +388,10 @@ pub fn get_plan_for(room_name: String, x: u8, y: u8) -> String {
                 );
                 return result;
             }
-            format!("memory: {} not found!", room_name)
+            format!("memory: {room_name} not found!")
         }),
         Err(error) => {
-            format!("incorrect room name: {}", error)
+            format!("incorrect room name: {error}")
         }
     }
 }
@@ -418,14 +418,14 @@ pub fn add_plan(
                         memory.plan = Some(plan);
                     }
                 });
-                format!("added: {:?} at {} in {}", structure, xy, room_name)
+                format!("added: {structure:?} at {xy} in {room_name}")
             }),
             Err(err) => {
-                format!("incorrect structure: {}", err)
+                format!("incorrect structure: {err}")
             }
         },
         Err(error) => {
-            format!("incorrect room name: {}", error)
+            format!("incorrect room name: {error}")
         }
     }
 }
@@ -445,14 +445,14 @@ pub fn delete_plan_for(room_name: String, x: u8, y: u8, structure: JsValue) -> S
                         memory.plan = Some(plan);
                     }
                 });
-                format!("deleted: {:?} at {} in {}", structure, xy, room_name)
+                format!("deleted: {structure:?} at {xy} in {room_name}")
             }),
             Err(err) => {
-                format!("incorrect structure: {}", err)
+                format!("incorrect structure: {err}")
             }
         },
         Err(error) => {
-            format!("incorrect room name: {}", error)
+            format!("incorrect room name: {error}")
         }
     }
 }

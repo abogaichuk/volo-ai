@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use log::*;
+use log::debug;
 use screeps::constants::StructureType;
 use screeps::enums::StructureObject;
 use screeps::local::{LocalCostMatrix, RoomName};
@@ -59,9 +59,9 @@ pub fn prefer_swamp_callback(
     })
 }
 
-pub fn closest_in_room_range<'a>(
-    grid: &'a HashMap<RoomXY, RoomPart>,
-) -> impl FnMut(RoomName, CostMatrix) -> SingleRoomCostResult + use<'a> {
+pub fn closest_in_room_range(
+    grid: &HashMap<RoomXY, RoomPart>,
+) -> impl FnMut(RoomName, CostMatrix) -> SingleRoomCostResult + use<'_> {
     |_: RoomName, mut matrix: CostMatrix| -> SingleRoomCostResult {
         for (xy, part) in grid.iter() {
             match part {
@@ -77,16 +77,16 @@ pub fn closest_multi_rooms_range() -> impl FnMut(RoomName) -> MultiRoomCostResul
     move |_: RoomName| -> MultiRoomCostResult { MultiRoomCostResult::CostMatrix(CostMatrix::new()) }
 }
 
-pub fn construction_single_room<'a>(
+pub fn construction_single_room(
     unwalkable: HashSet<RoomXY>,
-    grid: &'a HashMap<RoomXY, RoomPart>,
-) -> impl FnMut(RoomName) -> MultiRoomCostResult + use<'a> {
+    grid: &HashMap<RoomXY, RoomPart>,
+) -> impl FnMut(RoomName) -> MultiRoomCostResult + use<'_> {
     move |_: RoomName| -> MultiRoomCostResult {
         let mut matrix = LocalCostMatrix::new();
 
         for (xy, part) in grid.iter() {
             if unwalkable.contains(xy) {
-                matrix.set_xy(*xy, 0xff)
+                matrix.set_xy(*xy, 0xff);
             } else {
                 match part {
                     RoomPart::Wall | RoomPart::Exit => matrix.set_xy(*xy, 0xff),
@@ -99,9 +99,9 @@ pub fn construction_single_room<'a>(
     }
 }
 
-pub fn construction_multi_rooms<'a>(
-    planned: &'a HashMap<RoomName, Vec<RoomXY>>,
-) -> impl FnMut(RoomName) -> MultiRoomCostResult + use<'a> {
+pub fn construction_multi_rooms(
+    planned: &HashMap<RoomName, Vec<RoomXY>>,
+) -> impl FnMut(RoomName) -> MultiRoomCostResult + use<'_> {
     move |room_name: RoomName| -> MultiRoomCostResult {
         let mut matrix = LocalCostMatrix::new();
         if let Some(room) = game::rooms().get(room_name) {
@@ -139,7 +139,7 @@ pub fn construction_multi_rooms<'a>(
                             3 => matrix.set(xy, 0x05), //5
                             4 => matrix.set(xy, 0x04), //4
                             _ => {}
-                        };
+                        }
                     }
                 }
             }
@@ -227,7 +227,7 @@ fn cost_matrix(room_name: RoomName, options: &PathOptions, prefer_swamp: bool) -
                     1 => {
                         //road here
                         if !prefer_swamp {
-                            new_matrix.set(*xy, penalty / 2) //reduced penalty set on cell with road
+                            new_matrix.set(*xy, penalty / 2); //reduced penalty set on cell with road
                         }
                     }
                     cost => {
@@ -236,9 +236,9 @@ fn cost_matrix(room_name: RoomName, options: &PathOptions, prefer_swamp: bool) -
                             Terrain::Wall => new_matrix.set(*xy, 0xff),
                             Terrain::Swamp => {
                                 if prefer_swamp {
-                                    new_matrix.set(*xy, cost + penalty) //just penalty
+                                    new_matrix.set(*xy, cost + penalty); //just penalty
                                 } else {
-                                    new_matrix.set(*xy, cost + 0xa + penalty) //swamp cost + penalty
+                                    new_matrix.set(*xy, cost + 0xa + penalty); //swamp cost + penalty
                                 }
                             }
                             Terrain::Plain => new_matrix.set(*xy, cost + 0x02 + penalty), /* plain cost + penalty */

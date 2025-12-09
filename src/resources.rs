@@ -21,7 +21,7 @@ pub struct RoomContext {
 }
 
 impl RoomContext {
-    pub fn new(
+    pub const fn new(
         rcl: u8,
         terminal: Option<RawObjectId>,
         storage: Option<RawObjectId>,
@@ -36,7 +36,7 @@ pub struct Resources {
 }
 
 impl Resources {
-    pub fn new(amounts: HashMap<ResourceType, u32>) -> Self {
+    pub const fn new(amounts: HashMap<ResourceType, u32>) -> Self {
         Self { amounts }
     }
 
@@ -44,11 +44,11 @@ impl Resources {
         *self.amounts.get(&res).unwrap_or(&0)
     }
 
-    pub fn all(&self) -> &HashMap<ResourceType, u32> {
+    pub const fn all(&self) -> &HashMap<ResourceType, u32> {
         &self.amounts
     }
 
-    pub fn events<'a>(&'a self, ctx: RoomContext) -> impl Iterator<Item = RoomEvent> + 'a {
+    pub fn events(&self, ctx: RoomContext) -> impl Iterator<Item = RoomEvent> + '_ {
         self.amounts
             .iter()
             .filter_map(move |(res, amount)| get_handler_for(*res)(*res, *amount, self, &ctx))
@@ -61,11 +61,11 @@ pub struct ResourceOnLowResult {
 }
 
 impl ResourceOnLowResult {
-    pub fn amount(&self) -> u32 {
+    pub const fn amount(&self) -> u32 {
         self.amount
     }
 
-    pub fn room_name(&self) -> RoomName {
+    pub const fn room_name(&self) -> RoomName {
         self.room_name
     }
 }
@@ -90,7 +90,7 @@ fn divide_by_half(
     find_room_with_high_amount(res, ctx).filter(|(_, available)| *available > 0).map(
         |(room_name, available)| {
             if available > amount * 2 {
-                ResourceOnLowResult { room_name, amount }
+                ResourceOnLowResult { amount, room_name }
             } else if available >= amount {
                 ResourceOnLowResult { room_name, amount: amount / 2 }
             } else {
@@ -107,7 +107,7 @@ fn contain_excessive(
 ) -> Option<ResourceOnLowResult> {
     find_room_with_high_amount(res, ctx)
         .filter(|(_, available)| *available > amount * 2)
-        .map(|(room_name, _)| ResourceOnLowResult { room_name, amount })
+        .map(|(room_name, _)| ResourceOnLowResult { amount, room_name })
 }
 
 fn find_room_with_high_amount(res: ResourceType, ctx: &ColonyContext) -> Option<(RoomName, u32)> {

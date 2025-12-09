@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use log::*;
+use log::warn;
 use screeps::{
     Creep, HasId, HasPosition, ObjectId, Position, ResourceType, Room, Ruin, SharedCreepProperties,
     StructurePowerBank, find, game,

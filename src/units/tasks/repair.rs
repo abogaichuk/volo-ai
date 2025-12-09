@@ -1,4 +1,4 @@
-use log::*;
+use log::{error, warn};
 use screeps::action_error_codes::CreepRepairErrorCode;
 use screeps::{
     Creep, HasPosition, ObjectId, Part, Position, ResourceType, SharedCreepProperties, Structure,
@@ -45,7 +45,7 @@ pub fn repair(
             {
                 let _ = creep.say("🛠︎", false);
                 match creep.repair(repairable) {
-                    Ok(_) => {
+                    Ok(()) => {
                         let times = times - 1;
                         if times > 1 {
                             TaskResult::StillWorking(Task::Repair(id, pos, times - 1), None)

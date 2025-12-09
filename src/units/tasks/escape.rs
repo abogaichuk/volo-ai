@@ -1,4 +1,4 @@
-use log::*;
+use log::{debug, warn};
 use screeps::{Creep, HasPosition, Position, RoomCoordinate, RoomName, SharedCreepProperties};
 
 use crate::movement::walker::Walker;

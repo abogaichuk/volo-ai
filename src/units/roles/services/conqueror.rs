@@ -20,12 +20,12 @@ pub struct Conqueror {
 
 impl fmt::Debug for Conqueror {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if let Some(home) = self.home { write!(f, "home: {}", home) } else { write!(f, "") }
+        if let Some(home) = self.home { write!(f, "home: {home}") } else { write!(f, "") }
     }
 }
 
 impl Conqueror {
-    pub fn new(home: Option<RoomName>) -> Self {
+    pub const fn new(home: Option<RoomName>) -> Self {
         Self { home }
     }
 }

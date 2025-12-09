@@ -13,7 +13,7 @@ pub struct WithdrawData {
 }
 
 impl WithdrawData {
-    pub fn new(
+    pub const fn new(
         id: RawObjectId,
         pos: Position,
         resources: Vec<(ResourceType, Option<u32>)>,
@@ -36,6 +36,6 @@ pub(in crate::rooms::state::requests) fn withdraw_handler(
         }
     } else {
         meta.update(Status::Aborted);
-    };
+    }
     smallvec![]
 }

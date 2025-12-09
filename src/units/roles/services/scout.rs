@@ -20,7 +20,7 @@ pub struct Scout {
 
 impl fmt::Debug for Scout {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if let Some(home) = self.home { write!(f, "home: {}", home) } else { write!(f, "") }
+        if let Some(home) = self.home { write!(f, "home: {home}") } else { write!(f, "") }
     }
 }
 
@@ -64,7 +64,7 @@ impl Kind for Scout {
 }
 
 impl Scout {
-    pub fn new(home: Option<RoomName>, target: Option<Position>) -> Self {
+    pub const fn new(home: Option<RoomName>, target: Option<Position>) -> Self {
         Self { home, target }
     }
 }

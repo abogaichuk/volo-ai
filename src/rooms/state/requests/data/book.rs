@@ -15,7 +15,7 @@ pub struct BookData {
 }
 
 impl BookData {
-    pub fn new(id: ObjectId<StructureController>, pos: Position) -> Self {
+    pub const fn new(id: ObjectId<StructureController>, pos: Position) -> Self {
         Self { id, pos }
     }
 }
@@ -43,6 +43,6 @@ pub(in crate::rooms::state::requests) fn book_handler(
             *assignment = Assignment::Single(None);
         }
         _ => {}
-    };
+    }
     events
 }

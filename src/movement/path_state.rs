@@ -1,11 +1,11 @@
-use log::*;
+use log::{warn, debug};
 use screeps::RoomName;
 use screeps::constants::Direction;
 use screeps::local::Position;
 use serde::{Deserialize, Serialize};
 
 use crate::movement::{FindRouteOptions, MovementGoal};
-use crate::utils::constants::*;
+use crate::utils::constants::STUCK_REPATH_THRESHOLD;
 
 // struct for tracking the current state of a moving creep
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -54,17 +54,14 @@ impl PathState {
                 // skip storing this step if it's just a room boundary change
                 // that'll happen automatically thanks to the edge tile's swap-every-tick
                 if pos.room_name() == cursor.room_name() {
-                    match pos.get_direction_to(cursor) {
-                        Some(v) => {
-                            // store the inverse of the direction to cursor_pos,
-                            // since it's earlier in the path
-                            let v = -v;
-                            steps.push(v);
-                        }
-                        None => {
-                            warn!("direction failure?");
-                            break;
-                        }
+                    if let Some(v) = pos.get_direction_to(cursor) {
+                        // store the inverse of the direction to cursor_pos,
+                        // since it's earlier in the path
+                        let v = -v;
+                        steps.push(v);
+                    } else {
+                        warn!("direction failure?");
+                        break;
                     }
                 }
                 cursor = pos;
@@ -86,11 +83,11 @@ impl PathState {
         }
     }
 
-    pub fn stuck_threshold_exceed(&self) -> bool {
+    pub const fn stuck_threshold_exceed(&self) -> bool {
         self.stuck_count >= STUCK_REPATH_THRESHOLD
     }
 
-    pub fn is_last_step(&self) -> bool {
+    pub const fn is_last_step(&self) -> bool {
         self.path_progress + 1 == self.path.len()
     }
 

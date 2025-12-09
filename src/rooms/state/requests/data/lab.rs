@@ -1,6 +1,6 @@
 use std::cmp;
 
-use log::*;
+use log::{error, warn};
 use screeps::action_error_codes::RunReactionErrorCode;
 use screeps::{ResourceType, StructureLab, game};
 use serde::{Deserialize, Serialize};
@@ -29,7 +29,7 @@ pub struct LabData {
 }
 
 impl LabData {
-    pub fn new(resource: ResourceType, amount: u32) -> Self {
+    pub const fn new(resource: ResourceType, amount: u32) -> Self {
         Self { resource, amount }
     }
 }
@@ -59,7 +59,7 @@ pub(in crate::rooms::state::requests) fn lab_handler(
                     } else {
                         for output in outputs.iter().filter(|o| o.cooldown() == 0) {
                             match output.run_reaction(input1, input2) {
-                                Ok(_) => {
+                                Ok(()) => {
                                     if LAB_PRODUCTION > data.amount {
                                         meta.update(Status::Resolved);
                                         break;
@@ -124,7 +124,7 @@ pub(in crate::rooms::state::requests) fn lab_handler(
                                             error!("lab error: {:?}", err);
                                             meta.update(Status::Aborted);
                                         }
-                                    };
+                                    }
                                     break;
                                 }
                             }

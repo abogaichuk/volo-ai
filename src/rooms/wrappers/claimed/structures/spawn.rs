@@ -1,4 +1,4 @@
-use log::*;
+use log::{warn, debug};
 use screeps::action_error_codes::SpawnCreepErrorCode;
 use screeps::{ResourceType, SpawnOptions, StructureProperties, StructureSpawn, game};
 use smallvec::SmallVec;
@@ -33,12 +33,11 @@ impl Claimed {
             if let Some(spawn) = self.find_available_spawn() {
                 let max_scale = self
                     .storage()
-                    .map(|storage| {
+                    .map_or(!room_memory.origin, |storage| {
                         storage.store().get_used_capacity(Some(ResourceType::Energy))
                             > MIN_ENERGY_AMOUNT
                             && !room_memory.origin
-                    })
-                    .unwrap_or(!room_memory.origin);
+                    });
 
                 let room_energy = if max_scale {
                     self.energy_capacity_available()
@@ -57,7 +56,7 @@ impl Claimed {
                 let body = spawn_role.body(room_energy);
                 let spawn_options = SpawnOptions::new().dry_run(true);
                 match spawn.spawn_creep_with_options(&body, "___test_name", &spawn_options) {
-                    Ok(_) => {
+                    Ok(()) => {
                         let js_memory = serde_wasm_bindgen::to_value(&spawn_role).unwrap();
                         let spawn_options = SpawnOptions::new().memory(js_memory);
 
@@ -65,7 +64,7 @@ impl Claimed {
                         'spawn_loop: loop {
                             let name = create_name(spawn_role, sufix);
                             match spawn.spawn_creep_with_options(&body, &name, &spawn_options) {
-                                Ok(_) => {
+                                Ok(()) => {
                                     debug!(
                                         "room: {} successfully spawned creep: {}",
                                         self.get_name(),

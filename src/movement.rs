@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
 use std::rc::Rc;
 
-use log::*;
+use log::debug;
 use screeps::action_error_codes::SayErrorCode;
 use screeps::constants::Direction;
 use screeps::game::map::FindRouteOptions;
@@ -123,7 +123,7 @@ impl Movement {
             if let Some(creep) = self.idle_creeps.get(dest_pos) {
                 let backward_direction = -*moving_direction;
                 creep.move_direction(backward_direction);
-                let _ = creep.say(format!("{}", backward_direction).as_str(), true);
+                let _ = creep.say(format!("{backward_direction}").as_str(), true);
             }
         }
     }
@@ -143,7 +143,7 @@ impl Movement {
                 if cursor_pos.room_name() != current_position.room_name() {
                     break;
                 }
-                points.push((cursor_pos.x().u8() as f32, cursor_pos.y().u8() as f32));
+                points.push((f32::from(cursor_pos.x().u8()), f32::from(cursor_pos.y().u8())));
             }
             RoomVisual::new(Some(current_position.room_name())).poly(
                 points,
@@ -246,7 +246,7 @@ fn find_route_callback(
     avoid_rooms: &HashMap<RoomName, u32>,
     owned: Vec<RoomName>,
 ) -> impl Fn(RoomName, RoomName) -> f64 + 'static {
-    let avoid_keys: HashSet<RoomName> = avoid_rooms.keys().cloned().collect();
+    let avoid_keys: HashSet<RoomName> = avoid_rooms.keys().copied().collect();
     let re = get_room_regex();
 
     move |to_room: RoomName, _from_room: RoomName| {

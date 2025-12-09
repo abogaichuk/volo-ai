@@ -1,4 +1,4 @@
-use log::*;
+use log::warn;
 use screeps::{HasHits, ObjectId, Part, Position, ResourceType, StructurePowerBank, game};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
@@ -23,11 +23,11 @@ pub struct PowerbankData {
 }
 
 impl PowerbankData {
-    pub fn new(id: ObjectId<StructurePowerBank>, pos: Position, amount: u32) -> Self {
+    pub const fn new(id: ObjectId<StructurePowerBank>, pos: Position, amount: u32) -> Self {
         Self { id, pos, amount, postponed_farm: false }
     }
 
-    pub fn postponed(id: ObjectId<StructurePowerBank>, pos: Position, amount: u32) -> Self {
+    pub const fn postponed(id: ObjectId<StructurePowerBank>, pos: Position, amount: u32) -> Self {
         Self { id, pos, amount, postponed_farm: true }
     }
 }
@@ -122,7 +122,7 @@ pub(in crate::rooms::state::requests) fn powerbank_handler(
                             meta.update(Status::Carry);
 
                             let pb_c = Role::PBCarrier(PBCarrier::new(
-                                Some(squad_id.clone()),
+                                Some(squad_id),
                                 Some(home.name()),
                             ));
                             events.push(RoomEvent::Spawn(

@@ -1,6 +1,6 @@
 use std::cmp;
 
-use log::*;
+use log::{error, debug, info, warn};
 use screeps::action_error_codes::WithdrawErrorCode;
 use screeps::{
     Creep, HasPosition, ObjectId, Position, RawObjectId, Resource, ResourceType,
@@ -24,7 +24,7 @@ pub fn take_resource(
     if let Some(resource) = id.resolve() {
         if creep.pos().is_near_to(resource.pos()) {
             match creep.pickup(&resource) {
-                Ok(_) => {
+                Ok(()) => {
                     let _ = creep.say("💰", false); //money bag
                     TaskResult::ResolveRequest(Task::TakeResource(id), false)
                 }
@@ -71,7 +71,7 @@ pub fn take_from_structure(
         {
             if creep.pos().is_near_to(room_obj.pos()) {
                 match creep.withdraw(container, resource, amount) {
-                    Ok(_) => {
+                    Ok(()) => {
                         let _ = creep.say("💰", false); //money bag
                         debug!("{} money bag {} id {}", creep.name(), resource, id.to_string());
                         TaskResult::Completed
@@ -80,29 +80,26 @@ pub fn take_from_structure(
                         match err {
                             //additional attempt to withdraw at least some amount of resources
                             WithdrawErrorCode::NotEnoughResources => {
-                                match creep.withdraw(container, resource, None) {
-                                    Ok(_) => {
-                                        info!(
-                                            "{} additional attempt to whithdow {} from pos {}",
+                                if let Ok(()) = creep.withdraw(container, resource, None) {
+                                    info!(
+                                        "{} additional attempt to whithdow {} from pos {}",
+                                        creep.name(),
+                                        resource,
+                                        pos
+                                    );
+                                    let _ = creep.say("💰", false); //money bag
+                                    TaskResult::Completed
+                                } else {
+                                    if game::time().is_multiple_of(10) {
+                                        error!(
+                                            "creep: {} can't withdraw resource: {} from: {}, error: {:?}",
                                             creep.name(),
                                             resource,
-                                            pos
+                                            id,
+                                            err
                                         );
-                                        let _ = creep.say("💰", false); //money bag
-                                        TaskResult::Completed
                                     }
-                                    _ => {
-                                        if game::time().is_multiple_of(10) {
-                                            error!(
-                                                "creep: {} can't withdraw resource: {} from: {}, error: {:?}",
-                                                creep.name(),
-                                                resource,
-                                                id,
-                                                err
-                                            );
-                                        }
-                                        TaskResult::Abort
-                                    }
+                                    TaskResult::Abort
                                 }
                             }
                             _ => {
@@ -160,7 +157,7 @@ pub fn deliver_to_structure(
             TaskResult::Abort
         } else if creep.pos().is_near_to(room_obj.pos()) {
             match creep.transfer(container, resource, amount) {
-                Ok(_) => {
+                Ok(()) => {
                     let _ = creep.say("👌", false); //OK emoji!
                     TaskResult::Completed
                 }
@@ -320,7 +317,7 @@ pub fn generate_safe_mode(
         if let Some(controller) = id.resolve() {
             if creep.pos().is_near_to(controller.pos()) {
                 match creep.generate_safe_mode(&controller) {
-                    Ok(_) => {
+                    Ok(()) => {
                         let _ = creep.say("👌", false); //OK emoji!
                         TaskResult::ResolveRequest(
                             Task::GenerateSafeMode(pos, id, storage_id),
@@ -480,48 +477,7 @@ pub fn pull_to(
     enemies: Vec<Creep>,
 ) -> TaskResult {
     if let Some(cargo) = game::creeps().get(creep_name.clone()) {
-        if !cargo.pos().is_equal_to(destination) {
-            if creep.pos().is_near_to(cargo.pos()) {
-                if creep.pos().is_equal_to(destination) {
-                    let _ = creep.pull(&cargo);
-                    let _ = cargo.move_pulled_by(creep);
-
-                    let goal = Walker::Exploring(false).walk(cargo.pos(), 0, creep, role, enemies);
-                    TaskResult::StillWorking(Task::PullTo(creep_name, destination), Some(goal))
-                } else if cargo.pos().is_room_edge() && creep.pos().is_room_edge() {
-                    let _ = creep.pull(&cargo);
-                    let _ = cargo.move_pulled_by(creep);
-
-                    let goal = Walker::Exploring(false).walk(destination, 0, creep, role, enemies);
-                    TaskResult::StillWorking(Task::PullTo(creep_name, destination), Some(goal))
-                } else if creep.pos().is_room_edge() {
-                    if let Some(beside) = get_edge_position(creep.pos()) {
-                        let _ = creep.pull(&cargo);
-                        let _ = cargo.move_pulled_by(creep);
-
-                        let goal =
-                            Walker::Exploring(false).walk(beside.pos(), 0, creep, role, enemies);
-                        TaskResult::StillWorking(Task::PullTo(creep_name, destination), Some(goal))
-                    } else {
-                        warn!("creep: {} there is no available position, waiting..", creep.name());
-                        TaskResult::StillWorking(Task::PullTo(creep_name, destination), None)
-                    }
-                } else {
-                    let _ = creep.pull(&cargo);
-                    let _ = cargo.move_pulled_by(creep);
-
-                    let goal = Walker::Exploring(false).walk(destination, 0, creep, role, enemies);
-                    TaskResult::StillWorking(Task::PullTo(creep_name, destination), Some(goal))
-                }
-            } else if !cargo.pos().is_room_edge() {
-                let goal = Walker::Exploring(false).walk(cargo.pos(), 1, creep, role, enemies);
-                TaskResult::StillWorking(Task::PullTo(creep_name, destination), Some(goal))
-            } else {
-                //just wait because there is no cargo near(means puller is in other room)
-                let _ = creep.say("🚬", false);
-                TaskResult::StillWorking(Task::PullTo(creep_name, destination), None)
-            }
-        } else {
+        if cargo.pos().is_equal_to(destination) {
             info!(
                 "creep: {} cargo {} reached the destination {:?}",
                 creep.name(),
@@ -530,6 +486,45 @@ pub fn pull_to(
             );
             // let _ = creep.suicide();
             TaskResult::ResolveRequest(Task::PullTo(creep_name, destination), false)
+        } else if creep.pos().is_near_to(cargo.pos()) {
+            if creep.pos().is_equal_to(destination) {
+                let _ = creep.pull(&cargo);
+                let _ = cargo.move_pulled_by(creep);
+
+                let goal = Walker::Exploring(false).walk(cargo.pos(), 0, creep, role, enemies);
+                TaskResult::StillWorking(Task::PullTo(creep_name, destination), Some(goal))
+            } else if cargo.pos().is_room_edge() && creep.pos().is_room_edge() {
+                let _ = creep.pull(&cargo);
+                let _ = cargo.move_pulled_by(creep);
+
+                let goal = Walker::Exploring(false).walk(destination, 0, creep, role, enemies);
+                TaskResult::StillWorking(Task::PullTo(creep_name, destination), Some(goal))
+            } else if creep.pos().is_room_edge() {
+                if let Some(beside) = get_edge_position(creep.pos()) {
+                    let _ = creep.pull(&cargo);
+                    let _ = cargo.move_pulled_by(creep);
+
+                    let goal =
+                        Walker::Exploring(false).walk(beside.pos(), 0, creep, role, enemies);
+                    TaskResult::StillWorking(Task::PullTo(creep_name, destination), Some(goal))
+                } else {
+                    warn!("creep: {} there is no available position, waiting..", creep.name());
+                    TaskResult::StillWorking(Task::PullTo(creep_name, destination), None)
+                }
+            } else {
+                let _ = creep.pull(&cargo);
+                let _ = cargo.move_pulled_by(creep);
+
+                let goal = Walker::Exploring(false).walk(destination, 0, creep, role, enemies);
+                TaskResult::StillWorking(Task::PullTo(creep_name, destination), Some(goal))
+            }
+        } else if !cargo.pos().is_room_edge() {
+            let goal = Walker::Exploring(false).walk(cargo.pos(), 1, creep, role, enemies);
+            TaskResult::StillWorking(Task::PullTo(creep_name, destination), Some(goal))
+        } else {
+            //just wait because there is no cargo near(means puller is in other room)
+            let _ = creep.say("🚬", false);
+            TaskResult::StillWorking(Task::PullTo(creep_name, destination), None)
         }
     } else {
         //todo resolve??

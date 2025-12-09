@@ -19,12 +19,12 @@ pub struct Defender {
 
 impl fmt::Debug for Defender {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if let Some(home) = self.home { write!(f, "home: {}", home) } else { write!(f, "") }
+        if let Some(home) = self.home { write!(f, "home: {home}") } else { write!(f, "") }
     }
 }
 
 impl Defender {
-    pub fn new(home: Option<RoomName>) -> Self {
+    pub const fn new(home: Option<RoomName>) -> Self {
         Self { home }
     }
 }
@@ -37,7 +37,7 @@ impl Kind for Defender {
             [Part::RangedAttack, Part::Move].into_iter().collect::<ArrayVec<[Part; 50]>>();
 
         while can_scale(body.clone(), scale_parts.to_vec(), room_energy, 50) {
-            body.extend(scale_parts.iter().cloned());
+            body.extend(scale_parts.iter().copied());
         }
 
         body.sort_by_key(|a| default_parts_priority(*a));

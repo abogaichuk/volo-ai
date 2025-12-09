@@ -18,7 +18,7 @@ pub struct CrashData {
 }
 
 impl CrashData {
-    pub fn new(id: ObjectId<StructureInvaderCore>, pos: Position) -> Self {
+    pub const fn new(id: ObjectId<StructureInvaderCore>, pos: Position) -> Self {
         Self { id, pos }
     }
 }
@@ -44,6 +44,6 @@ pub(in crate::rooms::state::requests) fn crash_handler(
             *assignment = Assignment::Single(None);
         }
         _ => {}
-    };
+    }
     events
 }

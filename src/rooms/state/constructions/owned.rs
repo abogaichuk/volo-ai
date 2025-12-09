@@ -258,17 +258,17 @@ impl Perimeter {
         ));
 
         // from top_right to bottom_right
-        if let Some(start) = path.last().cloned() {
+        if let Some(start) = path.last().copied() {
             path.extend(walk_border(start, unsafe { RoomXY::unchecked_new(x1, y1) }, walls));
         }
 
         // from bottom_right to bottom_left
-        if let Some(start) = path.last().cloned() {
+        if let Some(start) = path.last().copied() {
             path.extend(walk_border(start, unsafe { RoomXY::unchecked_new(x0, y1) }, walls));
         }
 
         // from bottom_left to top_left
-        if let Some(start) = path.last().cloned() {
+        if let Some(start) = path.last().copied() {
             path.extend(walk_border(start, unsafe { RoomXY::unchecked_new(x0, y0) }, walls));
         }
 
@@ -285,7 +285,7 @@ impl Perimeter {
         Self { walls: natural_walls, ramparts, rect: (x0, y0, x1, y1) }
     }
 
-    fn rectangle(&self) -> OuterRectangle {
+    const fn rectangle(&self) -> OuterRectangle {
         self.rect
     }
 
@@ -342,15 +342,15 @@ impl PartialEq for Square {
 }
 
 impl Square {
-    pub fn new(center: RoomXY, sides: Vec<RoomXY>) -> Self {
+    pub const fn new(center: RoomXY, sides: Vec<RoomXY>) -> Self {
         Self { center, sides }
     }
 
-    pub fn center(&self) -> &RoomXY {
+    pub const fn center(&self) -> &RoomXY {
         &self.center
     }
 
-    pub fn rounded(&self) -> bool {
+    pub const fn rounded(&self) -> bool {
         self.sides.len() == 8
     }
 

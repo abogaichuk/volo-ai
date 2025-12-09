@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use log::*;
+use log::{error, warn, debug};
 use screeps::{
     Effect, EffectType, HasPosition, Position, PowerCreep, PowerInfo, PowerType, ResourceType,
     RoomName, RoomObjectProperties, RoomXY, SharedCreepProperties, StructureController, game,
@@ -11,9 +11,9 @@ use crate::movement::{Movement, MovementGoal, MovementGoalBuilder, MovementProfi
 use crate::rooms::shelter::Shelter;
 use crate::utils::constants::{CLOSE_RANGE_ACTION, LONG_RANGE_ACTION};
 
-pub fn run_power_creeps<'s>(
+pub fn run_power_creeps(
     states: &mut HashMap<String, PowerCreepMemory>,
-    homes: &mut HashMap<RoomName, Shelter<'s>>,
+    homes: &mut HashMap<RoomName, Shelter<'_>>,
     movement: &mut Movement,
 ) {
     let mut p_creeps: HashMap<String, PowerCreep> = game::power_creeps()
@@ -77,7 +77,7 @@ pub struct PowerCreepMemory {
 }
 
 impl PowerCreepMemory {
-    pub fn get_home(&self) -> Option<&RoomName> {
+    pub const fn get_home(&self) -> Option<&RoomName> {
         self.home.as_ref()
     }
 }
@@ -88,7 +88,7 @@ pub struct PcUnit<'m, 'h, 's> {
     home: &'h mut Shelter<'s>,
 }
 
-impl<'m, 'h, 's> PcUnit<'m, 'h, 's> {
+impl PcUnit<'_, '_, '_> {
     fn name(&self) -> String {
         self.creep.name()
     }
@@ -160,11 +160,11 @@ impl<'m, 'h, 's> PcUnit<'m, 'h, 's> {
             if self.creep.pos().in_range_to(source.pos(), LONG_RANGE_ACTION) {
                 let res = self.creep.use_power(PowerType::RegenSource, Some(source));
                 match res {
-                    Ok(_) => {}
+                    Ok(()) => {}
                     Err(err) => {
                         error!("use power error: {:?}", err);
                     }
-                };
+                }
                 None
             } else {
                 build_goal(source.pos(), LONG_RANGE_ACTION, None)
@@ -192,11 +192,11 @@ impl<'m, 'h, 's> PcUnit<'m, 'h, 's> {
                     let res = self.creep.use_power(PowerType::OperateStorage, Some(storage));
                     debug!("creep {} operate storage res: {:?}", self.name(), res);
                     match res {
-                        Ok(_) => {}
+                        Ok(()) => {}
                         Err(err) => {
                             error!("use power error: {:?}", err);
                         }
-                    };
+                    }
                     None
                 } else {
                     build_goal(storage.pos(), LONG_RANGE_ACTION, None)
@@ -208,11 +208,11 @@ impl<'m, 'h, 's> PcUnit<'m, 'h, 's> {
             if self.creep.pos().in_range_to(self.home.mineral().pos(), 3) {
                 let res = self.creep.use_power(PowerType::RegenMineral, Some(self.home.mineral()));
                 match res {
-                    Ok(_) => {}
+                    Ok(()) => {}
                     Err(err) => {
                         error!("use power error: {:?}", err);
                     }
-                };
+                }
                 None
             } else {
                 build_goal(self.home.mineral().pos(), LONG_RANGE_ACTION, None)
@@ -241,11 +241,11 @@ impl<'m, 'h, 's> PcUnit<'m, 'h, 's> {
                     let res = self.creep.use_power(PowerType::OperateSpawn, Some(spawn));
                     debug!("creep {} operate spawn res: {:?}", self.creep.name(), res);
                     match res {
-                        Ok(_) => {}
+                        Ok(()) => {}
                         Err(err) => {
                             error!("use power error: {:?}", err);
                         }
-                    };
+                    }
                     None
                 } else {
                     build_goal(spawn.pos(), LONG_RANGE_ACTION, None)
@@ -276,11 +276,11 @@ impl<'m, 'h, 's> PcUnit<'m, 'h, 's> {
                     let res = self.creep.use_power(PowerType::OperateFactory, Some(factory));
                     debug!("creep {} operate storage res: {:?}", self.creep.name(), res);
                     match res {
-                        Ok(_) => {}
+                        Ok(()) => {}
                         Err(err) => {
                             error!("use power error: {:?}", err);
                         }
-                    };
+                    }
                     None
                 } else {
                     build_goal(factory.pos(), LONG_RANGE_ACTION, None)
@@ -329,11 +329,11 @@ impl<'m, 'h, 's> PcUnit<'m, 'h, 's> {
                         .use_power(PowerType::OperateController, Some(self.home.controller()));
                     debug!("creep {} operate controller res: {:?}", self.creep.name(), res);
                     match res {
-                        Ok(_) => {}
+                        Ok(()) => {}
                         Err(err) => {
                             error!("use power error: {:?}", err);
                         }
-                    };
+                    }
                     None
                 } else {
                     build_goal(self.home.controller().pos(), LONG_RANGE_ACTION, None)

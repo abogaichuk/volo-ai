@@ -3,7 +3,7 @@ use std::iter::Iterator;
 
 use itertools::Itertools;
 use js_sys::JsString;
-use log::*;
+use log::debug;
 use screeps::{
     HasPosition, Mineral, PowerType, ResourceType, Room, RoomName, RoomPosition, RoomXY,
     StructureType, game,
@@ -89,7 +89,7 @@ fn missed_buildings(
             if let Ok(str_type) = StructureType::try_from(cell.structure) {
                 let room_position = RoomPosition::new(cell.xy.x.u8(), cell.xy.y.u8(), room_name);
 
-                if !look_for(&room_position, str_type) { Some((cell.xy, str_type)) } else { None }
+                if look_for(&room_position, str_type) { None } else { Some((cell.xy, str_type)) }
             } else {
                 None
             }

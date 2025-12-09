@@ -1,7 +1,7 @@
 use std::cmp::Reverse;
 use std::collections::{BTreeMap, HashMap};
 
-use log::*;
+use log::{info, warn};
 use screeps::{
     Deposit, ObjectId, Position, RawObjectId, ResourceType, RoomName, StructurePowerBank, game,
 };
@@ -52,7 +52,7 @@ impl<'a> ColonyContext<'a> {
         Self { movement, bases, warehouse }
     }
 
-    pub fn bases(&self) -> &HashMap<RoomName, Claimed> {
+    pub const fn bases(&self) -> &HashMap<RoomName, Claimed> {
         self.bases
     }
 
@@ -209,7 +209,7 @@ impl ColonyEvent {
                                 resource,
                                 amount,
                                 to_room,
-                                Some(format!("colony assigned from: {}, to: {}", from, to_room)),
+                                Some(format!("colony assigned from: {from}, to: {to_room}")),
                             )),
                             Assignment::None,
                         );

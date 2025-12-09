@@ -1,4 +1,4 @@
-use log::*;
+use log::warn;
 use screeps::{HasPosition, ResourceType, StructureLink};
 
 use crate::rooms::state::constructions::{LinkType, PlannedCell, RoomPlan, RoomStructure};
@@ -15,7 +15,7 @@ impl Claimed {
                 match transfer_result {
                     Ok(()) => {}
                     Err(err) => {
-                        warn!("room: {} farm link transfer error: {:?}", self.get_name(), err)
+                        warn!("room: {} farm link transfer error: {:?}", self.get_name(), err);
                     }
                 }
             } else {
@@ -32,7 +32,7 @@ impl Claimed {
             match transfer_result {
                 Ok(()) => {}
                 Err(err) => {
-                    warn!("room: {} sender link transfer error: {:?}", self.get_name(), err)
+                    warn!("room: {} sender link transfer error: {:?}", self.get_name(), err);
                 }
             }
         }
@@ -82,15 +82,15 @@ impl Links {
         Self { sender, receiver, ctrl, other }
     }
 
-    pub fn sender(&self) -> Option<&StructureLink> {
+    pub const fn sender(&self) -> Option<&StructureLink> {
         self.sender.as_ref()
     }
 
-    pub fn receiver(&self) -> Option<&StructureLink> {
+    pub const fn receiver(&self) -> Option<&StructureLink> {
         self.receiver.as_ref()
     }
 
-    pub fn ctrl(&self) -> Option<&StructureLink> {
+    pub const fn ctrl(&self) -> Option<&StructureLink> {
         self.ctrl.as_ref()
     }
 }

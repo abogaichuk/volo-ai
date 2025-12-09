@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use log::*;
+use log::debug;
 use screeps::StructureStorage;
 
 use crate::rooms::RoomEvent;

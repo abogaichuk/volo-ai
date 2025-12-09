@@ -1,4 +1,4 @@
-use log::*;
+use log::warn;
 use screeps::{
     ConstructionSite, Creep, HasPosition, ObjectId, Part, Position, ResourceType,
     SharedCreepProperties,
