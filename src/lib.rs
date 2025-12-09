@@ -1,4 +1,4 @@
-#![allow(unused)]
+// #![allow(unused)]
 use std::cell::RefCell;
 
 use getrandom::register_custom_getrandom;
@@ -51,6 +51,10 @@ pub fn game_loop() {
         colony.write()
     });
     debug!("loop done! cpu: {}", game::cpu::get_used() - cpu_start);
+}
+
+fn clippy_fix_test(x: i32) -> i32 {
+    return x;
 }
 
 // implement a custom randomness generator for the getrandom crate,
