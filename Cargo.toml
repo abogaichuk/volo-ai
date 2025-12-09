@@ -61,5 +61,5 @@ mmo = ["screeps-game-api/mmo"]
 # https://rust-lang.github.io/rust-clippy/master/#configuration
 [lints.clippy]
 all = "warn"
-pedantic = "warn"
+# pedantic = "warn"
 # nursery = "warn"
