@@ -37,7 +37,7 @@ pub fn run_power_creeps(
                 error!("{} error creation pcunit!", name);
             }
         } else {
-            memory.home = get_home(&pc, homes).map(|s| s.name());
+            memory.home = get_home(&pc, homes).map(super::super::rooms::shelter::Shelter::name);
         }
     }
 

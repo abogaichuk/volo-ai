@@ -196,7 +196,7 @@ fn walkable_range(from: RoomPosition, to: RoomXY, grid: &HashMap<RoomXY, RoomPar
 }
 
 fn cmp_routes(r1: &Route, r2: &Route, from: &Position) -> std::cmp::Ordering {
-    use std::cmp::Ordering::*;
+    use std::cmp::Ordering::Equal;
     match r1.1.len().cmp(&r2.1.len()) {
         Equal => {
             let x1_diff = r1.0.x.u8().abs_diff(from.x().u8());
@@ -275,7 +275,7 @@ impl Perimeter {
         // Split into natural vs ramparts
         let mut natural_walls = Vec::new();
         let mut ramparts = Vec::new();
-        for p in path.into_iter() {
+        for p in path {
             if is_wall(walls, &p) {
                 natural_walls.push(p);
             } else {

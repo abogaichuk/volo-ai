@@ -29,7 +29,7 @@ pub fn build(
             let goal = Walker::Reinforcing.walk(pos, LONG_RANGE_ACTION, creep, role, attackers);
             TaskResult::StillWorking(Task::Build(id, pos), Some(goal))
         }
-    } else if let Some(cs) = id.and_then(|id| id.resolve()) {
+    } else if let Some(cs) = id.and_then(screeps::ObjectId::resolve) {
         if creep.pos().in_range_to(pos, LONG_RANGE_ACTION) {
             let _ = creep.say("🛠︎", false);
             let _ = creep.build(&cs);

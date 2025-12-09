@@ -120,7 +120,7 @@ fn cut_edge(
 }
 
 /// Returns *all* rectangles with the smallest safe-core size that yield ≥
-/// TARGET_MIN_SAFE_CELLS.
+/// `TARGET_MIN_SAFE_CELLS`.
 fn minimal_rectangles(spawn: Option<RoomXY>, sources: &[RoomXY], sat: &Sat) -> Vec<OuterRectangle> {
     let mut sizes: Vec<(u8, u8)> = Vec::new();
     for w in MIN_CORE..=MAX_CORE {

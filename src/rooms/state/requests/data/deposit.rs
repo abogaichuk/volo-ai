@@ -57,13 +57,12 @@ pub(in crate::rooms::state::requests) fn deposit_handler(
             } else if game::time() > meta.updated_at + 1350 {
                 let fast_spawn = game::rooms()
                     .get(data.pos.room_name())
-                    .map(|room| {
+                    .is_some_and(|room| {
                         room.find(find::HOSTILE_CREEPS, None).iter().any(|hostile| {
                             has_part(&[Part::Work], hostile, false)
                                 && hostile.pos().in_range_to(data.pos, 5)
                         })
-                    })
-                    .unwrap_or_default();
+                    });
 
                 if fast_spawn || game::time() > meta.updated_at + 1400 {
                     if let Some(squad_id) = assignment.new_squad(data.id.to_string(), meta) {

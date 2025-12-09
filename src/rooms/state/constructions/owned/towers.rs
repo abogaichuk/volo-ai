@@ -40,7 +40,7 @@ pub fn plan(perimeter: &Perimeter, grid: &HashMap<RoomXY, RoomPart>, room_plan: 
 }
 
 /// Exact selector: maximize total score with pairwise Chebyshev distance >
-/// min_exclusive. Returns up to `k` items (fewer if constraints force it).
+/// `min_exclusive`. Returns up to `k` items (fewer if constraints force it).
 fn select_best_spread(
     candidates: Vec<(RoomXY, usize)>,
     k: usize,
@@ -114,7 +114,7 @@ fn red_parts_near_ramparts(perimeter: &Perimeter, grid: &HashMap<RoomXY, RoomPar
             let xy = unsafe {
                 RoomXY::new(RoomCoordinate::unchecked_new(x), RoomCoordinate::unchecked_new(y))
             };
-            if grid.get(&xy).is_some_and(|part| part.is_red()) && perimeter.near_rampart(&xy) {
+            if grid.get(&xy).is_some_and(super::super::RoomPart::is_red) && perimeter.near_rampart(&xy) {
                 attack_zones.push(xy);
             }
         }

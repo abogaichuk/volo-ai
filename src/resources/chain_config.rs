@@ -24,7 +24,7 @@ pub struct Chain {
 }
 
 pub const fn factory_chain_config(res: ResourceType) -> Option<FactoryChainConfig> {
-    use ResourceType::*;
+    use ResourceType::{Metal, Alloy, Tube, Fixtures, Frame, Silicon, Wire, Switch, Transistor, Microchip, Biomass, Cell, Phlegm, Tissue, Muscle, Organoid, Mist, Condensate, Concentrate, Extract, Spirit, Emanation};
 
     Some(match res {
         // mechanical chain

@@ -12,7 +12,7 @@ pub type ResourceRoomHandlerFn =
     fn(ResourceType, u32, &Resources, &RoomContext) -> Option<RoomEvent>;
 
 pub fn get_handler_for(res: ResourceType) -> ResourceRoomHandlerFn {
-    use ResourceType::*;
+    use ResourceType::{Energy, Power, Ops, GhodiumMelt, Composite, Oxygen, Hydrogen, Zynthium, Keanium, Catalyst, Utrium, Lemergium, Hydroxide, ZynthiumKeanite, UtriumLemergite, Ghodium, UtriumHydride, UtriumOxide, KeaniumHydride, KeaniumOxide, LemergiumHydride, LemergiumOxide, ZynthiumHydride, ZynthiumOxide, GhodiumHydride, GhodiumOxide, UtriumAcid, UtriumAlkalide, KeaniumAcid, KeaniumAlkalide, LemergiumAcid, LemergiumAlkalide, ZynthiumAcid, ZynthiumAlkalide, GhodiumAcid, GhodiumAlkalide, CatalyzedGhodiumAcid, CatalyzedGhodiumAlkalide, CatalyzedKeaniumAcid, CatalyzedKeaniumAlkalide, CatalyzedLemergiumAcid, CatalyzedLemergiumAlkalide, CatalyzedUtriumAcid, CatalyzedZynthiumAcid, CatalyzedZynthiumAlkalide, Purifier, UtriumBar, LemergiumBar, KeaniumBar, ZynthiumBar, Reductant, Oxidant, Metal, Alloy, Tube, Biomass, Cell, Phlegm, Tissue, Muscle, Silicon, Wire, Switch, Transistor, Mist, Condensate, Concentrate, Extract, Microchip, Organoid, Emanation, Frame};
 
     match res {
         Energy => energy_handler,

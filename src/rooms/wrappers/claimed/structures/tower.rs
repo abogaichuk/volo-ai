@@ -9,7 +9,7 @@ use crate::rooms::wrappers::claimed::Claimed;
 impl Claimed {
     pub(crate) fn run_towers(&self) {
         let perimetr: Vec<Position> =
-            self.ramparts.perimeter().map(|rampart| rampart.pos()).collect();
+            self.ramparts.perimeter().map(screeps::HasPosition::pos).collect();
 
         let (hostiles, invanders): (Vec<_>, _) =
             self.hostiles.iter().partition(|enemy| enemy.owner().username() != INVADER_USERNAME);

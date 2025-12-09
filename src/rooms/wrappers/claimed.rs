@@ -360,9 +360,9 @@ impl Claimed {
         if self.controller.level() > 6 {
             let context = RoomContext::new(
                 self.controller.level(),
-                self.terminal.as_ref().map(|t| t.raw_id()),
-                self.storage.as_ref().map(|s| s.raw_id()),
-                self.factory.as_ref().map(|f| f.level()).unwrap_or_default(),
+                self.terminal.as_ref().map(screeps::HasId::raw_id),
+                self.storage.as_ref().map(screeps::HasId::raw_id),
+                self.factory.as_ref().map(screeps::StructureFactory::level).unwrap_or_default(),
             );
             Some(self.resources.events(context))
         } else {

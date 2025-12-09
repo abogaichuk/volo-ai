@@ -345,7 +345,7 @@ impl Farm {
                 hostile
                     .body()
                     .iter()
-                    .map(|bodypart| bodypart.part())
+                    .map(screeps::BodyPart::part)
                     .any(|part| parts.is_empty() || parts.contains(&part))
             })
             .filter(|creep| creep.owner().username() != SOURCE_KEEPER_USERNAME)

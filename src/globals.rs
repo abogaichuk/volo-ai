@@ -20,7 +20,7 @@ use crate::units::roles::Role;
 pub fn info() -> String {
     GLOBAL_MEMORY.with(|mem_refcell| {
         let state = mem_refcell.borrow();
-        state.rooms.iter().fold("".to_string(), |acc, elem| {
+        state.rooms.iter().fold(String::new(), |acc, elem| {
             let room_header = format!("{}:\n", elem.0);
 
             let spawns = elem

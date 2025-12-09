@@ -234,12 +234,12 @@ impl Farm {
     fn plan_targets(&self) -> Vec<Position> {
         self.sources
             .iter()
-            .map(|source| source.pos())
+            .map(screeps::HasPosition::pos)
             .chain(
                 self.mineral
                     .as_ref()
                     .filter(|mineral| is_extractor(mineral))
-                    .map(|mineral| mineral.pos()),
+                    .map(screeps::HasPosition::pos),
             )
             .collect()
     }

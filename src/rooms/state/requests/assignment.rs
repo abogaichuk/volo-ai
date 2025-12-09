@@ -68,10 +68,10 @@ impl Assignment {
         match self {
             Assignment::None => false,
             Assignment::Single(slot) => {
-                slot.as_ref().is_some_and(|doer| game::creeps().get(doer.to_string()).is_some())
+                slot.as_ref().is_some_and(|doer| game::creeps().get(doer.clone()).is_some())
             }
             Assignment::Multi(set) => {
-                set.iter().any(|doer| game::creeps().get(doer.to_string()).is_some())
+                set.iter().any(|doer| game::creeps().get(doer.clone()).is_some())
             }
             Assignment::Squads(squads) => squads.iter().any(|s| {
                 s.members.iter().any(|member| game::creeps().get(member.clone()).is_some())

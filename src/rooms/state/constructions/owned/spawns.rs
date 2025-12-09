@@ -44,7 +44,7 @@ pub fn spawn_space(
         .filter(|square| !square.cells().any(|cell| spawns.contains(&cell)))
         .sorted_by_key(|square| square.center().get_range_to(shifted_center))
         .take(4)
-        .flat_map(|square| square.cells())
+        .flat_map(super::Square::cells)
         .filter(|cell| !is_wall(walls, cell))
         .collect();
 

@@ -71,7 +71,7 @@ impl Neutral {
             return events;
         }
 
-        if self.controller.as_ref().is_some_and(|ctrl| ctrl.my()) {
+        if self.controller.as_ref().is_some_and(screeps::OwnedStructureProperties::my) {
             events.push(ColonyEvent::DeclareNew(self.room_name));
         } else {
             let re = get_room_regex();

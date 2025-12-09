@@ -60,70 +60,7 @@ mmo = ["screeps-game-api/mmo"]
 # https://rust-lang.github.io/rust-clippy/master/index.html#lint-groups
 # https://rust-lang.github.io/rust-clippy/master/#configuration
 [lints.clippy]
-all = "warn"
-# pedantic = "warn"
-
-unnecessary_semicolon = "warn"
-match_same_arms = "warn"
-needless_return = "warn"
-manual_assert = "warn"
-missing_panics_doc = "warn"
-semicolon_if_nothing_returned = "warn"
-cast_possible_wrap = "warn"
-trivially_copy_pass_by_ref = "warn"
-needless_pass_by_value = "warn"
-uninlined_format_args = "warn"
-ignored_unit_patterns = "warn"
-too_many_lines = "warn"
-match_wildcard_for_single_variants = "warn"
-cast_sign_loss = "warn"
-single_match_else = "warn"
-cloned_instead_of_copied = "warn"
-cast_possible_truncation = "warn"
-cast_precision_loss = "warn"
-cast_lossless = "warn"
-elidable_lifetime_names = "warn"
-unused_self = "warn"
-inconsistent_struct_constructor = "warn"
-range_plus_one = "warn"
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+explicit_iter_loop = "allow"
 # nursery = "warn"
-
-# candidates to experiment with:
-
-# control-flow / style
-if_not_else = "warn"
-match_bool = "warn"
-match_like_matches_macro = "warn"
-manual_strip = "warn"
-manual_is_ascii_check = "warn"
-manual_map = "warn"
-
-# option/result combinators
-map_unwrap_or = "warn"
-map_flatten = "warn"
-bind_instead_of_map = "warn"
-
-# API / signatures (these are often annoying)
-unnecessary_wraps = "warn"
-must_use_candidate = "warn"
-missing_errors_doc = "warn"
-missing_const_for_fn = "warn"
-
-# allocations / clones
-unnecessary_to_owned = "warn"
-redundant_clone = "warn"
-iter_not_returning_iterator = "warn"
-
-# imports / modules
-wildcard_imports = "warn"
-module_name_repetitions = "warn"
-
-# naming / readability
-similar_names = "warn"
-enum_variant_names = "warn"
-struct_excessive_bools = "warn"
-
-# collections / misc
-inefficient_to_string = "warn"
-string_add_assign = "warn"
-string_from_utf8_as_bytes = "warn"

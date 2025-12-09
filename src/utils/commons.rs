@@ -108,7 +108,7 @@ pub fn find_exit(to_room: RoomName, creep: &Creep, room: &Room) -> Option<Positi
             creep
                 .pos()
                 .find_closest_by_path(find::Exit::from(exit_direction), None)
-                .map(|rp| rp.into())
+                .map(std::convert::Into::into)
         })
     }
 }
@@ -252,7 +252,7 @@ pub fn find_hostiles(room: &Room, parts: Vec<Part>) -> impl Iterator<Item = Cree
         creep
             .body()
             .iter()
-            .map(|bodypart| bodypart.part())
+            .map(screeps::BodyPart::part)
             .any(|part| parts.is_empty() || parts.contains(&part))
     })
 }
@@ -421,7 +421,7 @@ pub fn find_closest_exit(creep: &Creep, to: Option<RoomName>) -> Option<Position
         .and_then(|to_room| room.find_exit_to(to_room).ok())
         .map_or(find::Exit::All, find::Exit::from);
 
-    creep.pos().find_closest_by_path(exit, None).map(|p| p.into())
+    creep.pos().find_closest_by_path(exit, None).map(std::convert::Into::into)
 }
 
 pub fn find_source_near(pos: Position, room: &Room) -> Option<Source> {

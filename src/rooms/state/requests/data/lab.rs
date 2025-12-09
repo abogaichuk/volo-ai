@@ -63,10 +63,9 @@ pub(in crate::rooms::state::requests) fn lab_handler(
                                     if LAB_PRODUCTION > data.amount {
                                         meta.update(Status::Resolved);
                                         break;
-                                    } else {
-                                        data.amount -= LAB_PRODUCTION;
-                                        meta.update(Status::InProgress);
                                     }
+                                    data.amount -= LAB_PRODUCTION;
+                                    meta.update(Status::InProgress);
                                 }
                                 Err(err) => {
                                     match err {

@@ -154,7 +154,7 @@ impl Labs {
         let mut boosts = HashMap::new();
 
         //split labs by boost or production purposes
-        for lab in labs.into_iter() {
+        for lab in labs {
             let cell =
                 PlannedCell::searchable(lab.pos().xy(), RoomStructure::Lab(LabStatus::Output));
             if let Some(planned_cell) = plan.get_cell(cell) {
@@ -185,6 +185,6 @@ impl Labs {
     }
 
     pub(crate) fn boost_lab(&self, resource: &ResourceType) -> Option<ObjectId<StructureLab>> {
-        self.boosts.get(resource).map(|lab| lab.id())
+        self.boosts.get(resource).map(screeps::HasId::id)
     }
 }

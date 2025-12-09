@@ -74,7 +74,7 @@ fn limit_based_on_source_effects(workplace: Option<Position>) -> usize {
                 room.find(find::SOURCES, None)
                     .iter()
                     .find(|source| source.pos().is_near_to(workplace))
-                    .map(|source| source.effects())
+                    .map(screeps::RoomObjectProperties::effects)
                     .and_then(|effects| {
                         effects.into_iter().find(|effect| match effect.effect() {
                             EffectType::PowerEffect(p) => matches!(p, PowerType::RegenSource),

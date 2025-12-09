@@ -46,7 +46,7 @@ impl<'a> ColonyContext<'a> {
     pub(super) fn new(movement: Movement, bases: &'a HashMap<RoomName, Claimed>) -> Self {
         let warehouse = bases
             .values()
-            .map(|base| (base.get_name(), base.factory().map(|f| f.level()).unwrap_or_default()))
+            .map(|base| (base.get_name(), base.factory().map(screeps::StructureFactory::level).unwrap_or_default()))
             .min_by_key(|(_, lvl)| Reverse(*lvl));
 
         Self { movement, bases, warehouse }

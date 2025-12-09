@@ -228,7 +228,7 @@ impl<'s> Shelter<'s> {
                     }
                 }
                 RoomEvent::NukeFalling => {
-                    let land_time = self.base.nukes.iter().map(|nuke| nuke.time_to_land()).min();
+                    let land_time = self.base.nukes.iter().map(screeps::Nuke::time_to_land).min();
                     let message = format!(
                         "Nuke is launched to room {}, splash in: {:?}",
                         self.name(),
@@ -295,7 +295,7 @@ impl<'s> Shelter<'s> {
     }
 
     pub fn get_farms(&self) -> impl Iterator<Item = RoomName> + use<'_> {
-        self.base.get_farms().iter().map(|farm| farm.get_name())
+        self.base.get_farms().iter().map(super::wrappers::farm::Farm::get_name)
     }
 
     pub(crate) fn base(self) -> Claimed {
@@ -319,7 +319,7 @@ impl<'s> Shelter<'s> {
     }
 
     pub fn lowest_perimetr_hits(&self) -> Option<&StructureRampart> {
-        self.base.ramparts.perimeter().sorted_by_key(|r| r.hits()).next()
+        self.base.ramparts.perimeter().sorted_by_key(screeps::HasHits::hits).next()
     }
 
     pub fn empty_sender(&self) -> Option<&StructureLink> {
@@ -378,7 +378,7 @@ impl<'s> Shelter<'s> {
         self.state
             .plan
             .as_ref()
-            .and_then(|plan| plan.pc_workplace())
+            .and_then(super::state::constructions::RoomPlan::pc_workplace)
             .map(|xy| Position::new(xy.x, xy.y, self.name()))
     }
 
@@ -444,9 +444,9 @@ impl<'s> Shelter<'s> {
             .body()
             .iter()
             .filter(|bodypart| bodypart.boost().is_none())
-            .map(|bodypart| bodypart.part())
+            .map(screeps::BodyPart::part)
             .unique()
-            .flat_map(|part| all_boosts.get(&part).map(|resoucres| (part, resoucres)))
+            .filter_map(|part| all_boosts.get(&part).map(|resoucres| (part, resoucres)))
             .find_map(|resources_for_part| {
                 self.lab_for_boost(resources_for_part.1).map(|id| (id, resources_for_part.0))
             })

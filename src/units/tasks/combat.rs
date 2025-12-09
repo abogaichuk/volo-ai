@@ -163,7 +163,7 @@ fn any_caravan_cargo(hostiles: &[Creep]) -> Option<Position> {
             hostile.owner().username() == SYSTEM_USERNAME
                 && hostile.store().get_used_capacity(None) > 0
         })
-        .map(|cargo| cargo.pos())
+        .map(screeps::HasPosition::pos)
 }
 
 pub fn protect(
@@ -249,7 +249,7 @@ pub fn protect(
                         unsafe { RoomCoordinate::unchecked_new(25) },
                         unsafe { RoomCoordinate::unchecked_new(25) },
                         *role.get_home().expect("expect home room"),
-                    ), |rp| rp.into());
+                    ), std::convert::Into::into);
 
             if let Some(any) = any_in_range_structure(creep, &structures) {
                 let _ = creep.ranged_attack(any);

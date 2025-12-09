@@ -190,7 +190,7 @@ impl GlobalState {
 
     fn gc(&mut self) {
         self.creeps.retain(|name, mem| {
-            if game::creeps().get(name.to_string()).is_some() {
+            if game::creeps().get(name.clone()).is_some() {
                 true
             } else if !mem.respawned && mem.role.respawn_timeout(None).is_some() {
                 mem.respawned = true;

@@ -74,7 +74,7 @@ pub type ResourceOnLowHandlerFn =
     fn(ResourceType, u32, &ColonyContext) -> Option<ResourceOnLowResult>;
 
 pub fn lack_handler_for(res: ResourceType) -> ResourceOnLowHandlerFn {
-    use ResourceType::*;
+    use ResourceType::{Energy, Battery, CatalyzedGhodiumAcid};
 
     match res {
         Energy | Battery | CatalyzedGhodiumAcid => contain_excessive,
