@@ -8,8 +8,9 @@ use smallvec::SmallVec;
 
 use crate::rooms::RoomEvent;
 use crate::rooms::shelter::Shelter;
-use crate::rooms::state::requests::{Meta, Status};
-use crate::utils::constants::MAX_CARRY_REQUEST_AMOUNT;
+use crate::rooms::state::requests::assignment::Assignment;
+use crate::rooms::state::requests::{CarryData, Meta, Request, RequestKind, Status};
+use crate::utils::constants::{MAX_CARRY_REQUEST_AMOUNT, MIN_CARRY_REQUEST_AMOUNT};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct FactoryData {
@@ -42,26 +43,7 @@ pub(in crate::rooms::state::requests) fn factory_handler(
             if i32::try_from(MAX_CARRY_REQUEST_AMOUNT).ok()
                 .is_some_and(|max| factory.store().get_free_capacity(None) >= max)
             {
-                let mut load_events = Vec::new();
-                for (res, amount) in get_missing_components(factory, &recipe) {
-                    let request_amount = amount * (data.amount / recipe.amount);
-                    let factory_amount = factory.store().get_used_capacity(Some(res));
-
-                    if let Some(load_event) = home.supply_resources(
-                        factory.raw_id(),
-                        res,
-                        min(request_amount - factory_amount, MAX_CARRY_REQUEST_AMOUNT),
-                    ) {
-                        load_events.push(load_event);
-                    } else {
-                        meta.update(Status::Aborted);
-                        break;
-                    }
-                }
-
-                if !load_events.is_empty() {
-                    events.extend(load_events);
-                } else if recipe.level.is_none()
+                if recipe.level.is_none()
                     && home.is_power_enabled(screeps::PowerType::OperateFactory)
                 {
                     events.push(RoomEvent::DeletePower(screeps::PowerType::OperateFactory));
@@ -87,9 +69,48 @@ pub(in crate::rooms::state::requests) fn factory_handler(
                         }
                         Err(err) => {
                             if err == ProduceErrorCode::Busy {
-                                events.push(RoomEvent::AddPower(
-                                    screeps::PowerType::OperateFactory,
-                                ));
+                                events.push(RoomEvent::AddPower(screeps::PowerType::OperateFactory));
+                            } else if err == ProduceErrorCode::NotEnoughResources {
+                                let mut load_events = Vec::new();
+                                for (comp_res, comp_amount) in get_missing_components(factory, &recipe) {
+                                    let request_amount = comp_amount * (data.amount / recipe.amount);
+                                    let factory_amount = factory.store().get_used_capacity(Some(comp_res));
+
+                                    if home.name() == "E2S41" {
+                                        info!("{}, missing component: {}:{}", home.name(), comp_res, comp_amount);
+                                        info!("{}, request_amount: {}, factory_amount: {}", home.name(), request_amount, factory_amount);
+                                    }
+
+                                    if let Some(load_event) = home.storage()
+                                        .and_then(|storage| {
+                                            let storage_capacity = storage.store().get_used_capacity(Some(comp_res));
+                                            if storage_capacity >= comp_amount {
+                                                Some(RoomEvent::Request(Request::new(
+                                                    RequestKind::Carry(CarryData::new(
+                                                        storage.raw_id(),
+                                                        factory.raw_id(),
+                                                        comp_res,
+                                                        min(request_amount - factory_amount, MIN_CARRY_REQUEST_AMOUNT))),
+                                                    Assignment::Single(None))))
+                                            } else {
+                                                None
+                                            }
+                                        })
+                                    {
+                                        load_events.push(load_event);
+                                    } else {
+                                        meta.update(Status::Aborted);
+                                        break;
+                                    }
+                                }
+
+                                if home.name() == "E2S41" {
+                                    info!("{}, factory OnHold: {:?}", home.name(), data);
+                                    info!("{}, new carry requests: {:?}", home.name(), load_events);
+                                }
+
+                                events.extend(load_events);
+                                meta.update(Status::OnHold);
                             } else {
                                 meta.update(Status::Aborted);
                                 error!(

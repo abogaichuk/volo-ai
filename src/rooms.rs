@@ -95,7 +95,6 @@ fn missed_buildings(
             }
         })
         .take(5)
-    // .collect()
 }
 
 fn is_extractor(mineral: &Mineral) -> bool {

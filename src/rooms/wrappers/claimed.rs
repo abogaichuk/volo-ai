@@ -274,12 +274,12 @@ impl Claimed {
     {
         self.storage
             .as_ref()
-            .filter(|storage| storage.store().get_free_capacity(None) > 10000)
+            .filter(|storage| storage.store().get_free_capacity(None) > 10_000)
             .and_then(|storage| {
                 obj.store().store_types().into_iter().find_map(|resource| {
                     if !allowed.contains(&resource) {
                         let amount = obj.store().get_used_capacity(Some(resource));
-                        if resource != ResourceType::Energy || amount > 15000 {
+                        if resource != ResourceType::Energy || amount > 15_000 {
                             return Some(RoomEvent::Request(Request::new(
                                 RequestKind::Carry(CarryData::new(
                                     obj.raw_id(),
@@ -306,7 +306,7 @@ impl Claimed {
             .and_then(|storage| {
                 let storage_capacity = storage.store().get_used_capacity(Some(resource));
                 if storage_capacity < amount
-                    || ResourceType::Energy == resource && storage_capacity < 25000
+                    || (ResourceType::Energy == resource && storage_capacity < 25_000)
                 {
                     None
                 } else {
