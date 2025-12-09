@@ -1,4 +1,4 @@
-#![feature(extend_one, let_chains, if_let_guard, iter_next_chunk, int_roundings)]
+#![allow(unused)]
 use std::cell::RefCell;
 
 use getrandom::register_custom_getrandom;
@@ -26,6 +26,7 @@ static INIT_LOGGING: std::sync::Once = std::sync::Once::new();
 thread_local! {
     pub static GLOBAL_MEMORY: RefCell<GlobalState> = RefCell::new(GlobalState::load_or_default());
 }
+
 
 #[wasm_bindgen(js_name = loop)]
 pub fn game_loop() {

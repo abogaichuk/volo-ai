@@ -69,10 +69,10 @@ impl Kind for Hauler {
                             .next()
                             .expect("expect resource in a creep!");
 
-                        if let Some(structure) = home.closest_empty_structure(creep) {
-                            if can_fill(structure.free_capacity() as u32, creep) {
-                                return Task::FillStructure(structure);
-                            }
+                        if let Some(structure) = home.closest_empty_structure(creep)
+                            && can_fill(structure.free_capacity() as u32, creep)
+                        {
+                            return Task::FillStructure(structure);
                         }
 
                         if let Some(storage) = home

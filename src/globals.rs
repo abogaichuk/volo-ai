@@ -20,7 +20,7 @@ use crate::units::roles::Role;
 pub fn info() -> String {
     GLOBAL_MEMORY.with(|mem_refcell| {
         let state = mem_refcell.borrow();
-        let rooms_info = state.rooms.iter().fold("".to_string(), |acc, elem| {
+        state.rooms.iter().fold("".to_string(), |acc, elem| {
             let room_header = format!("{}:\n", elem.0);
 
             let spawns = elem
@@ -43,8 +43,7 @@ pub fn info() -> String {
             // format!("{}{}{}{}{}", acc, room_header, spawn_info, requests_info,
             // perimetr_info)
             format!("{}{}{}{}", acc, room_header, spawn_info, requests_info)
-        });
-        rooms_info
+        })
     })
 }
 
@@ -146,7 +145,7 @@ pub fn requests(room_name: String) -> String {
                 Some(claimed) => {
                     let mut result = format!("room: {} requests: \n", room_name);
                     for (i, request) in claimed.requests.iter().enumerate() {
-                        result.extend_one(format!("{}: {} \n", i, request));
+                        result.push_str(&format!("{}: {} \n", i, request));
                     }
                     result
                 }
@@ -371,23 +370,23 @@ pub fn avoid_room(room_name: String) -> String {
 pub fn get_plan_for(room_name: String, x: u8, y: u8) -> String {
     match RoomName::from_str(&room_name) {
         Ok(room_name) => GLOBAL_MEMORY.with(|mem_refcell| {
-            if let Some(memory) = mem_refcell.borrow_mut().rooms.get(&room_name) {
-                if let Some(plan) = &memory.plan {
-                    let xy = unsafe { RoomXY::unchecked_new(x, y) };
-                    let result = plan.find_by_xy(xy).fold(
-                        String::from_str("cells: ").expect("expect str"),
-                        |acc, elem| {
-                            format!(
-                                "{}, [{:?}: {}, {}]",
-                                acc,
-                                elem.structure,
-                                elem.xy.x.u8(),
-                                elem.xy.y.u8()
-                            )
-                        },
-                    );
-                    return result;
-                }
+            if let Some(memory) = mem_refcell.borrow_mut().rooms.get(&room_name)
+                && let Some(plan) = &memory.plan
+            {
+                let xy = unsafe { RoomXY::unchecked_new(x, y) };
+                let result = plan.find_by_xy(xy).fold(
+                    String::from_str("cells: ").expect("expect str"),
+                    |acc, elem| {
+                        format!(
+                            "{}, [{:?}: {}, {}]",
+                            acc,
+                            elem.structure,
+                            elem.xy.x.u8(),
+                            elem.xy.y.u8()
+                        )
+                    },
+                );
+                return result;
             }
             format!("memory: {} not found!", room_name)
         }),

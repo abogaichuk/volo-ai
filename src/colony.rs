@@ -113,10 +113,9 @@ impl GlobalState {
             event.assign(self, &context);
         }
 
-        if game::time() % 100 == 0 {
+        if game::time().is_multiple_of(100) {
             self.update_avoid_rooms();
             self.orders.retain(|order| game::time() < order.timeout());
-            // self.update_statistics(Statistic::new(self, &bases));
         }
         self.gc();
     }
@@ -160,10 +159,6 @@ impl GlobalState {
     fn update_avoid_rooms(&mut self) {
         let time = game::time();
         self.avoid_rooms.retain(|_, v| *v > time);
-    }
-
-    fn update_statistics(&mut self, stats: Statistic) {
-        self.statistic = stats;
     }
 
     pub fn load_or_default() -> GlobalState {

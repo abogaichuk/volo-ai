@@ -125,7 +125,7 @@ impl Claimed {
             }
         }
 
-        let amounts = if game::time() % 100 == 0 {
+        let amounts = if game::time().is_multiple_of(100) {
             RESOURCES_ALL
                 .iter()
                 .filter_map(|res| {
@@ -339,7 +339,7 @@ impl Claimed {
         room_memory: &'a RoomState,
         creeps: &'a HashMap<String, CreepMemory>,
     ) -> impl Iterator<Item = RoomEvent> + 'a {
-        (game::time() % 100 == 0)
+        (game::time().is_multiple_of(100))
             .then(|| {
                 once(RoomEvent::RetainBoosts)
                     .chain(self.manage_mineral_miner(room_memory, creeps))
@@ -496,18 +496,17 @@ impl Claimed {
         room_memory: &'a RoomState,
         creeps: &'a HashMap<String, CreepMemory>,
     ) -> Option<RoomEvent> {
-        if self.mineral.ticks_to_regeneration().is_none() && is_extractor(&self.mineral) {
-            if let Some(container) =
+        if self.mineral.ticks_to_regeneration().is_none() && is_extractor(&self.mineral)
+            && let Some(container) =
                 find_container_near_by(&self.mineral.pos(), 1, &[StructureType::Container])
-            {
-                let role = Role::MineralMiner(MineralMiner::new(
-                    Some(container.pos()),
-                    Some(self.get_name()),
-                ));
+        {
+            let role = Role::MineralMiner(MineralMiner::new(
+                Some(container.pos()),
+                Some(self.get_name()),
+            ));
 
-                if room_memory.find_roles(&role, creeps).next().is_none() {
-                    return Some(RoomEvent::Spawn(role, 1));
-                }
+            if room_memory.find_roles(&role, creeps).next().is_none() {
+                return Some(RoomEvent::Spawn(role, 1));
             }
         }
         None

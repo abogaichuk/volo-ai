@@ -22,7 +22,7 @@ pub(in crate::rooms::state::requests) fn build_handler(
     assignment: &mut Assignment,
 ) -> SmallVec<[RoomEvent; 3]> {
     match meta.status {
-        Status::InProgress if game::time() % 100 == 0 && !assignment.has_alive_members() => {
+        Status::InProgress if game::time().is_multiple_of(100) && !assignment.has_alive_members() => {
             meta.update(Status::Created);
             *assignment = Assignment::Single(None);
         }

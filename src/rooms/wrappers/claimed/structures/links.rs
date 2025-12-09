@@ -8,7 +8,8 @@ impl Claimed {
     pub(crate) fn run_links(&self) {
         if let Some(farm_link) = self.links.other.iter().find(|link| {
             link.cooldown() == 0 && link.store().get_used_capacity(Some(ResourceType::Energy)) > 700
-        }) {
+        })
+        {
             if let Some(receiver) = self.links.receiver() {
                 let transfer_result = farm_link.transfer_energy(receiver, None);
                 match transfer_result {
@@ -17,23 +18,21 @@ impl Claimed {
                         warn!("room: {} farm link transfer error: {:?}", self.get_name(), err)
                     }
                 }
+            } else {
+                //todo else -> send to ctrl_link?
             }
-            //todo else -> send to ctrl_link?
         }
 
-        if let Some(ctrl_link) = self.links.ctrl() {
-            if ctrl_link.store().get_free_capacity(Some(ResourceType::Energy)) > 500
-                && let Some(sender) = self.links.sender().filter(|s| {
-                    s.cooldown() == 0 && s.store().get_used_capacity(Some(ResourceType::Energy)) > 0
-                })
-            {
-                let transfer_result = sender.transfer_energy(ctrl_link, None);
-
-                match transfer_result {
-                    Ok(()) => {}
-                    Err(err) => {
-                        warn!("room: {} sender link transfer error: {:?}", self.get_name(), err)
-                    }
+        if let Some(ctrl_link) = self.links.ctrl() && ctrl_link.store().get_free_capacity(Some(ResourceType::Energy)) > 500
+            && let Some(sender) = self.links.sender().filter(|s| {
+                s.cooldown() == 0 && s.store().get_used_capacity(Some(ResourceType::Energy)) > 0
+            })
+        {
+            let transfer_result = sender.transfer_energy(ctrl_link, None);
+            match transfer_result {
+                Ok(()) => {}
+                Err(err) => {
+                    warn!("room: {} sender link transfer error: {:?}", self.get_name(), err)
                 }
             }
         }

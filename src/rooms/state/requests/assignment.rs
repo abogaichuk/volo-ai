@@ -37,7 +37,7 @@ impl Assignment {
 
                 let squad = Squad { id: squad_id.clone(), members: HashSet::new() };
 
-                squads.extend_one(squad);
+                squads.push(squad);
                 meta.status = Status::InProgress;
                 meta.updated_at = game::time();
                 Some(squad_id)

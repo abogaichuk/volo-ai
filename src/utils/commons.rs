@@ -357,7 +357,7 @@ pub fn get_positions_near_by(
             {
                 continue;
             }
-            result.extend_one((x, y));
+            result.push((x, y));
         }
     }
     result
@@ -547,5 +547,6 @@ pub fn room_xy(x: u8, y: u8) -> RoomXY {
 
 //83 -> 85, 89 -> 90, 2 -> 5
 pub fn round_up_to_5(x: u32) -> u32 {
-    x.div_ceil(5) * 5
+    let remainder = x % 5;
+    if remainder == 0 { x } else { x.saturating_add(5 - remainder) }
 }

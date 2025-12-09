@@ -56,3 +56,10 @@ default = ["mmo", "path-visuals"]
 path-visuals = []
 sim = ["screeps-game-api/sim"]
 mmo = ["screeps-game-api/mmo"]
+
+# https://rust-lang.github.io/rust-clippy/master/index.html#lint-groups
+# https://rust-lang.github.io/rust-clippy/master/#configuration
+[lints.clippy]
+all = "warn"
+# pedantic = "warn"
+# nursery = "warn"

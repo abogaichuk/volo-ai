@@ -82,15 +82,15 @@ impl Dash {
 
     fn y_turn(&self, y: u8) -> bool {
         match self.y_turn {
-            Turn::First => y % 2 == 0,
-            Turn::Second => y % 2 != 0,
+            Turn::First => y.is_multiple_of(2),
+            Turn::Second => !y.is_multiple_of(2),
         }
     }
 
     fn x_turn(&self, x: u8) -> bool {
         match self.parity {
-            Turn::First => x % 2 == 0,
-            Turn::Second => x % 2 != 0,
+            Turn::First => x.is_multiple_of(2),
+            Turn::Second => !x.is_multiple_of(2),
         }
     }
 }

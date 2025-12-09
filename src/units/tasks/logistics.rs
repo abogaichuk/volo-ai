@@ -92,7 +92,7 @@ pub fn take_from_structure(
                                         TaskResult::Completed
                                     }
                                     _ => {
-                                        if game::time() % 10 == 0 {
+                                        if game::time().is_multiple_of(10) {
                                             error!(
                                                 "creep: {} can't withdraw resource: {} from: {}, error: {:?}",
                                                 creep.name(),

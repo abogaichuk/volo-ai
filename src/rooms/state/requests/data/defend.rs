@@ -32,7 +32,7 @@ impl DefendData {
 pub(in crate::rooms::state::requests) fn defend_handler(
     data: &DefendData,
     meta: &mut Meta,
-    assignment: &mut Assignment,
+    _assignment: &mut Assignment,
     home: &Shelter,
     creeps: &HashMap<String, CreepMemory>,
 ) -> SmallVec<[RoomEvent; 3]> {

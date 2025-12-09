@@ -4,9 +4,12 @@ use_small_heuristics = "Max"
 newline_style = "Unix"
 
 max_width = 100
-imports_granularity = "Module"
-group_imports = "StdExternalCrate"
-reorder_impl_items = true
+# nightly
+# imports_granularity = "Module"
+# nightly
+# group_imports = "StdExternalCrate"
+# nightly
+# reorder_impl_items = true
 # unstable
 # unstable_features = true
 # wrap_comments = true

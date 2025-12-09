@@ -193,7 +193,7 @@ fn reaction_third_tier(
 ) -> Option<RoomEvent> {
     if amount < 3_000 {
         //ask colony or craft by itself random
-        if game::time() % 200 == 0 {
+        if game::time().is_multiple_of(200) {
             Some(RoomEvent::Lack(res, 3_000))
         } else {
             Some(RoomEvent::Request(Request::new(

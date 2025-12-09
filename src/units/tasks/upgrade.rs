@@ -24,13 +24,12 @@ pub fn upgrade(
             match creep.upgrade_controller(&controller) {
                 Ok(_) => {
                     let _ = creep.say("⬆", false);
-                    if creep.store().get_used_capacity(Some(ResourceType::Energy)) < 30 {
-                        if let Some(room_obj) =
+                    if creep.store().get_used_capacity(Some(ResourceType::Energy)) < 30
+                        && let Some(room_obj) =
                             container_id.and_then(|c_id| game::get_object_by_id_erased(&c_id))
-                        {
-                            let container = room_obj.unchecked_ref::<StructureContainer>();
-                            let _ = creep.withdraw(container, ResourceType::Energy, None);
-                        }
+                    {
+                        let container = room_obj.unchecked_ref::<StructureContainer>();
+                        let _ = creep.withdraw(container, ResourceType::Energy, None);
                     }
                     TaskResult::StillWorking(Task::Upgrade(id, container_id), None)
                 }

@@ -34,21 +34,19 @@ impl Claimed {
                     })
             } else {
                 let nuker_amount = nuker.store().get_used_capacity(Some(ResourceType::Ghodium));
-                if nuker_amount < GHODIUM_LOAD_CAPACITY {
-                    if let Some(storage) = self.storage() {
-                        let storage_amount =
-                            storage.store().get_used_capacity(Some(ResourceType::Ghodium));
-                        if storage_amount > 0 {
-                            return Some(Request::new(
-                                RequestKind::Carry(CarryData::new(
-                                    storage.raw_id(),
-                                    nuker.raw_id(),
-                                    ResourceType::Ghodium,
-                                    min(GHODIUM_LOAD_CAPACITY - nuker_amount, storage_amount),
-                                )),
-                                Assignment::Single(None),
-                            ));
-                        }
+                if nuker_amount < GHODIUM_LOAD_CAPACITY && let Some(storage) = self.storage() {
+                    let storage_amount =
+                        storage.store().get_used_capacity(Some(ResourceType::Ghodium));
+                    if storage_amount > 0 {
+                        return Some(Request::new(
+                            RequestKind::Carry(CarryData::new(
+                                storage.raw_id(),
+                                nuker.raw_id(),
+                                ResourceType::Ghodium,
+                                min(GHODIUM_LOAD_CAPACITY - nuker_amount, storage_amount),
+                            )),
+                            Assignment::Single(None),
+                        ));
                     }
                 }
                 None

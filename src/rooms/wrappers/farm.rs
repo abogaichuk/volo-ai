@@ -143,7 +143,7 @@ impl Farm {
 
     fn create_cs(&self, plan: Option<&RoomPlan>) {
         if let Some(plan) = plan
-            && game::time() % 100 == 0
+            && game::time().is_multiple_of(100)
         {
             missed_buildings(self.get_name(), plan).for_each(|(xy, str_type)| {
                 let _ = self.room.create_construction_site(xy.x.u8(), xy.y.u8(), str_type, None);
@@ -170,7 +170,7 @@ impl Farm {
             if let Some(controller) = self.room().controller() {
                 events.extend(self.crash_request());
                 events.extend(self.reserve_room(&controller));
-            } else if game::time() % 100 == 0 {
+            } else if game::time().is_multiple_of(100) {
                 events.extend(self.mineral_event());
             }
         }
@@ -337,8 +337,6 @@ impl Farm {
     }
 
     fn defend_request(&self) -> Option<RoomEvent> {
-        let time = game::time();
-
         let parts = [Part::Attack, Part::RangedAttack, Part::Claim, Part::Carry, Part::Work];
         let enemies: Vec<CreepHostile> = self
             .hostiles
@@ -368,7 +366,7 @@ impl Farm {
             .collect();
 
         if !enemies.is_empty() {
-            if time % 50 == 0 {
+            if game::time().is_multiple_of(50) {
                 debug!("enemies {} in room: {}", enemies.len(), self.get_name());
             }
             return Some(RoomEvent::Defend(self.get_name(), enemies));
@@ -378,8 +376,8 @@ impl Farm {
 }
 
 fn get_central_room_name(sk_name: RoomName, f_num: u32, s_num: u32) -> Option<RoomName> {
-    let fr = f_num.div_floor(10) * 10 + 5;
-    let sr = s_num.div_floor(10) * 10 + 5;
+    let fr = (f_num / 10) * 10 + 5;
+    let sr = (s_num / 10) * 10 + 5;
 
     let central_room_str = sk_name
         .to_string()
