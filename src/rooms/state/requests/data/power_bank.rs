@@ -121,14 +121,12 @@ pub(in crate::rooms::state::requests) fn powerbank_handler(
                         if let Some(squad_id) = assignment.new_squad(data.id.to_string(), meta) {
                             meta.update(Status::Carry);
 
-                            let pb_c = Role::PBCarrier(PBCarrier::new(
-                                Some(squad_id),
-                                Some(home.name()),
-                            ));
+                            let pb_c =
+                                Role::PBCarrier(PBCarrier::new(Some(squad_id), Some(home.name())));
 
                             events.push(RoomEvent::Spawn(
                                 pb_c,
-                                ((data.amount  + 800) / 160) as usize
+                                ((data.amount + 800) / 1600) as usize, //(data.amount as f32 / 1600_f32).round() as usize,
                             ));
                         } else {
                             warn!("creation new squad error: {:?}", data);

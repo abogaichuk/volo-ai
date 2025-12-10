@@ -47,6 +47,7 @@ impl<'s> Shelter<'s> {
         orders: &[Order],
     ) -> Vec<ColonyEvent> {
         // todo proportial perimetr security check
+
         let mut events = Vec::new();
         for mut request in self
             .state

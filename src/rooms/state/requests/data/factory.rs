@@ -1,6 +1,6 @@
 use std::cmp::min;
 
-use log::{debug, info, error, warn};
+use log::{debug, error, info, warn};
 use screeps::action_error_codes::ProduceErrorCode;
 use screeps::{FactoryRecipe, HasId, ResourceType, StructureFactory, game};
 use serde::{Deserialize, Serialize};
@@ -40,7 +40,8 @@ pub(in crate::rooms::state::requests) fn factory_handler(
     match meta.status {
         Status::InProgress => {
             //if free space
-            if i32::try_from(MAX_CARRY_REQUEST_AMOUNT).ok()
+            if i32::try_from(MAX_CARRY_REQUEST_AMOUNT)
+                .ok()
                 .is_some_and(|max| factory.store().get_free_capacity(None) >= max)
             {
                 if recipe.level.is_none()
@@ -69,44 +70,46 @@ pub(in crate::rooms::state::requests) fn factory_handler(
                         }
                         Err(err) => {
                             if err == ProduceErrorCode::Busy {
-                                events.push(RoomEvent::AddPower(screeps::PowerType::OperateFactory));
+                                events
+                                    .push(RoomEvent::AddPower(screeps::PowerType::OperateFactory));
                             } else if err == ProduceErrorCode::NotEnoughResources {
                                 let mut load_events = Vec::new();
-                                for (comp_res, comp_amount) in get_missing_components(factory, &recipe) {
-                                    let request_amount = comp_amount * (data.amount / recipe.amount);
-                                    let factory_amount = factory.store().get_used_capacity(Some(comp_res));
+                                for (comp_res, comp_amount) in
+                                    get_missing_components(factory, &recipe)
+                                {
+                                    let request_amount =
+                                        comp_amount * (data.amount / recipe.amount);
+                                    let factory_amount =
+                                        factory.store().get_used_capacity(Some(comp_res));
 
-                                    if home.name() == "E2S41" {
-                                        info!("{}, missing component: {}:{}", home.name(), comp_res, comp_amount);
-                                        info!("{}, request_amount: {}, factory_amount: {}", home.name(), request_amount, factory_amount);
-                                    }
-
-                                    if let Some(load_event) = home.storage()
-                                        .and_then(|storage| {
-                                            let storage_capacity = storage.store().get_used_capacity(Some(comp_res));
-                                            if storage_capacity >= comp_amount {
-                                                Some(RoomEvent::Request(Request::new(
-                                                    RequestKind::Carry(CarryData::new(
-                                                        storage.raw_id(),
-                                                        factory.raw_id(),
-                                                        comp_res,
-                                                        min(request_amount - factory_amount, min(storage_capacity, MIN_CARRY_REQUEST_AMOUNT)))),
-                                                    Assignment::Single(None))))
-                                            } else {
-                                                None
-                                            }
-                                        })
-                                    {
+                                    if let Some(load_event) = home.storage().and_then(|storage| {
+                                        let storage_capacity =
+                                            storage.store().get_used_capacity(Some(comp_res));
+                                        if storage_capacity >= comp_amount {
+                                            Some(RoomEvent::Request(Request::new(
+                                                RequestKind::Carry(CarryData::new(
+                                                    storage.raw_id(),
+                                                    factory.raw_id(),
+                                                    comp_res,
+                                                    min(
+                                                        request_amount - factory_amount,
+                                                        min(
+                                                            storage_capacity,
+                                                            MIN_CARRY_REQUEST_AMOUNT,
+                                                        ),
+                                                    ),
+                                                )),
+                                                Assignment::Single(None),
+                                            )))
+                                        } else {
+                                            None
+                                        }
+                                    }) {
                                         load_events.push(load_event);
                                     } else {
                                         meta.update(Status::Aborted);
                                         break;
                                     }
-                                }
-
-                                if home.name() == "E2S41" {
-                                    info!("{}, factory OnHold: {:?}", home.name(), data);
-                                    info!("{}, new carry requests: {:?}", home.name(), load_events);
                                 }
 
                                 events.extend(load_events);
