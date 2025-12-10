@@ -1,3 +1,4 @@
+#![feature(extend_one, if_let_guard, iter_next_chunk, int_roundings)]
 use std::cell::RefCell;
 
 use getrandom::register_custom_getrandom;
@@ -26,7 +27,7 @@ thread_local! {
     pub static GLOBAL_MEMORY: RefCell<GlobalState> = RefCell::new(GlobalState::load_or_default());
 }
 
-
+#[allow(clippy::missing_panics_doc)]
 #[wasm_bindgen(js_name = loop)]
 pub fn game_loop() {
     let cpu_start = game::cpu::get_used();

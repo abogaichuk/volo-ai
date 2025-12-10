@@ -19,7 +19,7 @@ pub fn diagonal_neighbors(xy: &RoomXY) -> impl Iterator<Item = RoomXY> {
 }
 
 #[inline]
-pub const fn outside_rect(xy: &RoomXY, rectangle: OuterRectangle) -> bool {
+pub const fn outside_rect(xy: RoomXY, rectangle: OuterRectangle) -> bool {
     let (x0, y0, x1, y1) = rectangle;
     xy.x.u8() < x0 || xy.x.u8() > x1 || xy.y.u8() < y0 || xy.y.u8() > y1
 }
@@ -31,14 +31,16 @@ pub const fn to_index(xy: RoomXY) -> usize {
 
 fn iter_xy() -> impl Iterator<Item = RoomXY> {
     (0..ROOM_AREA)
-        .map(|i| unsafe { RoomXY::unchecked_new((i % ROOM_SIZE as usize) as u8, (i / ROOM_SIZE as usize) as u8) })
+        .map(|i| unsafe { RoomXY::unchecked_new(
+            u8::try_from(i % ROOM_SIZE as usize).expect("expect u8"),
+            u8::try_from(i / ROOM_SIZE as usize).expect("expect u8")) })
 }
 
 #[inline]
 pub fn exit_distance(xy: RoomXY) -> u8 {
     min(
         min(xy.x.u8(), xy.y.u8()),
-        min(ROOM_SIZE as u8 - 1 - xy.x.u8(), ROOM_SIZE as u8 - 1 - xy.y.u8()),
+        min(ROOM_SIZE - 1 - xy.x.u8(), ROOM_SIZE - 1 - xy.y.u8()),
     )
 }
 

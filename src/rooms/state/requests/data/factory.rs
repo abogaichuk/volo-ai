@@ -90,7 +90,7 @@ pub(in crate::rooms::state::requests) fn factory_handler(
                                                         storage.raw_id(),
                                                         factory.raw_id(),
                                                         comp_res,
-                                                        min(request_amount - factory_amount, MIN_CARRY_REQUEST_AMOUNT))),
+                                                        min(request_amount - factory_amount, min(storage_capacity, MIN_CARRY_REQUEST_AMOUNT)))),
                                                     Assignment::Single(None))))
                                             } else {
                                                 None

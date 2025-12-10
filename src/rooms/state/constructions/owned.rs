@@ -227,9 +227,9 @@ fn guide_cell(
     sources: &[RoomXY],
     rect: OuterRectangle,
 ) -> Result<RoomXY, RoomPlannerError> {
-    if outside_rect(&ctrl, rect) {
+    if outside_rect(ctrl, rect) {
         Ok(ctrl)
-    } else if let Some(source) = sources.iter().find(|source| outside_rect(source, rect))
+    } else if let Some(source) = sources.iter().find(|source| outside_rect(**source, rect))
     //todo add default target, perim center?
     {
         Ok(*source)
