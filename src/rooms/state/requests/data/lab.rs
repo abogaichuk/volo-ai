@@ -51,88 +51,79 @@ pub(in crate::rooms::state::requests) fn lab_handler(
 
     match meta.status {
         Status::InProgress => {
-            if let Some([res1, res2]) = data.resource.reaction_components() {
-                if let [input1, input2] = inputs {
-                    if let Some(unload_event) = home.unload(input1, &[res1]) {
-                        events.push(unload_event);
-                    } else if let Some(unload_event) = home.unload(input2, &[res2]) {
-                        events.push(unload_event);
-                    } else {
-                        for output in outputs.iter().filter(|o| o.cooldown() == 0) {
-                            match output.run_reaction(input1, input2) {
-                                Ok(()) => {
-                                    if LAB_PRODUCTION > data.amount {
-                                        meta.update(Status::Resolved);
-                                        break;
-                                    }
-                                    data.amount -= LAB_PRODUCTION;
-                                    meta.update(Status::InProgress);
-                                }
-                                Err(err) => {
-                                    match err {
-                                        RunReactionErrorCode::NotEnoughResources => {
-                                            let event1 = match try_supply(
-                                                home,
-                                                input1,
-                                                res1,
-                                                cmp::min(data.amount, MIN_CARRY_REQUEST_AMOUNT),
-                                            ) {
-                                                Ok(event) => Some(event),
-                                                Err(err) => match err {
-                                                    LabError::IsNotEmpty => None,
-                                                    LabError::NotFound(res) => {
-                                                        warn!(
-                                                            "{} not found resource: {}",
-                                                            home.get_name(),
-                                                            res
-                                                        );
-                                                        meta.update(Status::Aborted);
-                                                        break;
-                                                    }
-                                                },
-                                            };
-                                            let event2 = match try_supply(
-                                                home,
-                                                input2,
-                                                res2,
-                                                cmp::min(data.amount, MIN_CARRY_REQUEST_AMOUNT),
-                                            ) {
-                                                Ok(event) => Some(event),
-                                                Err(err) => match err {
-                                                    LabError::IsNotEmpty => None,
-                                                    LabError::NotFound(res) => {
-                                                        warn!(
-                                                            "{} not found resource: {}",
-                                                            home.get_name(),
-                                                            res
-                                                        );
-                                                        meta.update(Status::Aborted);
-                                                        break;
-                                                    }
-                                                },
-                                            };
-
-                                            events.extend(event1);
-                                            events.extend(event2);
-                                            meta.update(Status::OnHold);
-                                        }
-                                        RunReactionErrorCode::Full
-                                        | RunReactionErrorCode::InvalidArgs => {
-                                            events.extend(home.unload(output, &[]));
-                                        }
-                                        _ => {
-                                            error!("lab error: {:?}", err);
-                                            meta.update(Status::Aborted);
-                                        }
-                                    }
+            if let Some([(res1, input1), (res2, input2)]) = data.resource.reaction_components()
+                .and_then(|components| components.into_iter().zip(inputs).next_chunk().ok())
+            {
+                if let Some(unload_event) = home.unload(input1, &[res1]) {
+                    events.push(unload_event);
+                } else if let Some(unload_event) = home.unload(input2, &[res2]) {
+                    events.push(unload_event);
+                } else {
+                    for output in outputs.iter()
+                        .filter(|o| o.cooldown() == 0)
+                    {
+                        match output.run_reaction(input1, input2) {
+                            Ok(()) => {
+                                if LAB_PRODUCTION > data.amount {
+                                    meta.update(Status::Resolved);
                                     break;
                                 }
+                                data.amount -= LAB_PRODUCTION;
+                                meta.update(Status::InProgress);
+                            }
+                            Err(err) => {
+                                match err {
+                                    RunReactionErrorCode::NotEnoughResources => {
+
+                                        let event1 = match try_supply(
+                                            home,
+                                            input1,
+                                            res1,
+                                            cmp::min(data.amount, MIN_CARRY_REQUEST_AMOUNT))
+                                        {
+                                            Ok(event) => Some(event),
+                                            Err(err) => match err {
+                                                LabError::IsNotEmpty => None,
+                                                LabError::NotFound(res) => {
+                                                    warn!("{} not found resource: {}", home.get_name(), res);
+                                                    meta.update(Status::Aborted);
+                                                    break;
+                                                }
+                                            }
+                                        };
+                                        let event2 = match try_supply(
+                                            home,
+                                            input2,
+                                            res2,
+                                            cmp::min(data.amount, MIN_CARRY_REQUEST_AMOUNT))
+                                        {
+                                            Ok(event) => Some(event),
+                                            Err(err) => match err {
+                                                LabError::IsNotEmpty => None,
+                                                LabError::NotFound(res) => {
+                                                    warn!("{} not found resource: {}", home.get_name(), res);
+                                                    meta.update(Status::Aborted);
+                                                    break;
+                                                }
+                                            }
+                                        };
+
+                                        events.extend(event1);
+                                        events.extend(event2);
+                                        meta.update(Status::OnHold);
+                                    }
+                                    RunReactionErrorCode::Full | RunReactionErrorCode::InvalidArgs => {
+                                        events.extend(home.unload(output, &[]));
+                                    }
+                                    _ => {
+                                        error!("lab error: {:?}", err);
+                                        meta.update(Status::Aborted);
+                                    }
+                                }
+                                break;
                             }
                         }
-                    }
-                } else {
-                    meta.update(Status::Aborted);
-                    warn!("{} can't get reagents for lab request: {:?}", home.get_name(), data);
+                    };
                 }
             } else {
                 meta.update(Status::Aborted);
