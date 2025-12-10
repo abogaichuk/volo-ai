@@ -1,10 +1,5 @@
 use screeps::CREEP_RANGED_ACTION_RANGE;
 
-/// Builder role considers energy for withdraw from structures above this amount
-pub const BUILDER_ENERGY_WITHDRAW_THRESHOLD: u32 = 1_000;
-/// Hauler role considers energy on the ground for grabbing above this amount
-pub const HAULER_ENERGY_PICKUP_THRESHOLD: u32 = 35;
-
 pub const MIN_ENERGY_CAPACITY: u32 = 10_000;
 pub const MAX_POWER_CAPACITY: u32 = 150_000;
 // pub const CARRY_REQUEST_AMOUNT: u32 = 1000;
@@ -61,8 +56,3 @@ pub const AVOID_HOSTILE_ROOM_TIMEOUT: u32 = 100_000;
 
 pub const LONG_RANGE_ACTION: u32 = CREEP_RANGED_ACTION_RANGE as u32;
 pub const CLOSE_RANGE_ACTION: u32 = 1;
-pub const DEFEND_ROOM_RANGE: u32 = 23;
-
-pub const LOW_RESPAWN_TIMEOUT: u32 = 20;
-pub const MID_RESPAWN_TIMEOUT: u32 = 50;
-pub const HIGH_RESPAWN_TIMEOUT: u32 = 70;
