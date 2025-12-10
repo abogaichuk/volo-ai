@@ -1,26 +1,26 @@
 use std::collections::{HashMap, HashSet};
 
 use itertools::Itertools;
-use log::{error, info, warn, debug};
+use log::{debug, error, info, warn};
 use screeps::game::market::Order;
 use screeps::game::{self};
 use screeps::{
-    Creep, Effect, EffectType, HasId, HasPosition, HasStore, Mineral, ObjectId, OrderType,
-    Part, Position, PowerType, RawObjectId, ResourceType, Room, RoomName, RoomObjectProperties,
-    Source, StructureController, StructureFactory, StructureLab, StructureLink,
-    StructurePowerSpawn, StructureRampart, StructureSpawn, StructureStorage, StructureTerminal,
-    StructureTower,
+    Creep, Effect, EffectType, HasId, HasPosition, HasStore, Mineral, ObjectId, OrderType, Part,
+    Position, PowerType, RawObjectId, ResourceType, Room, RoomName, RoomObjectProperties, Source,
+    StructureController, StructureFactory, StructureLab, StructureLink, StructurePowerSpawn,
+    StructureRampart, StructureSpawn, StructureStorage, StructureTerminal, StructureTower,
 };
 
 use crate::colony::ColonyEvent;
 use crate::commons::find_roles;
-use crate::rooms::RoomEvent;
-use crate::rooms::state::requests::assignment::Assignment;
-use crate::rooms::state::requests::{CreepHostile, DefendData, Request, RequestKind};
-use crate::rooms::state::{RoomState, TradeData};
-use crate::rooms::wrappers::Fillable;
-use crate::rooms::wrappers::claimed::Claimed;
-use crate::rooms::wrappers::farm::Farm;
+use crate::rooms::{
+    RoomEvent,
+    state::{
+        RoomState, TradeData,
+        requests::{CreepHostile, DefendData, Request, RequestKind, assignment::Assignment},
+    },
+    wrappers::{Fillable, claimed::Claimed, farm::Farm},
+};
 use crate::statistics::RoomStats;
 use crate::units::creeps::CreepMemory;
 use crate::units::roles::Role;
@@ -46,13 +46,7 @@ impl<'s> Shelter<'s> {
         creeps: &mut HashMap<String, CreepMemory>,
         orders: &[Order],
     ) -> Vec<ColonyEvent> {
-        //     //todo proportial perimetr security check
-        //     //todo room_memory for requests excess, only room_memory spawns in use
-        // for dismantle or combats and room_memory.boost for factory     //todo
-        // Request as updateable?     //find better abstraction for request
-        // handler, sequential\parallel or implement task runner for factory, terminal
-        // and labs
-
+        // todo proportial perimetr security check
         let mut events = Vec::new();
         for mut request in self
             .state

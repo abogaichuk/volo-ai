@@ -1,6 +1,4 @@
-use std::cmp::min;
-use std::collections::HashMap;
-use std::iter::once;
+use std::{cmp::min, collections::HashMap, iter::once};
 
 use log::{error, info};
 use screeps::{
@@ -17,23 +15,28 @@ use smallvec::SmallVec;
 use super::farm::Farm;
 use crate::commons::{find_container_near_by, has_part, is_cpu_on_low};
 use crate::resources::{Resources, RoomContext};
-use crate::rooms::state::constructions::{RoomPlan, RoomPlannerError};
-use crate::rooms::state::requests::assignment::Assignment;
-use crate::rooms::state::requests::{
-    BodyPart, BuildData, CarryData, CreepHostile, PickupData, RepairData, Request, RequestKind,
-    WithdrawData,
+use crate::rooms::{
+    RoomEvent, RoomState, is_extractor, missed_buildings,
+    state::{
+        BoostReason, FarmInfo,
+        constructions::{RoomPlan, RoomPlannerError},
+        requests::{
+            BodyPart, BuildData, CarryData, CreepHostile, PickupData, RepairData, Request,
+            RequestKind, WithdrawData, assignment::Assignment,
+        },
+    },
+    wrappers::{
+        Fillable,
+        claimed::structures::{labs::Labs, links::Links, ramparts::Ramparts},
+    },
 };
-use crate::rooms::state::{BoostReason, FarmInfo};
-use crate::rooms::wrappers::Fillable;
-use crate::rooms::wrappers::claimed::structures::labs::Labs;
-use crate::rooms::wrappers::claimed::structures::links::Links;
-use crate::rooms::wrappers::claimed::structures::ramparts::Ramparts;
-use crate::rooms::{RoomEvent, RoomState, is_extractor, missed_buildings};
-use crate::units::creeps::CreepMemory;
-use crate::units::roles::Role;
-use crate::units::roles::combat::guard::Guard;
-use crate::units::roles::miners::mineral_miner::MineralMiner;
-use crate::units::roles::services::upgrader::Upgrader;
+use crate::units::{
+    creeps::CreepMemory,
+    roles::{
+        Role, combat::guard::Guard, miners::mineral_miner::MineralMiner,
+        services::upgrader::Upgrader,
+    },
+};
 use crate::utils::constants::{
     MAX_CARRY_REQUEST_AMOUNT, MAX_WALL_HITS, MIN_PERIMETR_HITS, MY_ROOMS_PICKUP_RESOURCE_THRESHOLD,
 };
@@ -494,14 +497,13 @@ impl Claimed {
         room_memory: &'a RoomState,
         creeps: &'a HashMap<String, CreepMemory>,
     ) -> Option<RoomEvent> {
-        if self.mineral.ticks_to_regeneration().is_none() && is_extractor(&self.mineral)
+        if self.mineral.ticks_to_regeneration().is_none()
+            && is_extractor(&self.mineral)
             && let Some(container) =
                 find_container_near_by(&self.mineral.pos(), 1, &[StructureType::Container])
         {
-            let role = Role::MineralMiner(MineralMiner::new(
-                Some(container.pos()),
-                Some(self.get_name()),
-            ));
+            let role =
+                Role::MineralMiner(MineralMiner::new(Some(container.pos()), Some(self.get_name())));
 
             if room_memory.find_roles(&role, creeps).next().is_none() {
                 return Some(RoomEvent::Spawn(role, 1));
@@ -560,8 +562,7 @@ impl Claimed {
         if let Some(plan) = plan {
             let planned_roads = plan.roads();
             for road in &self.roads {
-                if road.hits() * 4 < road.hits_max() * 2
-                    && planned_roads.contains(&road.pos().xy())
+                if road.hits() * 4 < road.hits_max() * 2 && planned_roads.contains(&road.pos().xy())
                 {
                     let attempts = if road.hits_max() == 5_000 { 2 } else { 5 };
                     requests.push(Request::new(

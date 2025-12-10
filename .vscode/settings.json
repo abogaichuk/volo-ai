@@ -3,11 +3,9 @@
     "git.enableStatusBarSync": false,
     "git.decorations.enabled": false,
     "git.autoRepositoryDetection": false,
-
     // Let RA read rust-toolchain.toml and use that toolchain
     "rust-analyzer.rustc.source": "discover",
     "rust-analyzer.procMacro.enable": true,
-
     // Use rustup-managed rust-analyzer instead of bundled one
     // "rust-analyzer.server.path": "rustup",
     // "rust-analyzer.server.extraEnv": {
