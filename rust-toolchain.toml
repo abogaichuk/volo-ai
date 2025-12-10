@@ -1,0 +1,5 @@
+[toolchain]
+# doesn't work with vscode rust-analyzer
+channel = "nightly"
+#  channel = "stable"
+components = ["rustfmt", "clippy", "rust-analyzer"]

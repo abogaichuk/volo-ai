@@ -1,12 +1,16 @@
-use serde::{Serialize, Deserialize};
-use screeps::{game, RoomName};
-use smallvec::SmallVec;
 use std::collections::HashMap;
-use crate::{
-    rooms::{RoomEvent, shelter::Shelter, state::requests::{Assignment, CreepHostile, Meta, Status}},
-    units::{creeps::CreepMemory, roles::{Role, combat::defender::Defender}},
-    commons::find_roles
-};
+
+use screeps::{RoomName, game};
+use serde::{Deserialize, Serialize};
+use smallvec::SmallVec;
+
+use crate::commons::find_roles;
+use crate::rooms::RoomEvent;
+use crate::rooms::shelter::Shelter;
+use crate::rooms::state::requests::{Assignment, CreepHostile, Meta, Status};
+use crate::units::creeps::CreepMemory;
+use crate::units::roles::Role;
+use crate::units::roles::combat::defender::Defender;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct DefendData {
@@ -16,11 +20,11 @@ pub struct DefendData {
 }
 
 impl DefendData {
-    pub fn new(room_name: RoomName) -> Self {
+    pub const fn new(room_name: RoomName) -> Self {
         Self { room_name, hostiles: Vec::new() }
     }
 
-    pub fn with_hostiles(room_name: RoomName, hostiles: Vec<CreepHostile>) -> Self {
+    pub const fn with_hostiles(room_name: RoomName, hostiles: Vec<CreepHostile>) -> Self {
         Self { room_name, hostiles }
     }
 }
@@ -28,9 +32,9 @@ impl DefendData {
 pub(in crate::rooms::state::requests) fn defend_handler(
     data: &DefendData,
     meta: &mut Meta,
-    assignment: &mut Assignment,
+    _assignment: &mut Assignment,
     home: &Shelter,
-    creeps: &HashMap<String, CreepMemory>
+    creeps: &HashMap<String, CreepMemory>,
 ) -> SmallVec<[RoomEvent; 3]> {
     let mut events: SmallVec<[RoomEvent; 3]> = SmallVec::new();
     if meta.created_at + 1500 > game::time() {
@@ -45,13 +49,13 @@ pub(in crate::rooms::state::requests) fn defend_handler(
                     0..=2 if alive_number == 0 => 1,
                     3 | 4 if alive_number < 2 => 2 - alive_number,
                     5.. if alive_number < 3 => 3 - alive_number,
-                    _ => 0
+                    _ => 0,
                 };
 
                 if additional > 0 {
                     events.push(RoomEvent::Spawn(defender, additional));
                 }
-            }, 
+            }
             Status::InProgress if meta.updated_at + 450 < game::time() => {
                 let defender = Role::Defender(Defender::new(Some(home.name())));
                 let alive_number = find_roles(&defender, home.spawn_queue(), creeps);
@@ -60,15 +64,15 @@ pub(in crate::rooms::state::requests) fn defend_handler(
                     0..=2 if alive_number == 0 => 2 - alive_number,
                     3 | 4 if alive_number < 2 => 3 - alive_number,
                     5.. if alive_number < 3 => 4 - alive_number,
-                    _ => 0
+                    _ => 0,
                 };
 
                 if additional > 0 {
                     events.push(RoomEvent::Spawn(defender, additional));
                 }
-            },
+            }
             _ => {}
-        };
+        }
     } else {
         meta.update(Status::Aborted);
     }

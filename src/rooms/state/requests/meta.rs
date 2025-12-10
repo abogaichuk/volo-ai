@@ -1,5 +1,5 @@
-use serde::{Serialize, Deserialize};
 use screeps::game;
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Meta {
@@ -17,18 +17,14 @@ impl Meta {
         self.updated_at = game::time();
     }
 
-    pub fn is_finished(&self) -> bool {
+    pub const fn is_finished(&self) -> bool {
         matches!(self.status, Status::Resolved | Status::Aborted)
     }
 }
 
 impl Default for Meta {
     fn default() -> Self {
-        Self {
-            status: Status::Created,
-            created_at: game::time(),
-            updated_at: game::time()
-        }
+        Self { status: Status::Created, created_at: game::time(), updated_at: game::time() }
     }
 }
 

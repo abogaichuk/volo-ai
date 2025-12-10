@@ -1,20 +1,42 @@
+use std::collections::HashMap;
+use std::fmt::{self, Display, Formatter};
+
 use arrayvec::ArrayVec;
-use serde::{Serialize, Deserialize};
-use screeps::{RoomName, ResourceType, Part, Creep};
-use std::{collections::HashMap, fmt::{self, Display, Formatter}};
+use enum_dispatch::enum_dispatch;
+use screeps::{Creep, Part, ResourceType, RoomName};
+use serde::{Deserialize, Serialize};
+
+use self::combat::defender::Defender;
+use self::combat::destroyer::Destroyer;
+use self::combat::fighter::Fighter;
+use self::combat::guard::Guard;
+use self::combat::overseer::Overseer;
+use self::haulers::carrier::Carrier;
+use self::haulers::hauler::Hauler;
+use self::miners::miner::Miner;
+use self::miners::mineral_miner::MineralMiner;
+use self::miners::sk_miner::SKMiner;
+use self::services::booker::Booker;
+use self::services::conqueror::Conqueror;
+use self::services::dh::DismantlerWithHeal;
+use self::services::dismantler::Dismantler;
+use self::services::handyman::HandyMan;
+use self::services::house_keeper::HouseKeeper;
+use self::services::puller::Puller;
+use self::services::remote_upgrader::RemoteUpgrader;
+use self::services::scout::Scout;
+use self::services::trader::Trader;
+use self::services::upgrader::Upgrader;
+use self::teams::com_d::ComDismantler;
+use self::teams::com_h::ComHealer;
+use self::teams::dep_hauler::DepositHauler;
+use self::teams::dep_miner::DepositMiner;
+use self::teams::pb_a::PBAttacker;
+use self::teams::pb_c::PBCarrier;
+use self::teams::pb_h::PBHealer;
+use super::Task;
 // use crate::creeps::{Home, roles::services::booker::Booker};
 use crate::{movement::MovementProfile, rooms::shelter::Shelter};
-use super::{Task};
-use enum_dispatch::enum_dispatch;
-use self::{
-    combat::{defender::Defender, destroyer::Destroyer, fighter::Fighter, guard::Guard, overseer::Overseer},
-    haulers::{carrier::Carrier, hauler::Hauler},
-    miners::{miner::Miner, mineral_miner::MineralMiner, sk_miner::SKMiner},
-    services::{conqueror::Conqueror, booker::Booker, dh::DismantlerWithHeal, dismantler::Dismantler, handyman::HandyMan, puller::Puller,
-        house_keeper::HouseKeeper, scout::Scout, trader::Trader, upgrader::Upgrader, remote_upgrader::RemoteUpgrader},
-    teams::{com_d::ComDismantler, com_h::ComHealer, dep_hauler::DepositHauler, dep_miner::DepositMiner,
-        pb_a::PBAttacker, pb_c::PBCarrier, pb_h::PBHealer}
-};
 
 pub mod combat;
 pub mod haulers;
@@ -24,7 +46,9 @@ pub mod teams;
 
 #[enum_dispatch]
 pub trait Kind {
-    fn boosts(&self, _: &Creep) -> HashMap<Part, [ResourceType; 2]> { HashMap::new() }
+    fn boosts(&self, _: &Creep) -> HashMap<Part, [ResourceType; 2]> {
+        HashMap::new()
+    }
 
     fn get_movement_profile(&self, creep: &Creep) -> MovementProfile;
 
@@ -32,49 +56,51 @@ pub trait Kind {
         Task::Idle(10)
     }
 
-    fn respawn_timeout(&self, _: Option<&Creep>) -> Option<u32> { None }
+    fn respawn_timeout(&self, _: Option<&Creep>) -> Option<usize> {
+        None
+    }
 
     fn body(&self, room_energy: u32) -> ArrayVec<[Part; 50]>;
 }
 
-fn can_scale(mut body: ArrayVec<[Part; 50]>, body_extension: Vec<Part>, room_energy: u32, scale_limit: usize) -> bool {
+fn can_scale(
+    mut body: ArrayVec<[Part; 50]>,
+    body_extension: Vec<Part>,
+    room_energy: u32,
+    scale_limit: usize,
+) -> bool {
     if body.len() + body_extension.len() > scale_limit {
         false
     } else {
         body.extend(body_extension);
-        body
-            .iter()
+        body.iter()
             .map(|part| part.cost())
             .reduce(|acc, e| acc + e)
             .is_some_and(|cost| cost < room_energy)
     }
 }
 
-fn default_parts_priority(part: Part) -> i8 {
+const fn default_parts_priority(part: Part) -> i8 {
     match part {
         Part::Tough => 0,
         Part::Carry => 1,
-        Part::Work => 2,
-        Part::Claim => 2,
+        Part::Work | Part::Claim => 2,
         Part::Move => 3,
-        Part::RangedAttack => 4,
-        Part::Attack => 4,
+        Part::RangedAttack | Part::Attack => 4,
         Part::Heal => 10,
-        _ => 5
+        _ => 5,
     }
 }
 
-fn pvp_parts_priority(part: Part) -> i8 {
+const fn pvp_parts_priority(part: Part) -> i8 {
     match part {
         Part::Tough => 0,
-        Part::Work => 1,
-        Part::Claim => 1,
+        Part::Work | Part::Claim => 1,
         Part::Carry => 2,
-        Part::RangedAttack => 4,
-        Part::Attack => 4,
+        Part::RangedAttack | Part::Attack => 4,
         Part::Move => 7,
         Part::Heal => 10,
-        _ => 5
+        _ => 5,
     }
 }
 
@@ -110,11 +136,11 @@ pub enum Role {
     CombatHealer(ComHealer),
     Destroyer(Destroyer),
     DismantlerWithHeal(DismantlerWithHeal),
-    Fighter(Fighter)
+    Fighter(Fighter),
 }
 
 impl Role {
-    pub fn set_home(&mut self, home: RoomName) {
+    pub const fn set_home(&mut self, home: RoomName) {
         match self {
             Role::Upgrader(r) => r.home = Some(home),
             Role::RemoteUpgrader(r) => r.home = Some(home),
@@ -143,11 +169,11 @@ impl Role {
             Role::CombatHealer(r) => r.home = Some(home),
             Role::Destroyer(r) => r.home = Some(home),
             Role::DismantlerWithHeal(r) => r.home = Some(home),
-            Role::Fighter(r) => r.home = Some(home)
+            Role::Fighter(r) => r.home = Some(home),
         }
     }
 
-    pub fn get_home(&self) -> Option<&RoomName> {
+    pub const fn get_home(&self) -> Option<&RoomName> {
         match self {
             Role::Upgrader(r) => r.home.as_ref(),
             Role::RemoteUpgrader(r) => r.home.as_ref(),
@@ -177,33 +203,23 @@ impl Role {
             Role::CombatHealer(r) => r.home.as_ref(),
             Role::Destroyer(r) => r.home.as_ref(),
             Role::DismantlerWithHeal(r) => r.home.as_ref(),
-            Role::Fighter(r) => r.home.as_ref()
+            Role::Fighter(r) => r.home.as_ref(),
         }
     }
 
     //todo add invaded role priority
     /// The higher the more important
-    pub fn role_priority(&self) -> i8 {
+    pub const fn role_priority(&self) -> i8 {
         match self {
             Role::Guard(_) => 9,
             Role::Hauler(_) => 8,
             Role::Miner(_) => 7,
             Role::Defender(_) => 6,
-            // Role::Hauler(_) => 6,
             Role::Trader(_) => 5,
-            Role::Overseer(_) => 4,
-            Role::Upgrader(_) => 4,
-            Role::PBAttacker(_) => 4,
-            Role::PBHealer(_) => 4,
-            Role::DepositMiner(_) => 4,
-            Role::PBCarrier(_) => 3,
-            Role::DepositHauler(_) => 3,
-            Role::SkMiner(_) => 2,
-            Role::Booker(_) => 2,
-            Role::HouseKeeper(_) => 2,
-            Role::Carrier(_) => 1,
-            Role::Dismantler(_) => 1,
-            Role::Puller(_) => 1,
+            Role::Overseer(_) | Role::Upgrader(_) | Role::PBAttacker(_) | Role::PBHealer(_) | Role::DepositMiner(_) => 4,
+            Role::PBCarrier(_) | Role::DepositHauler(_) => 3,
+            Role::SkMiner(_) | Role::Booker(_) | Role::HouseKeeper(_) => 2,
+            Role::Carrier(_) | Role::Dismantler(_) | Role::Puller(_) => 1,
             Role::Scout(_) => -1,
             _ => 0,
         }
@@ -249,6 +265,6 @@ impl Display for Role {
             Role::SkMiner(_) => "sk_miner",
             Role::Fighter(_) => "fighter",
         };
-        write!(f, "{}", name)
+        write!(f, "{name}")
     }
 }

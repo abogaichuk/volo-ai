@@ -1,6 +1,6 @@
 use screeps::{
-    Position, RawObjectId, Transferable, StructureExtension, StructureTower,
-    StructureSpawn, ResourceType, HasPosition, HasId
+    HasId, HasPosition, Position, RawObjectId, ResourceType, StructureExtension, StructureSpawn,
+    StructureTower, Transferable,
 };
 
 pub mod claimed;
@@ -26,7 +26,7 @@ impl Fillable for StructureExtension {
     fn as_transferable(&self) -> &dyn Transferable {
         self
     }
-    
+
     fn free_capacity(&self) -> i32 {
         self.store().get_free_capacity(Some(ResourceType::Energy))
     }

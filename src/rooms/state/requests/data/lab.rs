@@ -1,14 +1,16 @@
 use std::cmp;
 
-use log::*;
-use serde::{Serialize, Deserialize};
-use screeps::{ResourceType, StructureLab, action_error_codes::RunReactionErrorCode, game};
+use log::{error, warn};
+use screeps::action_error_codes::RunReactionErrorCode;
+use screeps::{ResourceType, StructureLab, game};
+use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
-use crate::{
-    rooms::{RoomEvent, state::requests::{Meta, Status}, wrappers::claimed::Claimed},
-    utils::constants::MIN_CARRY_REQUEST_AMOUNT
-};
 use thiserror::Error;
+
+use crate::rooms::RoomEvent;
+use crate::rooms::state::requests::{Meta, Status};
+use crate::rooms::wrappers::claimed::Claimed;
+use crate::utils::constants::MIN_CARRY_REQUEST_AMOUNT;
 
 const LAB_PRODUCTION: u32 = 5;
 
@@ -17,7 +19,7 @@ pub enum LabError {
     #[error("not found: {0}")]
     NotFound(ResourceType),
     #[error("is not empty")]
-    IsNotEmpty
+    IsNotEmpty,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -27,20 +29,20 @@ pub struct LabData {
 }
 
 impl LabData {
-    pub fn new(resource: ResourceType, amount: u32) -> Self {
+    pub const fn new(resource: ResourceType, amount: u32) -> Self {
         Self { resource, amount }
     }
 }
 
+#[allow(clippy::similar_names)]
 pub(in crate::rooms::state::requests) fn lab_handler(
     data: &mut LabData,
     meta: &mut Meta,
-    home: &Claimed
+    home: &Claimed,
 ) -> SmallVec<[RoomEvent; 3]> {
-
     let mut events: SmallVec<[RoomEvent; 3]> = SmallVec::new();
 
-    let (inputs, outputs)= home.production_labs();
+    let (inputs, outputs) = home.production_labs();
 
     if inputs.len() != 2 {
         warn!("{} labs didn't set!", home.get_name());
@@ -61,14 +63,13 @@ pub(in crate::rooms::state::requests) fn lab_handler(
                         .filter(|o| o.cooldown() == 0)
                     {
                         match output.run_reaction(input1, input2) {
-                            Ok(_) => {
+                            Ok(()) => {
                                 if LAB_PRODUCTION > data.amount {
                                     meta.update(Status::Resolved);
                                     break;
-                                } else {
-                                    data.amount -= LAB_PRODUCTION;
-                                    meta.update(Status::InProgress);
                                 }
+                                data.amount -= LAB_PRODUCTION;
+                                meta.update(Status::InProgress);
                             }
                             Err(err) => {
                                 match err {
@@ -118,7 +119,7 @@ pub(in crate::rooms::state::requests) fn lab_handler(
                                         error!("lab error: {:?}", err);
                                         meta.update(Status::Aborted);
                                     }
-                                };
+                                }
                                 break;
                             }
                         }
@@ -130,10 +131,13 @@ pub(in crate::rooms::state::requests) fn lab_handler(
             }
         }
         Status::OnHold => {
-            if  inputs.iter().all(|lab| data.resource.reaction_components()
-                .is_some_and(|components| components.iter()
-                    .any(|component| lab.store().get_used_capacity(Some(*component)) >= LAB_PRODUCTION)))
-            {
+            if inputs.iter().all(|lab| {
+                data.resource.reaction_components().is_some_and(|components| {
+                    components.iter().any(|component| {
+                        lab.store().get_used_capacity(Some(*component)) >= LAB_PRODUCTION
+                    })
+                })
+            }) {
                 // if all labs loaded -> toogle to InProgress
                 meta.update(Status::InProgress);
             } else if meta.updated_at + 50 < game::time() {
@@ -147,7 +151,12 @@ pub(in crate::rooms::state::requests) fn lab_handler(
     events
 }
 
-fn try_supply(home: &Claimed, lab: &StructureLab, res: ResourceType, amount: u32) -> Result<RoomEvent, LabError> {
+fn try_supply(
+    home: &Claimed,
+    lab: &StructureLab,
+    res: ResourceType,
+    amount: u32,
+) -> Result<RoomEvent, LabError> {
     if lab.store().get_used_capacity(Some(res)) < LAB_PRODUCTION {
         home.load_lab(lab, (res, amount)).ok_or(LabError::NotFound(res))
     } else {

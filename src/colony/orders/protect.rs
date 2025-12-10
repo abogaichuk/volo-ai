@@ -1,10 +1,8 @@
-use std::{
-    fmt,
-    hash::{Hash, Hasher},
-};
+use std::fmt;
+use std::hash::{Hash, Hasher};
 
+use screeps::{RoomName, game};
 use serde::{Deserialize, Serialize};
-use screeps::{game, RoomName};
 
 #[derive(Serialize, Deserialize, Eq)]
 pub(crate) struct ProtectOrder {
@@ -16,12 +14,7 @@ pub(crate) struct ProtectOrder {
 
 impl ProtectOrder {
     pub(crate) fn new(target: RoomName, ctrl_lvl: u8) -> Self {
-        Self {
-            room: None,
-            target,
-            ctrl_lvl,
-            timeout: game::time() + 1500,
-        }
+        Self { room: None, target, ctrl_lvl, timeout: game::time() + 1500 }
     }
 }
 

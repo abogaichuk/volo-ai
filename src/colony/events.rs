@@ -1,15 +1,24 @@
-use log::*;
-use serde::{Deserialize, Serialize};
-use std::{cmp::Reverse, collections::{BTreeMap, HashMap}};
-use screeps::{Deposit, ObjectId, Position, RawObjectId, ResourceType, RoomName, StructurePowerBank, game};
+use std::cmp::Reverse;
+use std::collections::{BTreeMap, HashMap};
 
-use crate::{colony::orders::{CaravanOrder, DepositOrder, PowerbankOrder, ProtectOrder, ResourceOrder, WithdrawOrder}, resources::{chain_config::factory_chain_config, lack_handler_for}, statistics::RoomStats, utils::constants::AVOID_HOSTILE_ROOM_TIMEOUT};
+use log::{info, warn};
+use screeps::{
+    Deposit, ObjectId, Position, RawObjectId, ResourceType, RoomName, StructurePowerBank, game,
+};
+use serde::{Deserialize, Serialize};
 
 use super::{
-    less_cga, less_power, most_ctrl_lvl, most_money, prefered_room, Assignment, CaravanData, Claimed,
-    ColonyOrder, DepositData, GlobalState, LRWData, Movement, PowerbankData, ProtectData, Request,
-    RequestKind, TransferData,
+    Assignment, CaravanData, Claimed, ColonyOrder, DepositData, GlobalState, LRWData, Movement,
+    PowerbankData, ProtectData, Request, RequestKind, TransferData, less_cga, less_power,
+    most_ctrl_lvl, most_money, prefered_room,
 };
+use crate::colony::orders::{
+    CaravanOrder, DepositOrder, PowerbankOrder, ProtectOrder, ResourceOrder, WithdrawOrder,
+};
+use crate::resources::chain_config::factory_chain_config;
+use crate::resources::lack_handler_for;
+use crate::statistics::RoomStats;
+use crate::utils::constants::AVOID_HOSTILE_ROOM_TIMEOUT;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum ColonyEvent {
@@ -24,7 +33,7 @@ pub enum ColonyEvent {
     Withdraw(RawObjectId, Position, ResourceType, u32),
     Notify(String, Option<u32>),
     Stats(RoomName, RoomStats),
-    BlackList(String)
+    BlackList(String),
 }
 
 pub(crate) struct ColonyContext<'a> {
@@ -33,37 +42,30 @@ pub(crate) struct ColonyContext<'a> {
     warehouse: Option<(RoomName, u8)>,
 }
 
-impl <'a> ColonyContext<'a> {
+impl<'a> ColonyContext<'a> {
     pub(super) fn new(movement: Movement, bases: &'a HashMap<RoomName, Claimed>) -> Self {
         let warehouse = bases
             .values()
-            .map(|base| (base.get_name(), base.factory()
-                .map(|f| f.level())
-                .unwrap_or_default()))
+            .map(|base| (base.get_name(), base.factory().map(screeps::StructureFactory::level).unwrap_or_default()))
             .min_by_key(|(_, lvl)| Reverse(*lvl));
 
-        Self {
-            movement,
-            bases,
-            warehouse,
-        }
+        Self { movement, bases, warehouse }
     }
 
-    pub fn bases(&self) -> &HashMap<RoomName, Claimed> {
+    pub const fn bases(&self) -> &HashMap<RoomName, Claimed> {
         self.bases
     }
 
     fn find_base_by_factory_level(&self, res: ResourceType) -> Option<RoomName> {
-        factory_chain_config(res)
-            .map(|config| config.random_chain().f_lvl)
-            .and_then(|f_lvl| self.bases.iter()
-                .find_map(|(room_name, base)| {
-                    if base.factory().is_some_and(|f| f.level() == f_lvl) {
-                        Some(*room_name)
-                    } else {
-                        None
-                    }
-                }))
+        factory_chain_config(res).map(|config| config.random_chain().f_lvl).and_then(|f_lvl| {
+            self.bases.iter().find_map(|(room_name, base)| {
+                if base.factory().is_some_and(|f| f.level() == f_lvl) {
+                    Some(*room_name)
+                } else {
+                    None
+                }
+            })
+        })
     }
 }
 
@@ -81,17 +83,21 @@ impl ColonyEvent {
             }
             ColonyEvent::Caravan(creeps, from) => {
                 let order = ColonyOrder::Caravan(CaravanOrder::new(creeps, from));
-                if let Some(existed) = state.orders.take(&order) &&
-                    let ColonyOrder::Caravan(mut caravan_order) = existed
+                if let Some(existed) = state.orders.take(&order)
+                    && let ColonyOrder::Caravan(mut caravan_order) = existed
                 {
                     if let Some((base_name, ambush)) =
                         caravan_order.catch_caravan(from, bases, movement)
                     {
                         info!("caravan will be catched in: {}, by: {}", ambush, base_name);
                         caravan_order.room = Some(base_name);
-                        state.add_request(base_name, Request::new(
-                            RequestKind::Caravan(CaravanData::new(ambush)),
-                            Assignment::Single(None)));
+                        state.add_request(
+                            base_name,
+                            Request::new(
+                                RequestKind::Caravan(CaravanData::new(ambush)),
+                                Assignment::Single(None),
+                            ),
+                        );
                     }
                     state.orders.insert(ColonyOrder::Caravan(caravan_order));
                 } else {
@@ -99,12 +105,13 @@ impl ColonyEvent {
                 }
             }
             ColonyEvent::Expansion(room_name, ctrl_lvl, username, safe_mode) => {
-                if ctrl_lvl < 7 && !safe_mode && username
-                    .is_some_and(|u| state.black_list.contains(&u))
+                if ctrl_lvl < 7
+                    && !safe_mode
+                    && username.is_some_and(|u| state.black_list.contains(&u))
                 {
                     let mut order = ColonyOrder::Protect(ProtectOrder::new(room_name, ctrl_lvl));
-                    if !state.orders.contains(&order) &&
-                        let Some((base_name, _)) =
+                    if !state.orders.contains(&order)
+                        && let Some((base_name, _)) =
                             prefered_room(room_name, movement, bases.values(), most_ctrl_lvl)
                     {
                         if let ColonyOrder::Protect(protect_order) = &mut order {
@@ -115,7 +122,9 @@ impl ColonyEvent {
                             base_name,
                             Request::new(
                                 RequestKind::Protect(ProtectData::new(room_name, ctrl_lvl)),
-                                Assignment::Single(None)));
+                                Assignment::Single(None),
+                            ),
+                        );
                     }
                 } else {
                     state.avoid_rooms.insert(room_name, game::time() + AVOID_HOSTILE_ROOM_TIMEOUT);
@@ -123,8 +132,8 @@ impl ColonyEvent {
             }
             ColonyEvent::Deposit(id, pos, empty_cells) => {
                 let mut order = ColonyOrder::Deposit(DepositOrder::new(id, pos, empty_cells));
-                if !state.orders.contains(&order) &&
-                    let Some((base_name, _)) =
+                if !state.orders.contains(&order)
+                    && let Some((base_name, _)) =
                         prefered_room(pos.room_name(), movement, bases.values(), most_money)
                 {
                     if let ColonyOrder::Deposit(deposit_order) = &mut order {
@@ -135,20 +144,22 @@ impl ColonyEvent {
                         base_name,
                         Request::new(
                             RequestKind::Deposit(DepositData::new(id, pos, empty_cells)),
-                            Assignment::Squads(Vec::new())));
+                            Assignment::Squads(Vec::new()),
+                        ),
+                    );
                 }
             }
             ColonyEvent::Powerbank(id, pos, amount) => {
                 let mut order = ColonyOrder::Powerbank(PowerbankOrder::new(id, pos, amount));
-                if !state.orders.contains(&order) &&
-                    let Some((base_name, _)) =
+                if !state.orders.contains(&order)
+                    && let Some((base_name, _)) =
                         prefered_room(pos.room_name(), movement, bases.values(), less_power)
                 {
                     if let ColonyOrder::Powerbank(powerbank_order) = &mut order {
                         powerbank_order.room = Some(base_name);
                     }
                     state.orders.insert(order);
-                    
+
                     let pb_data = if state.postponed_farms.contains(&pos.room_name()) {
                         PowerbankData::postponed(id, pos, amount)
                     } else {
@@ -159,13 +170,16 @@ impl ColonyEvent {
                         base_name,
                         Request::new(
                             RequestKind::Powerbank(pb_data),
-                            Assignment::Squads(Vec::new())));
+                            Assignment::Squads(Vec::new()),
+                        ),
+                    );
                 }
             }
             ColonyEvent::Withdraw(id, pos, resource, amount) => {
-                let mut order = ColonyOrder::Withdraw(WithdrawOrder::new(id, pos, resource, amount));
-                if !state.orders.contains(&order) &&
-                    let Some((base_name, _)) =
+                let mut order =
+                    ColonyOrder::Withdraw(WithdrawOrder::new(id, pos, resource, amount));
+                if !state.orders.contains(&order)
+                    && let Some((base_name, _)) =
                         prefered_room(pos.room_name(), movement, bases.values(), less_cga)
                 {
                     if let ColonyOrder::Withdraw(withdraw_order) = &mut order {
@@ -176,13 +190,16 @@ impl ColonyEvent {
                         base_name,
                         Request::new(
                             RequestKind::LongRangeWithdraw(LRWData::new(id, pos, resource, amount)),
-                            Assignment::Single(None)));
+                            Assignment::Single(None),
+                        ),
+                    );
                 }
             }
             ColonyEvent::Excess(from, resource, amount) => {
                 let mut excess_order = ResourceOrder::new(from, resource, amount);
                 if !state.orders.contains(&ColonyOrder::Excess(excess_order.clone())) {
-                    if let Some(to_room) = context.find_base_by_factory_level(resource)
+                    if let Some(to_room) = context
+                        .find_base_by_factory_level(resource)
                         .or_else(|| context.warehouse.map(|w| w.0))
                         .filter(|rn| *rn != from)
                     {
@@ -192,8 +209,10 @@ impl ColonyEvent {
                                 resource,
                                 amount,
                                 to_room,
-                                Some(format!("colony assigned from: {}, to: {}", from, to_room)))),
-                            Assignment::None);
+                                Some(format!("colony assigned from: {from}, to: {to_room}")),
+                            )),
+                            Assignment::None,
+                        );
                         info!("{} excess {}:{} transfer_to: {}", from, resource, amount, to_room);
                         state.add_request(from, transfer_request);
                     } else {
@@ -206,8 +225,7 @@ impl ColonyEvent {
             ColonyEvent::Lack(from, resource, amount) => {
                 let mut lack_order = ResourceOrder::new(from, resource, amount);
                 if !state.orders.contains(&ColonyOrder::Lack(lack_order.clone())) {
-                    if let Some(lack_result) =
-                        lack_handler_for(resource)(resource, amount, context)
+                    if let Some(lack_result) = lack_handler_for(resource)(resource, amount, context)
                     {
                         lack_order.to = Some(lack_result.room_name());
                         let transfer_request = Request::new(
@@ -215,9 +233,21 @@ impl ColonyEvent {
                                 resource,
                                 lack_result.amount(),
                                 from,
-                                Some(format!("colony assigned, sender: {} dest: {}", lack_result.room_name(), from)))),
-                            Assignment::None);
-                        info!("sender: {}, res {}:{} to: {}", lack_result.room_name(), resource, lack_result.amount(), from);
+                                Some(format!(
+                                    "colony assigned, sender: {} dest: {}",
+                                    lack_result.room_name(),
+                                    from
+                                )),
+                            )),
+                            Assignment::None,
+                        );
+                        info!(
+                            "sender: {}, res {}:{} to: {}",
+                            lack_result.room_name(),
+                            resource,
+                            lack_result.amount(),
+                            from
+                        );
                         state.add_request(lack_result.room_name(), transfer_request);
                     } else {
                         info!("{} on low: {}:{}", from, resource, amount);
@@ -231,8 +261,8 @@ impl ColonyEvent {
             ColonyEvent::BlackList(username) => {
                 state.black_list.insert(username);
             }
-            ColonyEvent::Stats(name, stats) => {
-                let _ = state.statistic.update(name, stats);
+            ColonyEvent::Stats(name, room_stat) => {
+                let _ = state.statistic.update(name, room_stat);
             }
         }
     }

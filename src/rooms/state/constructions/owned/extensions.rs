@@ -1,13 +1,11 @@
-use screeps::RoomXY;
-use itertools::Itertools;
 use std::collections::HashMap;
+
+use itertools::Itertools;
+use screeps::RoomXY;
+
 use crate::rooms::state::constructions::{PlannedCell, RoomPart, RoomPlan, RoomStructure};
 
-pub fn plan(
-    cross_road: RoomXY,
-    grid: &HashMap<RoomXY, RoomPart>,
-    plan: &mut RoomPlan)
-{
+pub fn plan(cross_road: RoomXY, grid: &HashMap<RoomXY, RoomPart>, plan: &mut RoomPlan) {
     let occupied = plan.occupied();
 
     plan.add_cells(
@@ -34,6 +32,6 @@ pub fn plan(
                 } else {
                     None
                 }
-            })
+            }),
     );
 }

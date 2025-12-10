@@ -1,9 +1,11 @@
 use std::fmt::{Display, Formatter};
 
-use serde::{Serialize, Deserialize};
-use screeps::{game, RawObjectId, ResourceType};
-use smallvec::{smallvec, SmallVec};
-use crate::rooms::{RoomEvent, state::requests::{Meta, Status, Assignment}};
+use screeps::{RawObjectId, ResourceType, game};
+use serde::{Deserialize, Serialize};
+use smallvec::{SmallVec, smallvec};
+
+use crate::rooms::RoomEvent;
+use crate::rooms::state::requests::{Assignment, Meta, Status};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CarryData {
@@ -14,26 +16,30 @@ pub struct CarryData {
 }
 
 impl CarryData {
-    pub fn new(from: RawObjectId, to: RawObjectId, resource: ResourceType, amount: u32) -> Self {
+    pub const fn new(from: RawObjectId, to: RawObjectId, resource: ResourceType, amount: u32) -> Self {
         Self { from, to, resource, amount }
     }
 }
 
 impl Display for CarryData {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
-        write!(f, "res: {}, amount: {}, from: {}, to: {}", self.resource, self.amount, self.from, self.to)
+        write!(
+            f,
+            "res: {}, amount: {}, from: {}, to: {}",
+            self.resource, self.amount, self.from, self.to
+        )
     }
 }
 
 pub(in crate::rooms::state::requests) fn carry_handler(
     meta: &mut Meta,
-    assignment: &mut Assignment
+    assignment: &mut Assignment,
 ) -> SmallVec<[RoomEvent; 3]> {
     match meta.status {
-        Status::InProgress if game::time() % 100 == 0 && !assignment.has_alive_members() => {
-                meta.update(Status::Created);
-                *assignment = Assignment::Single(None);
-            }
+        Status::InProgress if game::time().is_multiple_of(100) && !assignment.has_alive_members() => {
+            meta.update(Status::Created);
+            *assignment = Assignment::Single(None);
+        }
         _ => {}
     }
     smallvec![]

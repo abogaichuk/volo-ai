@@ -1,29 +1,35 @@
-use log::*;
-use serde::{Deserialize, Serialize};
-use screeps::{
-    game::{self, map::get_room_linear_distance},
-    raw_memory, ResourceType, RoomName,
-};
-use crate::{
-    movement::Movement, rooms::{
-        register_rooms,
-        state::{
-            FarmStatus, RoomState, requests::{
-                CaravanData, DepositData, LRWData, PowerbankData, ProtectData, Request, RequestKind, TransferData, assignment::Assignment
-            }
-        },
-        wrappers::claimed::Claimed,
-    }, statistics::Statistic, units::{creeps::{CreepMemory, run_creeps}, power_creep::{PowerCreepMemory, run_power_creeps}, roles::Kind}, utils::constants::MAX_POWER_CAPACITY
-};
-use std::{collections::{HashMap, HashSet}, iter::once};
+use std::collections::{HashMap, HashSet};
+use std::iter::once;
+
 use js_sys::JsString;
+use log::{debug, info, error, warn};
+use screeps::game::map::get_room_linear_distance;
+use screeps::game::{self};
+use screeps::{ResourceType, RoomName, raw_memory};
+use serde::{Deserialize, Serialize};
+
+use crate::movement::Movement;
+use crate::rooms::register_rooms;
+use crate::rooms::state::requests::assignment::Assignment;
+use crate::rooms::state::requests::{
+    CaravanData, DepositData, LRWData, PowerbankData, ProtectData, Request, RequestKind,
+    TransferData,
+};
+use crate::rooms::state::{FarmStatus, RoomState};
+use crate::rooms::wrappers::claimed::Claimed;
+use crate::statistics::Statistic;
+use crate::units::creeps::{CreepMemory, run_creeps};
+use crate::units::power_creep::{PowerCreepMemory, run_power_creeps};
+use crate::units::roles::Kind;
+use crate::utils::constants::MAX_POWER_CAPACITY;
 
 pub mod events;
 mod orders;
 
-pub use events::ColonyEvent;
-use crate::colony::orders::ColonyOrder;
 use events::ColonyContext;
+pub use events::ColonyEvent;
+
+use crate::colony::orders::ColonyOrder;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct GlobalState {
@@ -61,7 +67,7 @@ impl Default for GlobalState {
             orders: HashSet::new(),
             statistic: Statistic::default(),
             white_list: HashSet::new(),
-            black_list: HashSet::new()
+            black_list: HashSet::new(),
         }
     }
 }
@@ -69,10 +75,7 @@ impl Default for GlobalState {
 impl GlobalState {
     pub fn run_tick(&mut self) {
         let orders = game::market::get_all_orders(None);
-        let (mut homes, neutrals) = register_rooms(
-            &mut self.rooms,
-            &self.white_list
-        );
+        let (mut homes, neutrals) = register_rooms(&mut self.rooms, &self.white_list);
 
         let mut events = Vec::new();
         for home in homes.values_mut() {
@@ -81,17 +84,17 @@ impl GlobalState {
             debug!("{} run_base for {} cpu!", home.name(), game::cpu::get_used() - cpu_start);
         }
 
-        events.extend(neutrals.into_iter()
-            .flat_map(|neutral| neutral.run_room()));
+        events.extend(neutrals.into_iter().flat_map(|neutral| neutral.run_room()));
 
-        let owned_rooms: Vec<RoomName> = homes.iter()
-            .flat_map(|(room_name, home)| home.get_farms()
-                .chain(once(*room_name)))
+        let owned_rooms: Vec<RoomName> = homes
+            .iter()
+            .flat_map(|(room_name, home)| home.get_farms().chain(once(*room_name)))
             .collect();
 
         let mut movement = Movement::new(&self.avoid_rooms, owned_rooms);
-        //creeps are running after rooms to avoid case when creep has solved and removed a room request
-        // but the room doesn't know it yet and creates a new one
+        //creeps are running after rooms to avoid case when creep has solved and
+        // removed a room request but the room doesn't know it yet and creates a
+        // new one
         let cpu_start = game::cpu::get_used();
         run_power_creeps(&mut self.power_creeps, &mut homes, &mut movement);
         debug!("run_power_creeps {} cpu!", game::cpu::get_used() - cpu_start);
@@ -102,19 +105,17 @@ impl GlobalState {
 
         movement.swap_move();
 
-        let bases: HashMap<RoomName, Claimed> = homes.into_iter()
-            .map(|(name, home)| (name, home.base()))
-            .collect();
+        let bases: HashMap<RoomName, Claimed> =
+            homes.into_iter().map(|(name, home)| (name, home.base())).collect();
 
         let context = ColonyContext::new(movement, &bases);
         for event in events {
             event.assign(self, &context);
         }
 
-        if game::time() % 100 == 0 {
+        if game::time().is_multiple_of(100) {
             self.update_avoid_rooms();
             self.orders.retain(|order| game::time() < order.timeout());
-            // self.update_statistics(Statistic::new(self, &bases));
         }
         self.gc();
     }
@@ -137,31 +138,27 @@ impl GlobalState {
 
     fn set_farm_for(&mut self, base: RoomName, farm: RoomName, status: FarmStatus) {
         debug!("set_farm_for :{}, farm_room: {}", base, farm);
-        self.rooms.entry(base)
-            .and_modify(|room_state| {
-                room_state.farms.entry(farm)
-                    .and_modify(|farm_room| { farm_room.update_status(status); })
-                    .or_default();
-            });
+        self.rooms.entry(base).and_modify(|room_state| {
+            room_state
+                .farms
+                .entry(farm)
+                .and_modify(|farm_room| {
+                    farm_room.update_status(status);
+                })
+                .or_default();
+        });
     }
 
     fn add_request(&mut self, to: RoomName, request: Request) {
         debug!("add_request to :{}, request: {:?}", to, request);
-        self.rooms.entry(to)
-            .and_modify(|room_state| {
-                room_state.requests.insert(request);
-            });
+        self.rooms.entry(to).and_modify(|room_state| {
+            room_state.requests.insert(request);
+        });
     }
 
     fn update_avoid_rooms(&mut self) {
         let time = game::time();
-        self.avoid_rooms.retain(|_, v| {
-            *v > time
-        });
-    }
-
-    fn update_statistics(&mut self, stats: Statistic) {
-        self.statistic = stats;
+        self.avoid_rooms.retain(|_, v| *v > time);
     }
 
     pub fn load_or_default() -> GlobalState {
@@ -171,7 +168,7 @@ impl GlobalState {
             Ok(v) => {
                 info!("v: {:?}", v);
                 v
-            },
+            }
             Err(e) => {
                 error!("memory parse error, using default: {:?}", e);
                 GlobalState::default()
@@ -192,22 +189,21 @@ impl GlobalState {
     }
 
     fn gc(&mut self) {
-        self
-            .creeps
-            .retain(|name, mem| {
-                if game::creeps().get(name.to_string()).is_some() {
-                    true
-                } else if !mem.respawned && mem.role.respawn_timeout(None).is_some() {
-                    mem.respawned = true;
-                    let _ = mem.role.get_home()
-                        .map(|home| self.rooms.entry(*home)
-                            .and_modify(|room_state|
-                                room_state.add_to_spawn(mem.role.clone(), 1)));
-                    false
-                } else {
-                    false
-                }
-            });
+        self.creeps.retain(|name, mem| {
+            if game::creeps().get(name.clone()).is_some() {
+                true
+            } else if !mem.respawned && mem.role.respawn_timeout(None).is_some() {
+                mem.respawned = true;
+                let _ = mem.role.get_home().map(|home| {
+                    self.rooms
+                        .entry(*home)
+                        .and_modify(|room_state| room_state.add_to_spawn(mem.role.clone(), 1))
+                });
+                false
+            } else {
+                false
+            }
+        });
     }
 }
 
@@ -219,16 +215,25 @@ fn prefered_room<'a, F, I>(
 ) -> Option<(RoomName, usize)>
 where
     I: IntoIterator<Item = &'a Claimed>,
-    F: for<'b> FnMut(Option<(&'b Claimed, usize)>, (&'b Claimed, usize)) -> Option<(&'b Claimed, usize)>,
+    F: for<'b> FnMut(
+        Option<(&'b Claimed, usize)>,
+        (&'b Claimed, usize),
+    ) -> Option<(&'b Claimed, usize)>,
 {
-    bases.into_iter()
-        .filter(|base|
-            base.storage().is_some() &&
-            get_room_linear_distance(base.get_name(), target_room, false) < 4)
+    bases
+        .into_iter()
+        .filter(|base| {
+            base.storage().is_some()
+                && get_room_linear_distance(base.get_name(), target_room, false) < 4
+        })
         .filter_map(|base| {
-            match game::map::find_route(base.get_name(), target_room, Some(movement.get_find_route_options())) {
+            match game::map::find_route(
+                base.get_name(),
+                target_room,
+                Some(movement.get_find_route_options()),
+            ) {
                 Ok(steps) => Some((base, steps.len())),
-                _ => None
+                _ => None,
             }
         })
         .filter(|(_, distance)| *distance < 5)
@@ -241,9 +246,11 @@ fn less_cga<'a>(
     second: (&'a Claimed, usize),
 ) -> Option<(&'a Claimed, usize)> {
     if let Some(first_storage) = first.and_then(|base| base.0.storage()) {
-        let f_cap = first_storage.store().get_used_capacity(Some(ResourceType::CatalyzedGhodiumAcid));
+        let f_cap =
+            first_storage.store().get_used_capacity(Some(ResourceType::CatalyzedGhodiumAcid));
         if let Some(second_storage) = second.0.storage() {
-            let s_cap = second_storage.store().get_used_capacity(Some(ResourceType::CatalyzedGhodiumAcid));
+            let s_cap =
+                second_storage.store().get_used_capacity(Some(ResourceType::CatalyzedGhodiumAcid));
             if f_cap < s_cap { first } else { Some(second) }
         } else {
             first
@@ -261,20 +268,17 @@ fn less_power<'a>(
 ) -> Option<(&'a Claimed, usize)> {
     if let Some(first_storage) = first.and_then(|(base, _)| base.storage()) {
         if let Some(second_storage) = second.0.storage() {
-            let f_cap = first_storage.store().get_used_capacity(Some(ResourceType::CatalyzedGhodiumAcid));
+            let f_cap =
+                first_storage.store().get_used_capacity(Some(ResourceType::CatalyzedGhodiumAcid));
             let s_cap = second_storage.store().get_used_capacity(Some(ResourceType::Power));
-            if s_cap >= MAX_POWER_CAPACITY || f_cap < s_cap {
-                first
-            } else {
-                Some(second)
-            }
+            if s_cap >= MAX_POWER_CAPACITY || f_cap < s_cap { first } else { Some(second) }
         } else {
             first
         }
-    } else if second.0.storage()
-        .is_some_and(|storage| storage.store().get_used_capacity(Some(ResourceType::Power)) < MAX_POWER_CAPACITY)
-    {
-        Some(second)    
+    } else if second.0.storage().is_some_and(|storage| {
+        storage.store().get_used_capacity(Some(ResourceType::Power)) < MAX_POWER_CAPACITY
+    }) {
+        Some(second)
     } else {
         None
     }
@@ -313,7 +317,7 @@ fn most_ctrl_lvl<'a>(
 
             let f_cap = first_storage.store().get_used_capacity(Some(ResourceType::Energy));
             let s_cap = second_storage.store().get_used_capacity(Some(ResourceType::Energy));
-            if f_cap > s_cap { first } else { Some(second) }        
+            if f_cap > s_cap { first } else { Some(second) }
         } else {
             first
         }

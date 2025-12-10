@@ -1,22 +1,29 @@
-use log::*;
-use std::{collections::{HashMap, HashSet}, hash::Hash, rc::Rc};
-use serde::{Serialize, Deserialize};
-use screeps::{
-    CostMatrix, Creep, FindPathOptions, HasPosition, Path, PowerCreep, RoomName,
-    RoomPosition, RoomXY, Step, action_error_codes::SayErrorCode,
-    constants::Direction, game::map::FindRouteOptions, local::Position,
-    pathfinder::{MultiRoomCostResult, SearchGoal, SearchOptions, SearchResults, SingleRoomCostResult},
-    visual::{LineDrawStyle, PolyStyle, RoomVisual}
-};
-use crate::{
-    movement::callback::{PathOptions, SingleRoomCallback},
-    utils::constants::{HEURISTIC_WEIGHT, MAX_OPS},
-    commons::{capture_room_parts, is_skr, is_highway, get_room_regex}
-};
+use std::collections::{HashMap, HashSet};
+use std::hash::Hash;
+use std::rc::Rc;
 
+use log::debug;
+use screeps::action_error_codes::SayErrorCode;
+use screeps::constants::Direction;
+use screeps::game::map::FindRouteOptions;
+use screeps::local::Position;
+use screeps::pathfinder::{
+    MultiRoomCostResult, SearchGoal, SearchOptions, SearchResults, SingleRoomCostResult,
+};
+use screeps::visual::{LineDrawStyle, PolyStyle, RoomVisual};
+use screeps::{
+    CostMatrix, Creep, FindPathOptions, HasPosition, Path, PowerCreep, RoomName, RoomPosition,
+    RoomXY, Step,
+};
+use serde::{Deserialize, Serialize};
+
+use crate::commons::{capture_room_parts, get_room_regex, is_highway, is_skr};
+use crate::movement::callback::{PathOptions, SingleRoomCallback};
+use crate::utils::constants::{HEURISTIC_WEIGHT, MAX_OPS};
+
+pub mod callback;
 mod goal;
 mod path_state;
-pub mod callback;
 pub mod walker;
 
 pub use goal::{MovementGoal, MovementGoalBuilder};
@@ -41,60 +48,62 @@ pub enum MovementProfile {
 
 impl MovementProfile {
     pub fn search_options(
-        &self,
+        self,
         options: PathOptions,
         flee: bool,
-        max_rooms: u8) -> Option<MultiRoomSearchOptions>
-    {
+        max_rooms: u8,
+    ) -> Option<MultiRoomSearchOptions> {
         match self {
-            MovementProfile::SwampFiveToOne => {
-                Some(SearchOptions::new(callback::prefer_swamp_callback(options))
+            MovementProfile::SwampFiveToOne => Some(
+                SearchOptions::new(callback::prefer_swamp_callback(options))
                     .max_ops(MAX_OPS)
                     .max_rooms(max_rooms)
                     .swamp_cost(1)
                     .flee(flee)
-                    .heuristic_weight(HEURISTIC_WEIGHT)
-                )
-            },
-            MovementProfile::PlainsOneToOne => {
-                Some(SearchOptions::new(callback::prefer_plain_callback(options))
+                    .heuristic_weight(HEURISTIC_WEIGHT),
+            ),
+            MovementProfile::PlainsOneToOne => Some(
+                SearchOptions::new(callback::prefer_plain_callback(options))
                     .max_ops(MAX_OPS)
                     .max_rooms(max_rooms)
                     .swamp_cost(4)
                     .flee(flee)
-                    .heuristic_weight(HEURISTIC_WEIGHT)
-                )
-            },
-            MovementProfile::RoadsOneToTwo => {
-                Some(SearchOptions::new(callback::prefer_roads_callback(options))
+                    .heuristic_weight(HEURISTIC_WEIGHT),
+            ),
+            MovementProfile::RoadsOneToTwo => Some(
+                SearchOptions::new(callback::prefer_roads_callback(options))
                     .max_ops(MAX_OPS)
                     .max_rooms(max_rooms)
                     .plain_cost(2)
                     .swamp_cost(10)
                     .flee(flee)
-                    .heuristic_weight(HEURISTIC_WEIGHT)
-                )
-            },
-            MovementProfile::Cargo => None
+                    .heuristic_weight(HEURISTIC_WEIGHT),
+            ),
+            MovementProfile::Cargo => None,
         }
     }
 }
 
 pub struct Movement {
-    idle_creeps:HashMap<Position, MovableUnit>,
-    moving_creeps:HashMap<Position, Direction>,
+    idle_creeps: HashMap<Position, MovableUnit>,
+    moving_creeps: HashMap<Position, Direction>,
     //store Fn instead of FnMut because Rc gives a cheap clones and shared (&) access
     room_callback: Rc<dyn Fn(RoomName, RoomName) -> f64 + 'static>,
 }
 
 impl Movement {
-
     pub fn new(avoid_rooms: &HashMap<RoomName, u32>, owned: Vec<RoomName>) -> Self {
         let callback = find_route_callback(avoid_rooms, owned);
-        Self { idle_creeps: HashMap::new(), moving_creeps: HashMap::new(), room_callback: Rc::new(callback) }
+        Self {
+            idle_creeps: HashMap::new(),
+            moving_creeps: HashMap::new(),
+            room_callback: Rc::new(callback),
+        }
     }
 
-    pub fn get_find_route_options(&self) -> FindRouteOptions<Box<dyn FnMut(RoomName, RoomName) -> f64 + 'static>> {
+    pub fn get_find_route_options(
+        &self,
+    ) -> FindRouteOptions<Box<dyn FnMut(RoomName, RoomName) -> f64 + 'static>> {
         let cb = Rc::clone(&self.room_callback);
 
         // Wrap into a Box<dyn FnMut..> to satisfy the generic parameter F.
@@ -110,27 +119,31 @@ impl Movement {
 
     pub fn swap_move(&self) {
         // look for idle creeps where we actively have creeps saying they intend to move
-        for (dest_pos, moving_direction) in self.moving_creeps.iter() {
+        for (dest_pos, moving_direction) in &self.moving_creeps {
             if let Some(creep) = self.idle_creeps.get(dest_pos) {
                 let backward_direction = -*moving_direction;
                 creep.move_direction(backward_direction);
-                let _ = creep.say(format!("{}", backward_direction).as_str(), true);
+                let _ = creep.say(format!("{backward_direction}").as_str(), true);
             }
         }
     }
 
-    pub fn move_creep(&mut self, unit: MovableUnit, mut path_state: PathState) -> Option<PathState> {
+    pub fn move_creep(
+        &mut self,
+        unit: MovableUnit,
+        mut path_state: PathState,
+    ) -> Option<PathState> {
         let current_position = unit.position();
 
         if cfg!(feature = "path-visuals") {
             let mut points = vec![];
             let mut cursor_pos = current_position;
-            for step in path_state.path[path_state.path_progress..].iter() {
+            for step in &path_state.path[path_state.path_progress..] {
                 cursor_pos = cursor_pos + *step;
                 if cursor_pos.room_name() != current_position.room_name() {
                     break;
                 }
-                points.push((cursor_pos.x().u8() as f32, cursor_pos.y().u8() as f32));
+                points.push((f32::from(cursor_pos.x().u8()), f32::from(cursor_pos.y().u8())));
             }
             RoomVisual::new(Some(current_position.room_name())).poly(
                 points,
@@ -145,7 +158,8 @@ impl Movement {
             );
         }
 
-        // debug!("creep: {}, progress: {} path: {:?} ", creep.name(), path_state.path_progress, path_state.path);
+        // debug!("creep: {}, progress: {} path: {:?} ", creep.name(),
+        // path_state.path_progress, path_state.path);
         match path_state.path.get(path_state.path_progress) {
             Some(direction) => {
                 // do the actual move in the intended direction
@@ -158,19 +172,15 @@ impl Movement {
                 // moving_creeps.insert(current_position + *direction, *direction);
                 self.moving_creeps.insert(current_position + *direction, *direction);
                 Some(path_state)
-            },
-            None => None
+            }
+            None => None,
         }
     }
 }
 
-pub fn find_path_in_room<C>(
-    from: RoomPosition,
-    to: RoomXY,
-    range: u32,
-    callback: C
-) -> Vec<Step>
-    where C: FnMut(RoomName, CostMatrix) -> SingleRoomCostResult
+pub fn find_path_in_room<C>(from: RoomPosition, to: RoomXY, range: u32, callback: C) -> Vec<Step>
+where
+    C: FnMut(RoomName, CostMatrix) -> SingleRoomCostResult,
 {
     let fpo = FindPathOptions::<SingleRoomCallback, SingleRoomCostResult>::new()
         .cost_callback(callback)
@@ -181,16 +191,17 @@ pub fn find_path_in_room<C>(
 
     match from.find_path_to_xy(to.x, to.y, Some(fpo)) {
         Path::Vectorized(v) => v,
-        Path::Serialized(_) => Vec::new() //todo deserialize
+        Path::Serialized(_) => Vec::new(), //todo deserialize
     }
 }
 
 pub fn find_many_in_room<C>(
     from: Position,
     goals: impl Iterator<Item = SearchGoal>,
-    callback: C
+    callback: C,
 ) -> SearchResults
-    where C: FnMut(RoomName) -> MultiRoomCostResult
+where
+    C: FnMut(RoomName) -> MultiRoomCostResult,
 {
     let options = SearchOptions::new(callback)
         .max_ops(2000) //default value, could be reduced
@@ -201,13 +212,9 @@ pub fn find_many_in_room<C>(
     screeps::pathfinder::search_many(from, goals, Some(options))
 }
 
-pub fn find_path<C>(
-    from: Position,
-    goal: Position,
-    range: u32,
-    callback: C
-) -> SearchResults
-    where C: FnMut(RoomName) -> MultiRoomCostResult
+pub fn find_path<C>(from: Position, goal: Position, range: u32, callback: C) -> SearchResults
+where
+    C: FnMut(RoomName) -> MultiRoomCostResult,
 {
     let options = SearchOptions::new(callback)
         .max_ops(2000) //default value, could be reduced
@@ -221,9 +228,10 @@ pub fn find_path<C>(
 pub fn find_many<C>(
     from: Position,
     goals: impl Iterator<Item = SearchGoal>,
-    callback: C
+    callback: C,
 ) -> SearchResults
-    where C: FnMut(RoomName) -> MultiRoomCostResult
+where
+    C: FnMut(RoomName) -> MultiRoomCostResult,
 {
     let options = SearchOptions::new(callback)
         .max_ops(2000) //default value, could be reduced
@@ -234,15 +242,21 @@ pub fn find_many<C>(
     screeps::pathfinder::search_many(from, goals, Some(options))
 }
 
-fn find_route_callback(avoid_rooms: &HashMap<RoomName, u32>, owned: Vec<RoomName>) -> impl Fn(RoomName, RoomName) -> f64 + 'static {
-    let avoid_keys: HashSet<RoomName> = avoid_rooms.keys().cloned().collect();
+fn find_route_callback(
+    avoid_rooms: &HashMap<RoomName, u32>,
+    owned: Vec<RoomName>,
+) -> impl Fn(RoomName, RoomName) -> f64 + 'static {
+    let avoid_keys: HashSet<RoomName> = avoid_rooms.keys().copied().collect();
     let re = get_room_regex();
 
     move |to_room: RoomName, _from_room: RoomName| {
         if avoid_keys.contains(&to_room) {
             f64::MAX
         } else if let Some((f_mod, s_mod)) = capture_room_parts(&re, to_room) {
-            debug!("find_route callback -> room: {}, f_cap_mod: {}, s_cap_mod: {}", to_room, f_mod, s_mod);
+            debug!(
+                "find_route callback -> room: {}, f_cap_mod: {}, s_cap_mod: {}",
+                to_room, f_mod, s_mod
+            );
             if is_highway(f_mod, s_mod) || owned.contains(&to_room) {
                 1.
             } else if is_skr(f_mod, s_mod) {
@@ -299,4 +313,3 @@ impl From<PowerCreep> for MovableUnit {
         MovableUnit::Power(pc)
     }
 }
-

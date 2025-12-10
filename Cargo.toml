@@ -2,7 +2,7 @@
 name = "volo-ai"
 version = "0.0.1"
 authors = []
-edition = "2021"
+edition = "2024"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
@@ -45,7 +45,7 @@ lto = true
 # -O4 - optimize aggressively for performance
 # -Oz - optimize aggressively for code size
 # -g - leave debug info in place, allowing for more descriptive stack traces on panic
-# --signext-lowering - removes opcodes that the screeps servers can't load (see 
+# --signext-lowering - removes opcodes that the screeps servers can't load (see
 # https://github.com/rustyscreeps/screeps-game-api/issues/391)
 # wasm-opt = ["-O4", "--signext-lowering"]
 wasm-opt = ["-O4", "--disable-sign-ext"]
@@ -56,3 +56,14 @@ default = ["mmo", "path-visuals"]
 path-visuals = []
 sim = ["screeps-game-api/sim"]
 mmo = ["screeps-game-api/mmo"]
+
+# https://rust-lang.github.io/rust-clippy/master/index.html#lint-groups
+# https://rust-lang.github.io/rust-clippy/master/#configuration
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+needless_pass_by_value = "allow"
+too_many_lines = "allow"
+unused_self = "allow"
+enum_glob_use = "allow"
+# nursery = "warn"

@@ -1,10 +1,8 @@
-use std::{
-    fmt,
-    hash::{Hash, Hasher},
-};
+use std::fmt;
+use std::hash::{Hash, Hasher};
 
+use screeps::{ObjectId, Position, RoomName, StructurePowerBank, game};
 use serde::{Deserialize, Serialize};
-use screeps::{game, ObjectId, Position, RoomName, StructurePowerBank};
 
 #[derive(Serialize, Deserialize, Eq)]
 pub(crate) struct PowerbankOrder {
@@ -17,13 +15,7 @@ pub(crate) struct PowerbankOrder {
 
 impl PowerbankOrder {
     pub(crate) fn new(id: ObjectId<StructurePowerBank>, pos: Position, amount: u32) -> Self {
-        Self {
-            room: None,
-            id,
-            pos,
-            amount,
-            timeout: game::time() + 5000,
-        }
+        Self { room: None, id, pos, amount, timeout: game::time() + 5000 }
     }
 }
 

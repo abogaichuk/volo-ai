@@ -5,18 +5,20 @@ mod protect;
 mod resource;
 mod withdraw;
 
+use std::hash::{Hash, Hasher};
+
 pub(crate) use caravan::CaravanOrder;
 pub(crate) use deposit::DepositOrder;
 pub(crate) use powerbank::PowerbankOrder;
 pub(crate) use protect::ProtectOrder;
 pub(crate) use resource::ResourceOrder;
+use serde::{Deserialize, Serialize};
 pub(crate) use withdraw::WithdrawOrder;
 
-use serde::{Deserialize, Serialize};
-use std::hash::{Hash, Hasher};
-
-//todo different flows for send boost resources forced or not(for instance when base is attacked or not)
-// initially check for excess resources - if not for compressed resources if not - craft by yourself, if need urgently - send what it has
+//todo different flows for send boost resources forced or not(for instance when
+// base is attacked or not) initially check for excess resources - if not for
+// compressed resources if not - craft by yourself, if need urgently - send what
+// it has
 #[derive(Debug, Serialize, Deserialize)]
 pub(crate) enum ColonyOrder {
     Powerbank(PowerbankOrder),
@@ -29,7 +31,7 @@ pub(crate) enum ColonyOrder {
 }
 
 impl ColonyOrder {
-    pub(crate) fn timeout(&self) -> u32 {
+    pub(crate) const fn timeout(&self) -> u32 {
         match self {
             ColonyOrder::Powerbank(p) => p.timeout,
             ColonyOrder::Deposit(d) => d.timeout,

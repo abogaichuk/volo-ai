@@ -1,8 +1,10 @@
-use serde::{Serialize, Deserialize};
-use std::{collections::HashSet, fmt::{Display, Formatter}};
-use screeps::game;
-use super::{Meta, Status, RequestError};
+use std::collections::HashSet;
+use std::fmt::{Display, Formatter};
 
+use screeps::game;
+use serde::{Deserialize, Serialize};
+
+use super::{Meta, RequestError, Status};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum Assignment {
@@ -13,11 +15,10 @@ pub enum Assignment {
     /// Many doers in one pool
     Multi(HashSet<String>),
     /// Sequential squads
-    Squads(Vec<Squad>)
+    Squads(Vec<Squad>),
 }
 
 impl Assignment {
-
     //creep name or squad name
     pub(super) fn has_member(&self, name: &str) -> bool {
         match self {
@@ -32,28 +33,25 @@ impl Assignment {
         match self {
             Assignment::Squads(squads) => {
                 let squad_index = squads.len() + 1;
-                let squad_id = format!("{}_{}", id_part, squad_index);
+                let squad_id = format!("{id_part}_{squad_index}");
 
-                let squad = Squad {
-                    id: squad_id.clone(),
-                    members: HashSet::new()
-                };
+                let squad = Squad { id: squad_id.clone(), members: HashSet::new() };
 
-                squads.extend_one(squad);
+                squads.push(squad);
                 meta.status = Status::InProgress;
                 meta.updated_at = game::time();
                 Some(squad_id)
-            },
-            _ => None
+            }
+            _ => None,
         }
     }
 
     pub fn squads_members(&self, squad_id: &str) -> Option<HashSet<String>> {
         match self {
-            Assignment::Squads(squads) => squads.iter()
-                .find(|squad| squad.id == *squad_id)
-                .map(|squad| squad.members.clone()),
-            _ => None
+            Assignment::Squads(squads) => {
+                squads.iter().find(|squad| squad.id == *squad_id).map(|squad| squad.members.clone())
+            }
+            _ => None,
         }
     }
 
@@ -65,48 +63,51 @@ impl Assignment {
             Assignment::Squads(squads) => squads.iter().any(|s| !s.members.is_empty()),
         }
     }
-    
+
     pub fn has_alive_members(&self) -> bool {
         match self {
             Assignment::None => false,
-            Assignment::Single(slot) => slot.as_ref()
-                .is_some_and(|doer| game::creeps().get(doer.to_string()).is_some()),
-            Assignment::Multi(set) => set.iter()
-                .any(|doer| game::creeps().get(doer.to_string()).is_some()),
-            Assignment::Squads(squads) => squads.iter()
-                .any(|s| s.members.iter()
-                    .any(|member| game::creeps().get(member.clone()).is_some())),
+            Assignment::Single(slot) => {
+                slot.as_ref().is_some_and(|doer| game::creeps().get(doer.clone()).is_some())
+            }
+            Assignment::Multi(set) => {
+                set.iter().any(|doer| game::creeps().get(doer.clone()).is_some())
+            }
+            Assignment::Squads(squads) => squads.iter().any(|s| {
+                s.members.iter().any(|member| game::creeps().get(member.clone()).is_some())
+            }),
         }
     }
 
     pub fn drop(&mut self, doer: String, squad_id: Option<&str>) -> Result<(), RequestError> {
         match self {
             Assignment::None => Ok(()),
-            Assignment::Single(slot) => {
-                match slot {
-                    None => Ok(()),
-                    Some(by) => {
-                        if *by == doer {
-                            Ok(())
-                        } else {
-                            Err(RequestError::InvalidAssignment(
-                                format!("doer {} is not working on Assignment::Single({})", doer, by)))
-                        }
+            Assignment::Single(slot) => match slot {
+                None => Ok(()),
+                Some(by) => {
+                    if *by == doer {
+                        Ok(())
+                    } else {
+                        Err(RequestError::InvalidAssignment(format!(
+                            "doer {doer} is not working on Assignment::Single({by})"
+                        )))
                     }
                 }
-            }
+            },
             Assignment::Multi(set) => {
                 if set.remove(&doer) {
                     Ok(())
                 } else {
-                    Err(RequestError::InvalidAssignment(
-                        format!("doer {} is not working on Assignment::Multi({:?})", doer, set)))
+                    Err(RequestError::InvalidAssignment(format!(
+                        "doer {doer} is not working on Assignment::Multi({set:?})"
+                    )))
                 }
             }
             Assignment::Squads(squads) => {
-                let id = match squad_id {
-                    Some(id) => id,
-                    None => return Err(RequestError::InvalidAssignment("can't drop None from Assignment::Squad".to_string())),
+                let Some(id) = squad_id else {
+                    return Err(RequestError::InvalidAssignment(
+                        "can't drop None from Assignment::Squad".to_string(),
+                    ));
                 };
 
                 if let Some(index) = squads.iter().position(|s| s.id == id) {
@@ -118,55 +119,67 @@ impl Assignment {
                     }
                     Ok(())
                 } else {
-                    Err(RequestError::InvalidAssignment(format!("squad id {} not found!", id)))
+                    Err(RequestError::InvalidAssignment(format!("squad id {id} not found!")))
                 }
             }
         }
     }
 
-    pub fn try_join(&mut self, doer: Option<String>, squad_id: Option<&str>) -> Result<(), RequestError> {
+    pub fn try_join(
+        &mut self,
+        doer: Option<String>,
+        squad_id: Option<&str>,
+    ) -> Result<(), RequestError> {
         match self {
             Assignment::None => {
                 if let Some(d) = doer {
-                    Err(RequestError::InvalidAssignment(format!("doer {} can't be assigned to None", d)))
+                    Err(RequestError::InvalidAssignment(format!(
+                        "doer {d} can't be assigned to None"
+                    )))
                 } else if let Some(s) = squad_id {
-                    Err(RequestError::InvalidAssignment(format!("squad_id {} can't be assigned to None", s)))
+                    Err(RequestError::InvalidAssignment(format!(
+                        "squad_id {s} can't be assigned to None"
+                    )))
                 } else {
                     Ok(())
                 }
-            },
-            Assignment::Single(slot) => {
-                match doer {
-                    None => Err(RequestError::InvalidAssignment("None can't be assigned to Assignment::Single".to_string())),
-                    Some(d) => {
-                        match slot {
-                            None => {
-                                *slot = Some(d);
-                                Ok(())
-                            }
-                            Some(by) => {
-                                if *by == d {
-                                    Ok(())
-                                } else {
-                                    Err(RequestError::AssignmentBusy(d, Assignment::Single(Some(by.clone()))))
-                                }
-                            }
+            }
+            Assignment::Single(slot) => match doer {
+                None => Err(RequestError::InvalidAssignment(
+                    "None can't be assigned to Assignment::Single".to_string(),
+                )),
+                Some(d) => match slot {
+                    None => {
+                        *slot = Some(d);
+                        Ok(())
+                    }
+                    Some(by) => {
+                        if *by == d {
+                            Ok(())
+                        } else {
+                            Err(RequestError::AssignmentBusy(
+                                d,
+                                Assignment::Single(Some(by.clone())),
+                            ))
                         }
                     }
-                }
-            }
+                },
+            },
             Assignment::Multi(set) => {
                 if let Some(d) = doer {
                     set.insert(d);
                     Ok(())
                 } else {
-                    Err(RequestError::InvalidAssignment("None can't be assigned to Assignment::Multi".to_string()))
+                    Err(RequestError::InvalidAssignment(
+                        "None can't be assigned to Assignment::Multi".to_string(),
+                    ))
                 }
-            },
+            }
             Assignment::Squads(squads) => {
-                let id = match squad_id {
-                    Some(id) => id,
-                    None => return Err(RequestError::InvalidAssignment("None can't be assigned to Assignment::Squad".to_string())),
+                let Some(id) = squad_id else {
+                    return Err(RequestError::InvalidAssignment(
+                        "None can't be assigned to Assignment::Squad".to_string(),
+                    ));
                 };
 
                 if let Some(squad) = squads.iter_mut().find(|s| s.id == id) {
@@ -175,7 +188,9 @@ impl Assignment {
                             squad.members.insert(d);
                             Ok(())
                         }
-                        None => Err(RequestError::InvalidAssignment("None can't be assigned to Assignment::Squad".to_string()))
+                        None => Err(RequestError::InvalidAssignment(
+                            "None can't be assigned to Assignment::Squad".to_string(),
+                        )),
                     }
                 } else {
                     Err(RequestError::InvalidSquadId(id.to_string()))
@@ -213,9 +228,9 @@ impl Display for Assignment {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         match self {
             Assignment::None => write!(f, "None"),
-            Assignment::Single(name) => write!(f, "Single({:?})", name),
-            Assignment::Multi(names) => write!(f, "Multi({:?})", names),
-            Assignment::Squads(squads) => write!(f, "Squads({:?})", squads),
+            Assignment::Single(name) => write!(f, "Single({name:?})"),
+            Assignment::Multi(names) => write!(f, "Multi({names:?})"),
+            Assignment::Squads(squads) => write!(f, "Squads({squads:?})"),
         }
     }
 }

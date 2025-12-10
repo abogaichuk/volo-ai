@@ -1,6 +1,7 @@
-use serde::{Serialize, Deserialize};
-use screeps::{Position};
-use smallvec::{smallvec, SmallVec};
+use screeps::Position;
+use serde::{Deserialize, Serialize};
+use smallvec::{SmallVec, smallvec};
+
 use crate::rooms::RoomEvent;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -10,7 +11,7 @@ pub struct PullData {
 }
 
 impl PullData {
-    pub fn new(creep_name: String, destination: Position) -> Self {
+    pub const fn new(creep_name: String, destination: Position) -> Self {
         Self { creep_name, destination }
     }
 }

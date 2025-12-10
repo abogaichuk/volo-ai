@@ -1,15 +1,21 @@
-use log::*;
+use log::warn;
 use screeps::{
-    ConstructionSite, Creep, HasPosition, ObjectId, Position, ResourceType, Part,
-    SharedCreepProperties
-};
-use crate::{
-    units::{Task, TaskResult, roles::Role, with_parts},
-    movement::walker::Walker,
-    utils::constants::LONG_RANGE_ACTION
+    ConstructionSite, Creep, HasPosition, ObjectId, Part, Position, ResourceType,
+    SharedCreepProperties,
 };
 
-pub fn build(id: Option<ObjectId<ConstructionSite>>, pos: Position, creep: &Creep, role: &Role, hostiles: Vec<Creep>) -> TaskResult {
+use crate::movement::walker::Walker;
+use crate::units::roles::Role;
+use crate::units::{Task, TaskResult, with_parts};
+use crate::utils::constants::LONG_RANGE_ACTION;
+
+pub fn build(
+    id: Option<ObjectId<ConstructionSite>>,
+    pos: Position,
+    creep: &Creep,
+    role: &Role,
+    hostiles: Vec<Creep>,
+) -> TaskResult {
     let attackers = with_parts(hostiles, vec![Part::Attack, Part::RangedAttack]);
     if creep.store().get_used_capacity(Some(ResourceType::Energy)) == 0 {
         TaskResult::Abort
@@ -23,7 +29,7 @@ pub fn build(id: Option<ObjectId<ConstructionSite>>, pos: Position, creep: &Cree
             let goal = Walker::Reinforcing.walk(pos, LONG_RANGE_ACTION, creep, role, attackers);
             TaskResult::StillWorking(Task::Build(id, pos), Some(goal))
         }
-    } else if let Some(cs) = id.and_then(|id| id.resolve()) {
+    } else if let Some(cs) = id.and_then(screeps::ObjectId::resolve) {
         if creep.pos().in_range_to(pos, LONG_RANGE_ACTION) {
             let _ = creep.say("🛠︎", false);
             let _ = creep.build(&cs);

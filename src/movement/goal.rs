@@ -1,18 +1,19 @@
-use log::*;
-
-use screeps::{
-    game::map, local::{Position, RoomName}, pathfinder::SearchResults, RoomXY
-};
-use crate::{
-    movement::{callback::PathOptions, MovementProfile},
-    utils::commons::is_cpu_on_low,
-    utils::constants::*,
-};
 use std::collections::HashSet;
-use serde::{Serialize, Deserialize};
 
-// struct for specifying where a creep wants to move and the options the pathfinder
-// will need to know to get them there
+use log::{warn, debug};
+use screeps::RoomXY;
+use screeps::game::map;
+use screeps::local::{Position, RoomName};
+use screeps::pathfinder::SearchResults;
+use serde::{Deserialize, Serialize};
+
+use crate::movement::MovementProfile;
+use crate::movement::callback::PathOptions;
+use crate::utils::commons::is_cpu_on_low;
+use crate::utils::constants::MAX_ROOMS;
+
+// struct for specifying where a creep wants to move and the options the
+// pathfinder will need to know to get them there
 #[derive(Eq, PartialEq, Hash, Debug, Clone, Serialize, Deserialize)]
 pub struct MovementGoal {
     pub pos: Position,
@@ -29,42 +30,45 @@ pub struct MovementGoalBuilder {
     profile: MovementProfile,
     avoid_creeps: bool,
     flee: bool,
-    danger_zones: Option<(RoomName, Vec<RoomXY>)>
+    danger_zones: Option<(RoomName, Vec<RoomXY>)>,
 }
 
 impl MovementGoalBuilder {
-    pub fn new(pos: Position) -> Self {
+    pub const fn new(pos: Position) -> Self {
         Self {
             pos,
             range: 0,
             profile: MovementProfile::RoadsOneToTwo,
             avoid_creeps: false,
             flee: false,
-            danger_zones: None
+            danger_zones: None,
         }
     }
 
-    pub fn range(mut self, range: u32) -> MovementGoalBuilder {
+    pub const fn range(mut self, range: u32) -> MovementGoalBuilder {
         self.range = range;
         self
     }
 
-    pub fn profile(mut self, profile: MovementProfile) -> MovementGoalBuilder {
+    pub const fn profile(mut self, profile: MovementProfile) -> MovementGoalBuilder {
         self.profile = profile;
         self
     }
 
-    pub fn danger_zones(mut self, danger_zones: Option<(RoomName, Vec<RoomXY>)>) -> MovementGoalBuilder {
+    pub fn danger_zones(
+        mut self,
+        danger_zones: Option<(RoomName, Vec<RoomXY>)>,
+    ) -> MovementGoalBuilder {
         self.danger_zones = danger_zones;
         self
     }
 
-    pub fn avoid_creeps(mut self, avoid_creeps: bool) -> MovementGoalBuilder {
+    pub const fn avoid_creeps(mut self, avoid_creeps: bool) -> MovementGoalBuilder {
         self.avoid_creeps = avoid_creeps;
         self
     }
 
-    pub fn flee(mut self) -> MovementGoalBuilder {
+    pub const fn flee(mut self) -> MovementGoalBuilder {
         self.flee = true;
         self
     }
@@ -79,13 +83,12 @@ impl MovementGoalBuilder {
             profile: self.profile,
             avoid_creeps: self.avoid_creeps,
             flee: self.flee,
-            danger_zones: self.danger_zones
+            danger_zones: self.danger_zones,
         }
     }
 }
 
 impl MovementGoal {
-
     pub fn repath_needed(&self, previous_goal: &MovementGoal) -> bool {
         //check for avoid creep is excessive here, because of stuck count handle this
         self.danger_zones != previous_goal.danger_zones || self.profile != previous_goal.profile
@@ -102,8 +105,8 @@ impl MovementGoal {
     pub fn find_path(
         &self,
         from_position: Position,
-        route_options: map::FindRouteOptions<impl FnMut(RoomName, RoomName) -> f64>) -> Option<SearchResults>
-    {
+        route_options: map::FindRouteOptions<impl FnMut(RoomName, RoomName) -> f64>,
+    ) -> Option<SearchResults> {
         //todo increase max rooms for flee case?
         let (max_rooms, allowed_rooms) = if from_position.room_name() == self.pos.room_name() {
             (1, HashSet::new())
@@ -120,14 +123,14 @@ impl MovementGoal {
                 // flee: self.flee,
                 avoid_creeps: self.avoid_creeps,
                 danger_zones: self.danger_zones.clone(),
-                allowed_rooms
+                allowed_rooms,
             };
-        
+
             Some(screeps::pathfinder::search(
                 from_position,
                 self.pos,
                 self.range,
-                self.profile.search_options(options, self.flee, max_rooms)
+                self.profile.search_options(options, self.flee, max_rooms),
             ))
         }
     }
@@ -135,26 +138,25 @@ impl MovementGoal {
     pub fn find_route(
         &self,
         from_room: RoomName,
-        route_options: map::FindRouteOptions<impl FnMut(RoomName, RoomName) -> f64>) -> HashSet<RoomName>
-    {
-        let mut allowed_rooms = match map::find_route(
-            from_room,
-            self.pos.room_name(),
-            Some(route_options)) {
-                Ok(steps) => {
-                    steps.into_iter()
-                        .map(|step| step.room)
-                        .collect()
-                }
+        route_options: map::FindRouteOptions<impl FnMut(RoomName, RoomName) -> f64>,
+    ) -> HashSet<RoomName> {
+        let mut allowed_rooms =
+            match map::find_route(from_room, self.pos.room_name(), Some(route_options)) {
+                Ok(steps) => steps.into_iter().map(|step| step.room).collect(),
                 Err(e) => {
                     warn!("can't find high level route: {:?}", e);
                     HashSet::new()
                 }
-        };
+            };
         allowed_rooms.insert(from_room);
         allowed_rooms.insert(self.pos.room_name());
-    
-        debug!("find route from: {}, to: {}, allowed_rooms: {:?}", from_room, self.pos.room_name(), allowed_rooms);
+
+        debug!(
+            "find route from: {}, to: {}, allowed_rooms: {:?}",
+            from_room,
+            self.pos.room_name(),
+            allowed_rooms
+        );
         allowed_rooms
     }
 
@@ -181,4 +183,3 @@ mod tests {
     //     assert!(zones1 == zones2)
     // }
 }
-

@@ -1,10 +1,11 @@
-use screeps::{RoomXY, Direction};
 use std::cmp::min;
+
+use screeps::{Direction, RoomXY, constants::extra::ROOM_SIZE};
 
 use super::OuterRectangle;
 
-pub const ROOM_SIZE: usize = screeps::constants::extra::ROOM_SIZE as usize;
-pub const ROOM_AREA: usize = ROOM_SIZE * ROOM_SIZE;
+// pub const ROOM_SIZE: u8 = screeps::constants::extra::ROOM_SIZE;
+pub const ROOM_AREA: usize = ROOM_SIZE as usize * ROOM_SIZE as usize;
 
 #[inline]
 pub fn diagonal_neighbors(xy: &RoomXY) -> impl Iterator<Item = RoomXY> {
@@ -13,31 +14,33 @@ pub fn diagonal_neighbors(xy: &RoomXY) -> impl Iterator<Item = RoomXY> {
         xy.saturating_add((1, -1)),
         xy.saturating_add((-1, 1)),
         xy.saturating_add((-1, -1)),
-    ].into_iter()
+    ]
+    .into_iter()
 }
 
 #[inline]
-pub fn outside_rect(xy: &RoomXY, rectangle: OuterRectangle) -> bool {
+pub const fn outside_rect(xy: RoomXY, rectangle: OuterRectangle) -> bool {
     let (x0, y0, x1, y1) = rectangle;
     xy.x.u8() < x0 || xy.x.u8() > x1 || xy.y.u8() < y0 || xy.y.u8() > y1
 }
 
 #[inline]
-pub fn to_index(xy: RoomXY) -> usize {
-    (xy.x.u8() as usize) + ROOM_SIZE * (xy.y.u8() as usize)
+pub const fn to_index(xy: RoomXY) -> usize {
+    (xy.x.u8() as usize) + ROOM_SIZE as usize * (xy.y.u8() as usize)
 }
 
 fn iter_xy() -> impl Iterator<Item = RoomXY> {
-    (0..ROOM_AREA).map(|i| unsafe {
-        RoomXY::unchecked_new((i % ROOM_SIZE) as u8, (i / ROOM_SIZE) as u8)
-    })
+    (0..ROOM_AREA)
+        .map(|i| unsafe { RoomXY::unchecked_new(
+            u8::try_from(i % ROOM_SIZE as usize).expect("expect u8"),
+            u8::try_from(i / ROOM_SIZE as usize).expect("expect u8")) })
 }
 
 #[inline]
 pub fn exit_distance(xy: RoomXY) -> u8 {
     min(
         min(xy.x.u8(), xy.y.u8()),
-        min(ROOM_SIZE as u8 - 1 - xy.x.u8(), ROOM_SIZE as u8 - 1 - xy.y.u8()),
+        min(ROOM_SIZE - 1 - xy.x.u8(), ROOM_SIZE - 1 - xy.y.u8()),
     )
 }
 
@@ -52,11 +55,12 @@ pub fn square_sides(xy: &RoomXY, multiplier: i8) -> impl Iterator<Item = RoomXY>
         xy.saturating_add((multiplier, -multiplier)),
         xy.saturating_add((-multiplier, multiplier)),
         xy.saturating_add((-multiplier, -multiplier)),
-    ].into_iter()
+    ]
+    .into_iter()
 }
 
 #[inline]
-pub fn clockwise_dir(direction: Direction) -> Direction {
+pub const fn clockwise_dir(direction: Direction) -> Direction {
     match direction {
         Direction::Right => Direction::BottomRight,
         Direction::BottomRight => Direction::Bottom,
@@ -70,7 +74,7 @@ pub fn clockwise_dir(direction: Direction) -> Direction {
 }
 
 #[inline]
-pub fn counter_clockwise_dir(direction: Direction) -> Direction {
+pub const fn counter_clockwise_dir(direction: Direction) -> Direction {
     match direction {
         Direction::Right => Direction::TopRight,
         Direction::TopRight => Direction::Top,
