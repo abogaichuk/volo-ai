@@ -60,7 +60,7 @@ impl RoomStats {
             controller: ControllerStats::new(&base.controller),
             energy_in_use: base.energy_available(),
             energy_capacity: base.energy_capacity_available(),
-            resources: base.resources.all().clone(),
+            resources: base.resources.amounts().filter(|(_, amount)| *amount > 0).collect(),
             storage_used_capacity: base
                 .storage()
                 .map(|storage| storage.store().get_used_capacity(None)),

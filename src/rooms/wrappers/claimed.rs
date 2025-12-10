@@ -128,7 +128,7 @@ impl Claimed {
         let amounts = if game::time().is_multiple_of(100) {
             RESOURCES_ALL
                 .iter()
-                .filter_map(|res| {
+                .map(|res| {
                     let mut total: u32 = 0;
                     if let Some(storage) = storage.as_ref() {
                         total += storage.store().get_used_capacity(Some(*res));
@@ -143,7 +143,7 @@ impl Claimed {
                         total += lab.store().get_used_capacity(Some(*res));
                     }
 
-                    if total > 0 { Some((*res, total)) } else { None }
+                    (*res, total)
                 })
                 .collect()
         } else {

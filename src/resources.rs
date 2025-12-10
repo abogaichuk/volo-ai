@@ -44,8 +44,8 @@ impl Resources {
         *self.amounts.get(&res).unwrap_or(&0)
     }
 
-    pub const fn all(&self) -> &HashMap<ResourceType, u32> {
-        &self.amounts
+    pub fn amounts(&self) -> impl Iterator<Item = (ResourceType, u32)> {
+        self.amounts.clone().into_iter()
     }
 
     pub fn events(&self, ctx: RoomContext) -> impl Iterator<Item = RoomEvent> + '_ {
