@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
 use std::iter::Iterator;
 
-use log::{info, debug};
+use log::{debug, info};
 use ordered_float::OrderedFloat;
 use screeps::{OrderType, PowerType, ResourceType, RoomName, game};
 use serde::{Deserialize, Serialize};
@@ -21,8 +21,6 @@ pub struct RoomState {
     pub spawns: Vec<Role>,
     #[serde(default)]
     pub requests: HashSet<Request>,
-    // #[serde(default)]
-    // pub perimetr: Vec<ObjectId<StructureRampart>>,
     #[serde(default)]
     pub plan: Option<RoomPlan>,
     #[serde(default = "HashMap::new")]

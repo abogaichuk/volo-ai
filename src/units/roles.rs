@@ -104,7 +104,7 @@ const fn pvp_parts_priority(part: Part) -> i8 {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "lowercase")]
 #[enum_dispatch(Kind)]
 pub enum Role {
@@ -216,7 +216,11 @@ impl Role {
             Role::Miner(_) => 7,
             Role::Defender(_) => 6,
             Role::Trader(_) => 5,
-            Role::Overseer(_) | Role::Upgrader(_) | Role::PBAttacker(_) | Role::PBHealer(_) | Role::DepositMiner(_) => 4,
+            Role::Overseer(_)
+            | Role::Upgrader(_)
+            | Role::PBAttacker(_)
+            | Role::PBHealer(_)
+            | Role::DepositMiner(_) => 4,
             Role::PBCarrier(_) | Role::DepositHauler(_) => 3,
             Role::SkMiner(_) | Role::Booker(_) | Role::HouseKeeper(_) => 2,
             Role::Carrier(_) | Role::Dismantler(_) | Role::Puller(_) => 1,
@@ -266,5 +270,62 @@ impl Display for Role {
             Role::Fighter(_) => "fighter",
         };
         write!(f, "{name}")
+    }
+}
+
+impl Eq for Role {}
+impl PartialEq for Role {
+    fn eq(&self, other: &Role) -> bool {
+        match self {
+            Role::Booker(b) => matches!(other, Role::Booker(o) if b.home == o.home),
+            Role::Conqueror(c) => matches!(other, Role::Conqueror(o) if c.home == o.home),
+            Role::Upgrader(u) => matches!(other, Role::Upgrader(o) if u.home == o.home),
+            Role::RemoteUpgrader(r) => {
+                matches!(other, Role::RemoteUpgrader(o) if r.home == o.home && r.workplace == o.workplace)
+            }
+            Role::Miner(m) => {
+                matches!(other, Role::Miner(o) if m.home == o.home && m.workplace == o.workplace)
+            }
+            Role::MineralMiner(m) => {
+                matches!(other, Role::MineralMiner(o) if m.home == o.home && m.workplace == o.workplace)
+            }
+            Role::Hauler(h) => matches!(other, Role::Hauler(o) if h.home == o.home),
+            Role::HandyMan(h) => {
+                matches!(other, Role::HandyMan(o) if h.home == o.home && h.workplace == o.workplace)
+            }
+            Role::HouseKeeper(h) => matches!(other, Role::HouseKeeper(o) if h.home == o.home),
+            Role::Defender(d) => matches!(other, Role::Defender(o) if d.home == o.home),
+            Role::Trader(t) => matches!(other, Role::Trader(o) if t.home == o.home),
+            Role::Guard(g) => matches!(other, Role::Guard(o) if g.home == o.home),
+            Role::Carrier(c) => matches!(other, Role::Carrier(o) if c.home == o.home),
+            Role::Puller(p) => matches!(other, Role::Puller(o) if p.home == o.home),
+            Role::PBAttacker(p) => {
+                matches!(other, Role::PBAttacker(o) if p.home == o.home && p.squad_id == o.squad_id)
+            }
+            Role::PBHealer(p) => {
+                matches!(other, Role::PBHealer(o) if p.home == o.home && p.squad_id == o.squad_id)
+            }
+            Role::PBCarrier(p) => {
+                matches!(other, Role::PBCarrier(o) if p.home == o.home && p.squad_id == o.squad_id)
+            }
+            Role::Destroyer(d) => matches!(other, Role::Destroyer(o) if d.home == o.home),
+            Role::DismantlerWithHeal(d) => {
+                matches!(other, Role::DismantlerWithHeal(o) if d.home == o.home)
+            }
+            Role::DepositMiner(d) => {
+                matches!(other, Role::DepositMiner(o) if d.home == o.home && d.squad_id == o.squad_id)
+            }
+            Role::DepositHauler(d) => matches!(other, Role::DepositHauler(o) if d.home == o.home),
+            Role::Overseer(ov) => {
+                matches!(other, Role::Overseer(o) if ov.home == o.home && ov.workroom == o.workroom)
+            }
+            Role::SkMiner(s) => {
+                matches!(other, Role::SkMiner(o) if s.home == o.home && s.workplace == o.workplace)
+            }
+            Role::Fighter(f) => {
+                matches!(other, Role::Fighter(o) if f.home == o.home && f.target == o.target)
+            }
+            _ => false,
+        }
     }
 }

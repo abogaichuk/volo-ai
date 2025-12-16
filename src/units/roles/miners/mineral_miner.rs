@@ -12,7 +12,7 @@ use crate::rooms::shelter::Shelter;
 
 #[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct MineralMiner {
-    workplace: Option<Position>,
+    pub(crate) workplace: Option<Position>,
     pub(crate) home: Option<RoomName>,
 }
 

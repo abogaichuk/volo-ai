@@ -2,13 +2,12 @@ use std::collections::{HashMap, HashSet};
 
 use itertools::Itertools;
 use log::{debug, error, info, warn};
-use screeps::game::market::Order;
-use screeps::game::{self};
 use screeps::{
     Creep, Effect, EffectType, HasId, HasPosition, HasStore, Mineral, ObjectId, OrderType, Part,
     Position, PowerType, RawObjectId, ResourceType, Room, RoomName, RoomObjectProperties, Source,
     StructureController, StructureFactory, StructureLab, StructureLink, StructurePowerSpawn,
     StructureRampart, StructureSpawn, StructureStorage, StructureTerminal, StructureTower,
+    game::{self, market::Order},
 };
 
 use crate::colony::ColonyEvent;
@@ -17,13 +16,12 @@ use crate::rooms::{
     RoomEvent,
     state::{
         RoomState, TradeData,
-        requests::{CreepHostile, DefendData, Request, RequestKind, assignment::Assignment},
+        requests::{DefendData, Request, RequestKind, WithdrawData, assignment::Assignment},
     },
     wrappers::{Fillable, claimed::Claimed, farm::Farm},
 };
 use crate::statistics::RoomStats;
-use crate::units::creeps::CreepMemory;
-use crate::units::roles::Role;
+use crate::units::{creeps::CreepMemory, roles::Role};
 
 pub struct Shelter<'s> {
     pub(crate) base: Claimed,
@@ -75,11 +73,10 @@ impl<'s> Shelter<'s> {
         // lab, terminal and factory toogle request status to InProgress only
         // because only one request can be correctly handled at one tick
         events.extend(
-            self.base
-                .run_labs(self.state)
+            self.run_labs()
                 .into_iter()
-                .chain(self.base.run_factory(self.state))
-                .chain(self.base.run_terminal(self.state, orders))
+                .chain(self.run_factory())
+                .chain(self.run_terminal(orders))
                 .chain(self.base.security_check(self.state, creeps))
                 .chain(self.base.run_spawns(self.state))
                 .chain(self.base.time_based_events(self.state, creeps))
@@ -99,13 +96,9 @@ impl<'s> Shelter<'s> {
                 RoomEvent::Request(request) => {
                     self.add_request(request);
                 }
-                RoomEvent::Defend(farm_name, hostiles) => {
-                    let hostiles: Vec<CreepHostile> = hostiles
-                        .into_iter()
-                        .filter(|ch| !self.white_list.contains(&ch.name))
-                        .collect();
+                RoomEvent::Defend(farm_name) => {
                     self.add_request(Request::new(
-                        RequestKind::Defend(DefendData::with_hostiles(farm_name, hostiles)),
+                        RequestKind::Defend(DefendData::new(farm_name)),
                         Assignment::Multi(HashSet::new()),
                     ));
                 }
@@ -289,6 +282,10 @@ impl<'s> Shelter<'s> {
         &self.state.spawns
     }
 
+    pub fn get_farm(&self, name: RoomName) -> Option<&Farm> {
+        self.base.get_farms().iter().find(|f| f.get_name() == name)
+    }
+
     pub fn get_farms(&self) -> impl Iterator<Item = RoomName> + use<'_> {
         self.base.get_farms().iter().map(super::wrappers::farm::Farm::get_name)
     }
@@ -397,6 +394,10 @@ impl<'s> Shelter<'s> {
         resources.iter().find_map(|res| self.base.labs.boost_lab(*res))
     }
 
+    pub(crate) fn get_trades(&self) -> impl Iterator<Item = &TradeData> {
+        self.state.trades.iter()
+    }
+
     pub const fn mineral(&self) -> &Mineral {
         &self.base.mineral
     }
@@ -415,6 +416,13 @@ impl<'s> Shelter<'s> {
             .iter()
             .chain(self.base.farms.iter().flat_map(|farm| farm.sources.iter()))
             .find_map(|source| if pos.is_near_to(source.pos()) { Some(source.id()) } else { None })
+    }
+
+    pub fn get_hostiles(&self, farm: RoomName) -> Option<&[Creep]> {
+        self.base
+            .farms
+            .iter()
+            .find_map(|f| if f.get_name() == farm { Some(f.get_hostiles()) } else { None })
     }
 
     pub fn find_container_in_range(
@@ -449,9 +457,30 @@ impl<'s> Shelter<'s> {
 
     pub fn unload<T>(&self, obj: &T, allowed: &[ResourceType]) -> Option<RoomEvent>
     where
-        T: HasStore + HasId,
+        T: HasStore + HasId + HasPosition,
     {
-        self.base.unload(obj, allowed)
+        self.storage()
+            .is_some_and(|s| s.store().get_free_capacity(None) > 10_000)
+            .then(|| {
+                obj.store().store_types().into_iter().find_map(|resource| {
+                    if !allowed.contains(&resource) {
+                        let amount = obj.store().get_used_capacity(Some(resource));
+                        if resource != ResourceType::Energy || amount > 15_000 {
+                            return Some(RoomEvent::Request(Request::new(
+                                RequestKind::Withdraw(WithdrawData::new(
+                                    obj.raw_id(),
+                                    obj.pos(),
+                                    // vec![(resource, std::max())],
+                                    vec![(resource, None)],
+                                )),
+                                Assignment::Single(None),
+                            )));
+                        }
+                    }
+                    None
+                })
+            })
+            .flatten()
     }
 
     pub fn supply_resources(

@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use std::fmt;
 
 use arrayvec::ArrayVec;
-use log::{warn, debug};
+use log::{debug, warn};
 use screeps::constants::look::STRUCTURES;
 use screeps::objects::Creep;
 use screeps::prelude::*;
@@ -26,7 +26,7 @@ use crate::utils::constants::{HANDYMAN_ENERGY_PICKUP_THRESHOLD, NO_TASK_IDLE_TIC
 
 #[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct HandyMan {
-    workplace: Option<Position>,
+    pub(crate) workplace: Option<Position>,
     pub(crate) home: Option<RoomName>,
     #[serde(default)]
     boost: bool,

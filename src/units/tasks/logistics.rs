@@ -1,6 +1,6 @@
 use std::cmp;
 
-use log::{error, debug, info, warn};
+use log::{debug, error, info, warn};
 use screeps::action_error_codes::WithdrawErrorCode;
 use screeps::{
     Creep, HasPosition, ObjectId, Position, RawObjectId, Resource, ResourceType,
@@ -63,7 +63,6 @@ pub fn take_from_structure(
     role: &Role,
     enemies: Vec<Creep>,
 ) -> TaskResult {
-    //todo handle case if creep is full!
     //todo if creep_mem.goal.path.len() > tick_to_live -> drop request
     if let Some(room_obj) = game::get_object_by_id_erased(&id) {
         let container = room_obj.unchecked_ref::<StructureContainer>();
@@ -89,15 +88,22 @@ pub fn take_from_structure(
                                 let _ = creep.say("💰", false); //money bag
                                 TaskResult::Completed
                             } else {
-                                if game::time().is_multiple_of(10) {
-                                    error!(
-                                        "creep: {} can't withdraw resource: {} from: {}, error: {:?}",
-                                        creep.name(),
-                                        resource,
-                                        id,
-                                        err
-                                    );
-                                }
+                                // if game::time().is_multiple_of(10) {
+                                //     error!(
+                                //         "{} can't withdraw resource: {} from: {}, error: {:?}",
+                                //         creep.name(),
+                                //         resource,
+                                //         id,
+                                //         err
+                                //     );
+                                // }
+                                error!(
+                                    "{} can't withdraw resource: {} from: {}, error: {:?}",
+                                    creep.name(),
+                                    resource,
+                                    id,
+                                    err
+                                );
                                 TaskResult::Abort
                             }
                         } else {
@@ -238,12 +244,14 @@ pub fn withdraw(
                     TaskResult::UpdateRequest(Task::Withdraw(pos, id, resources))
                 }
             }
-            _ => {
+            err => {
                 error!(
-                    "{} withdraw got abort from take from: {:?} task, resource: {}",
+                    "{} withdraw take from got abort: {:?} resource: {}:{:?}, err: {:?}",
                     creep.name(),
                     id,
-                    resource
+                    resource,
+                    amount,
+                    err
                 );
                 TaskResult::ResolveRequest(Task::Withdraw(pos, id, resources), false)
             }
@@ -265,7 +273,8 @@ pub fn long_range_withdraw(
     //todo check cases when free amount is negative value
     let take_amount = cmp::min(
         u32::try_from(creep.store().get_free_capacity(None)).ok().unwrap_or_default(),
-        amount);
+        amount,
+    );
     debug!("{} lrw take amount: {}, amount: {}", creep.name(), take_amount, amount);
 
     match take_from_structure(pos, id, resource, Some(take_amount), creep, role, enemies) {
@@ -296,7 +305,7 @@ pub fn long_range_withdraw(
         }
         _ => {
             error!(
-                "{} withdraw got abort from take from: {:?} task, resource: {}",
+                "{} lrw got abort from take from: {:?} task, resource: {}",
                 creep.name(),
                 id,
                 resource
@@ -505,8 +514,7 @@ pub fn pull_to(
                     let _ = creep.pull(&cargo);
                     let _ = cargo.move_pulled_by(creep);
 
-                    let goal =
-                        Walker::Exploring(false).walk(beside.pos(), 0, creep, role, enemies);
+                    let goal = Walker::Exploring(false).walk(beside.pos(), 0, creep, role, enemies);
                     TaskResult::StillWorking(Task::PullTo(creep_name, destination), Some(goal))
                 } else {
                     warn!("creep: {} there is no available position, waiting..", creep.name());

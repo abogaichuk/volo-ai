@@ -46,7 +46,12 @@ impl<'a> ColonyContext<'a> {
     pub(super) fn new(movement: Movement, bases: &'a HashMap<RoomName, Claimed>) -> Self {
         let warehouse = bases
             .values()
-            .map(|base| (base.get_name(), base.factory().map(screeps::StructureFactory::level).unwrap_or_default()))
+            .map(|base| {
+                (
+                    base.get_name(),
+                    base.factory().map(screeps::StructureFactory::level).unwrap_or_default(),
+                )
+            })
             .min_by_key(|(_, lvl)| Reverse(*lvl));
 
         Self { movement, bases, warehouse }
@@ -217,7 +222,7 @@ impl ColonyEvent {
                         state.add_request(from, transfer_request);
                     } else {
                         excess_order.to = Some(from);
-                        info!("{} excess {}:{} alredy in warehouse!", from, resource, amount);
+                        state.try_sell(from, resource, amount);
                     }
                     state.orders.insert(ColonyOrder::Excess(excess_order));
                 }
@@ -226,6 +231,7 @@ impl ColonyEvent {
                 let mut lack_order = ResourceOrder::new(from, resource, amount);
                 if !state.orders.contains(&ColonyOrder::Lack(lack_order.clone())) {
                     if let Some(lack_result) = lack_handler_for(resource)(resource, amount, context)
+                        .filter(|res| from != res.room_name())
                     {
                         lack_order.to = Some(lack_result.room_name());
                         let transfer_request = Request::new(

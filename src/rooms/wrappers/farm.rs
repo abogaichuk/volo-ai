@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use log::debug;
+use log::{debug, info};
 use screeps::{
     Creep, EffectType, Event, HasHits, HasId, HasPosition, MaybeHasId, Mineral, Part, Room,
     RoomName, RoomObjectProperties, SOURCE_KEEPER_USERNAME, SharedCreepProperties, Source,
@@ -369,9 +369,13 @@ impl Farm {
             if game::time().is_multiple_of(50) {
                 debug!("enemies {} in room: {}", enemies.len(), self.get_name());
             }
-            return Some(RoomEvent::Defend(self.get_name(), enemies));
+            return Some(RoomEvent::Defend(self.get_name()));
         }
         None
+    }
+
+    pub fn get_hostiles(&self) -> &[Creep] {
+        &self.hostiles
     }
 }
 

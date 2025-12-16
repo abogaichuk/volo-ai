@@ -117,27 +117,19 @@ fn factory_chain_handler(
 ) -> Option<RoomEvent> {
     let cfg = factory_chain_config(res)?;
 
-    (amount > cfg.limit).then(|| {
-        if ctx.fl == cfg.chain.f_lvl {
-            if let Some(missed) = get_missed_component(cfg.chain.resource, resources) {
-                RoomEvent::Lack(missed.0, missed.1 * 10)
-            } else {
-                RoomEvent::Request(Request::new(
-                    RequestKind::Factory(FactoryData::new(cfg.chain.resource, cfg.chain.amount)),
-                    Assignment::None,
-                ))
-            }
-        } else if let Some(other) = cfg
-            .opt1
-            .filter(|other| ctx.fl == other.f_lvl)
-            .or(cfg.opt2)
-            .filter(|other| ctx.fl == other.f_lvl)
+    (amount >= cfg.limit).then(|| {
+        if let Some(chain) = cfg
+            .opt2
+            .as_ref()
+            .filter(|c| c.f_lvl == ctx.fl)
+            .or_else(|| cfg.opt1.as_ref().filter(|c| c.f_lvl == ctx.fl))
+            .or(if cfg.chain.f_lvl == ctx.fl { Some(&cfg.chain) } else { None })
         {
-            if let Some(missed) = get_missed_component(other.resource, resources) {
+            if let Some(missed) = get_missed_component(chain.resource, resources) {
                 RoomEvent::Lack(missed.0, missed.1 * 10)
             } else {
                 RoomEvent::Request(Request::new(
-                    RequestKind::Factory(FactoryData::new(other.resource, other.amount)),
+                    RequestKind::Factory(FactoryData::new(chain.resource, chain.amount)),
                     Assignment::None,
                 ))
             }
@@ -201,7 +193,7 @@ fn reaction_third_tier(
                 Assignment::None,
             )))
         }
-    } else if amount < 10000 {
+    } else if amount < 10_000 {
         Some(RoomEvent::Request(Request::new(
             RequestKind::Lab(LabData::new(
                 ResourceType::CatalyzedUtriumAcid,

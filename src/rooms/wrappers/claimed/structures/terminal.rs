@@ -1,41 +1,26 @@
 use std::cmp;
-use std::collections::HashSet;
-use std::iter::once;
 use std::str::FromStr;
 
 use js_sys::JsString;
 use log::debug;
-use screeps::game::market::Order;
-use screeps::game::{self};
+use screeps::game::{self, market::Order};
 use screeps::{HasId, MarketResourceType, OrderType, ResourceType, RoomName, StructureTerminal};
 
-use crate::rooms::RoomEvent;
-use crate::rooms::state::requests::assignment::Assignment;
-use crate::rooms::state::requests::meta::Status;
-use crate::rooms::state::requests::{CarryData, Request, RequestKind};
-use crate::rooms::state::{RoomState, TradeData};
-use crate::rooms::wrappers::claimed::Claimed;
+use crate::rooms::{
+    RoomEvent,
+    shelter::Shelter,
+    state::requests::{CarryData, Request, RequestKind, assignment::Assignment, meta::Status},
+};
 
-impl Claimed {
-    pub(crate) fn run_terminal(
-        &self,
-        room_memory: &RoomState,
-        orders: &[Order],
-    ) -> Option<RoomEvent> {
-        let Some(terminal) = &self.terminal else { return None };
+impl Shelter<'_> {
+    pub(crate) fn run_terminal(&self, orders: &[Order]) -> Option<RoomEvent> {
+        let terminal = self.base.terminal()?;
 
-        let is_active_request = room_memory.requests.iter().any(|r| {
-            matches!(r.kind, RequestKind::Transfer(_))
-                && matches!(r.status(), Status::InProgress | Status::OnHold)
-        });
-
-        (terminal.cooldown() == 0)
-            .then(|| self.try_trade(terminal, &room_memory.trades, orders))
-            .flatten()
-            .or_else(|| {
-                (!is_active_request)
+        (terminal.cooldown() == 0).then(|| self.try_trade(terminal, orders)).flatten().or_else(
+            || {
+                (!self.is_terminal_busy())
                     .then(|| {
-                        get_request(&room_memory.requests)
+                        self.get_terminal_request()
                             .map(|mut request| {
                                 request.join(None, None);
                                 RoomEvent::ReplaceRequest(request)
@@ -43,10 +28,10 @@ impl Claimed {
                             .or_else(|| {
                                 self.unload(
                                     terminal,
-                                    //todo remove mineral when implemented sell minerals
-                                    &once(self.mineral.mineral_type())
-                                        .chain(trade_resources(&room_memory.trades))
-                                        .collect::<Vec<ResourceType>>(),
+                                    &self
+                                        .get_trades()
+                                        .map(|trade| trade.resource)
+                                        .collect::<Vec<_>>(),
                                 )
                             })
                             .or_else(|| {
@@ -64,69 +49,91 @@ impl Claimed {
                             })
                     })
                     .flatten()
-            })
+            },
+        )
     }
 
-    fn try_trade(&self, terminal: &StructureTerminal, trades: &HashSet<TradeData>, orders: &[Order]) -> Option<RoomEvent> {
-        trades.iter()
-            .find_map(|trade_order| {
-                let all = terminal.store().get_used_capacity(Some(trade_order.resource));
-                if trade_order.amount > 0 {
-                    if all >= trade_order.amount {
-                        match trade_order.order_type {
-                            OrderType::Buy if let Some(order) =
-                                find_appropriate_lowest_price_order(self.get_name(), orders, OrderType::Sell, trade_order.resource) =>
-                            {
-                                let amount = cmp::min(trade_order.amount, order.amount);
-                                debug!("lowest order: {:?}, trade amount: {}", order, amount);
-                                if order.summary <= *trade_order.price {
-                                    Some(RoomEvent::Buy(order.id, trade_order.resource, amount))
-                                } else {
-                                    None
-                                }
-                            },
-                            OrderType::Sell if let Some(order) =
-                                find_appropriate_highest_price_order(self.get_name(), orders, OrderType::Buy, trade_order.resource) =>
-                            {
-                                let amount = cmp::min(trade_order.amount, order.amount);
-                                debug!("highest order: {:?}, trade amount: {}", order, amount);
-                                if order.summary >= *trade_order.price {
-                                    Some(RoomEvent::Sell(order.id, trade_order.resource, amount))
-                                } else {
-                                    None
-                                }
-                            },
-                            _ => None
+    fn get_terminal_request(&self) -> Option<Request> {
+        self.requests()
+            .find(|r| {
+                matches!(r.kind, RequestKind::Transfer(_)) && matches!(r.status(), Status::Created)
+            })
+            .cloned()
+    }
+
+    fn is_terminal_busy(&self) -> bool {
+        self.state.requests.iter().any(|r| {
+            matches!(r.kind, RequestKind::Transfer(_))
+                && matches!(r.status(), Status::InProgress | Status::OnHold | Status::Finishing)
+        })
+    }
+
+    fn try_trade(&self, terminal: &StructureTerminal, orders: &[Order]) -> Option<RoomEvent> {
+        self.get_trades().find_map(|trade_order| {
+            let all = terminal.store().get_used_capacity(Some(trade_order.resource));
+            if trade_order.amount > 0 {
+                if all >= trade_order.amount {
+                    match trade_order.order_type {
+                        OrderType::Buy
+                            if let Some(order) = find_appropriate_lowest_price_order(
+                                self.name(),
+                                orders,
+                                OrderType::Sell,
+                                trade_order.resource,
+                            ) =>
+                        {
+                            let amount = cmp::min(trade_order.amount, order.amount);
+                            debug!("lowest order: {:?}, trade amount: {}", order, amount);
+                            if order.summary <= *trade_order.price {
+                                Some(RoomEvent::Buy(order.id, trade_order.resource, amount))
+                            } else {
+                                None
+                            }
                         }
-                    } else if let Some(storage) = self.storage() {
-                        let amount = cmp::min(storage.store().get_used_capacity(Some(trade_order.resource)), trade_order.amount - all);
-                        if amount > 0 {
-                            Some(RoomEvent::Request(Request::new(
-                                RequestKind::Carry(CarryData::new(
-                                    storage.raw_id(),
-                                    terminal.raw_id(),
-                                    trade_order.resource,
-                                    amount)),
-                                Assignment::Single(None))))
-                        } else {
-                            None
+                        OrderType::Sell
+                            if let Some(order) = find_appropriate_highest_price_order(
+                                self.name(),
+                                orders,
+                                OrderType::Buy,
+                                trade_order.resource,
+                            ) =>
+                        {
+                            let amount = cmp::min(trade_order.amount, order.amount);
+                            debug!("highest order: {:?}, trade amount: {}", order, amount);
+                            if order.summary >= *trade_order.price {
+                                Some(RoomEvent::Sell(order.id, trade_order.resource, amount))
+                            } else {
+                                None
+                            }
                         }
+                        _ => None,
+                    }
+                } else if let Some(storage) = self.storage() {
+                    let amount = cmp::min(
+                        storage.store().get_used_capacity(Some(trade_order.resource)),
+                        trade_order.amount - all,
+                    );
+                    if amount > 0 {
+                        Some(RoomEvent::Request(Request::new(
+                            RequestKind::Carry(CarryData::new(
+                                storage.raw_id(),
+                                terminal.raw_id(),
+                                trade_order.resource,
+                                amount,
+                            )),
+                            Assignment::Single(None),
+                        )))
                     } else {
                         None
                     }
                 } else {
                     None
                 }
-            })
+            } else {
+                None
+            }
+        })
     }
-}
-
-fn trade_resources(trades: &HashSet<TradeData>) -> impl Iterator<Item = ResourceType> + use<'_> {
-    trades.iter().filter_map(
-        |trade_data| {
-            if trade_data.amount > 0 { Some(trade_data.resource) } else { None }
-        },
-    )
 }
 
 #[derive(Debug)]
@@ -211,13 +218,4 @@ fn find_appropriate_lowest_price_order(
                 Some(item)
             }
         })
-}
-
-fn get_request(requests: &HashSet<Request>) -> Option<Request> {
-    requests
-        .iter()
-        .find(|r| {
-            matches!(r.kind, RequestKind::Transfer(_)) && matches!(r.status(), Status::Created)
-        })
-        .cloned()
 }

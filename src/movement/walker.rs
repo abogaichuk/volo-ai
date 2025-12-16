@@ -15,6 +15,7 @@ use crate::utils::constants::LONG_RANGE_ACTION;
 #[derive(Debug, Clone)]
 pub enum Walker {
     Berserk,
+    //todo improve combat logic
     Aggressive,
     Therapeutic,
     Reinforcing,
@@ -82,7 +83,10 @@ impl Walker {
                         .iter()
                         .find_map(|structure| match structure {
                             StructureObject::StructureRoad(road)
-                                if road.hits() * 3 < road.hits_max() * 2 => Some(road),
+                                if road.hits() * 3 < road.hits_max() * 2 =>
+                            {
+                                Some(road)
+                            }
                             _ => None,
                         })
                         .and_then(|road| creep.repair(road).ok());

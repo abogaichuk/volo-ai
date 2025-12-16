@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use js_sys::JsString;
-use log::{warn, info, error};
+use log::{debug, error, info, warn};
 use screeps::{HasId, ResourceType, RoomName, game};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
@@ -40,6 +40,12 @@ pub(in crate::rooms::state::requests) fn transfer_handler(
     let Some(terminal) = home.terminal() else {
         return events;
     };
+
+    if meta.updated_at + 2_500 < game::time() {
+        warn!("{} request: {:?} timeout exceed!", home.name(), data);
+        meta.update(Status::Aborted);
+        return events;
+    }
 
     match meta.status {
         Status::InProgress => {
@@ -94,7 +100,7 @@ pub(in crate::rooms::state::requests) fn transfer_handler(
                     events.push(load_event);
                 } else {
                     meta.update(Status::Aborted);
-                    warn!("{} not enough resource for request: {:?}", home.name(), data);
+                    debug!("{} not enough resource for request: {:?}", home.name(), data);
                 }
             } else if terminal.cooldown() == 0 {
                 match terminal.send(
@@ -112,13 +118,17 @@ pub(in crate::rooms::state::requests) fn transfer_handler(
                     ),
                     Err(err) => error!("transfer error: {:?}", err),
                 }
-                meta.update(Status::Resolved);
+                meta.update(Status::Finishing);
             }
         }
         Status::OnHold => {
             if meta.updated_at + 20 < game::time() {
                 meta.update(Status::Created);
             }
+        }
+        Status::Finishing => {
+            // 1 tick enough to enable cooldown
+            meta.update(Status::Resolved);
         }
         _ => {}
     }

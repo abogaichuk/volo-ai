@@ -1,26 +1,18 @@
 use std::cmp;
 
-use log::{error, warn};
-use screeps::action_error_codes::RunReactionErrorCode;
-use screeps::{ResourceType, StructureLab, game};
+use log::{debug, error, warn};
+use screeps::{ResourceType, action_error_codes::RunReactionErrorCode, game};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
-use thiserror::Error;
 
-use crate::rooms::RoomEvent;
-use crate::rooms::state::requests::{Meta, Status};
-use crate::rooms::wrappers::claimed::Claimed;
+use crate::rooms::{
+    RoomEvent,
+    shelter::Shelter,
+    state::requests::{Meta, Status},
+};
 use crate::utils::constants::MIN_CARRY_REQUEST_AMOUNT;
 
 const LAB_PRODUCTION: u32 = 5;
-
-#[derive(Error, Debug, Eq, PartialEq)]
-pub enum LabError {
-    #[error("not found: {0}")]
-    NotFound(ResourceType),
-    #[error("is not empty")]
-    IsNotEmpty,
-}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct LabData {
@@ -38,20 +30,23 @@ impl LabData {
 pub(in crate::rooms::state::requests) fn lab_handler(
     data: &mut LabData,
     meta: &mut Meta,
-    home: &Claimed,
+    home: &Shelter,
 ) -> SmallVec<[RoomEvent; 3]> {
     let mut events: SmallVec<[RoomEvent; 3]> = SmallVec::new();
 
     let (inputs, outputs) = home.production_labs();
 
-    if inputs.len() != 2 {
-        warn!("{} labs didn't set!", home.get_name());
+    if inputs.len() != 2 || meta.updated_at + 2_500 < game::time() {
+        debug!("{} labs didn't set or timeout exceed!", home.name());
+        meta.update(Status::Aborted);
         return events;
     }
 
     match meta.status {
         Status::InProgress => {
-            if let Some([(res1, input1), (res2, input2)]) = data.resource.reaction_components()
+            if let Some([(res1, input1), (res2, input2)]) = data
+                .resource
+                .reaction_components()
                 .and_then(|components| components.into_iter().zip(inputs).next_chunk().ok())
             {
                 if let Some(unload_event) = home.unload(input1, &[res1]) {
@@ -59,9 +54,7 @@ pub(in crate::rooms::state::requests) fn lab_handler(
                 } else if let Some(unload_event) = home.unload(input2, &[res2]) {
                     events.push(unload_event);
                 } else {
-                    for output in outputs.iter()
-                        .filter(|o| o.cooldown() == 0)
-                    {
+                    for output in outputs.iter().filter(|o| o.cooldown() == 0) {
                         match output.run_reaction(input1, input2) {
                             Ok(()) => {
                                 if LAB_PRODUCTION > data.amount {
@@ -74,45 +67,60 @@ pub(in crate::rooms::state::requests) fn lab_handler(
                             Err(err) => {
                                 match err {
                                     RunReactionErrorCode::NotEnoughResources => {
-
-                                        let event1 = match try_supply(
-                                            home,
-                                            input1,
-                                            res1,
-                                            cmp::min(data.amount, MIN_CARRY_REQUEST_AMOUNT))
+                                        let event1 = if input1.store().get_used_capacity(Some(res1))
+                                            < LAB_PRODUCTION
                                         {
-                                            Ok(event) => Some(event),
-                                            Err(err) => match err {
-                                                LabError::IsNotEmpty => None,
-                                                LabError::NotFound(res) => {
-                                                    warn!("{} not found resource: {}", home.get_name(), res);
-                                                    meta.update(Status::Aborted);
-                                                    break;
-                                                }
+                                            if let Some(event) = home.load_lab(
+                                                input1,
+                                                (
+                                                    res1,
+                                                    cmp::min(data.amount, MIN_CARRY_REQUEST_AMOUNT),
+                                                ),
+                                            ) {
+                                                Some(event)
+                                            } else {
+                                                warn!(
+                                                    "{} not found resource: {}",
+                                                    home.name(),
+                                                    res1
+                                                );
+                                                meta.update(Status::Aborted);
+                                                break;
                                             }
+                                        } else {
+                                            None
                                         };
-                                        let event2 = match try_supply(
-                                            home,
-                                            input2,
-                                            res2,
-                                            cmp::min(data.amount, MIN_CARRY_REQUEST_AMOUNT))
+
+                                        let event2 = if input2.store().get_used_capacity(Some(res2))
+                                            < LAB_PRODUCTION
                                         {
-                                            Ok(event) => Some(event),
-                                            Err(err) => match err {
-                                                LabError::IsNotEmpty => None,
-                                                LabError::NotFound(res) => {
-                                                    warn!("{} not found resource: {}", home.get_name(), res);
-                                                    meta.update(Status::Aborted);
-                                                    break;
-                                                }
+                                            if let Some(event) = home.load_lab(
+                                                input2,
+                                                (
+                                                    res2,
+                                                    cmp::min(data.amount, MIN_CARRY_REQUEST_AMOUNT),
+                                                ),
+                                            ) {
+                                                Some(event)
+                                            } else {
+                                                warn!(
+                                                    "{} not found resource: {}",
+                                                    home.name(),
+                                                    res2
+                                                );
+                                                meta.update(Status::Aborted);
+                                                break;
                                             }
+                                        } else {
+                                            None
                                         };
 
                                         events.extend(event1);
                                         events.extend(event2);
                                         meta.update(Status::OnHold);
                                     }
-                                    RunReactionErrorCode::Full | RunReactionErrorCode::InvalidArgs => {
+                                    RunReactionErrorCode::Full
+                                    | RunReactionErrorCode::InvalidArgs => {
                                         events.extend(home.unload(output, &[]));
                                     }
                                     _ => {
@@ -123,11 +131,11 @@ pub(in crate::rooms::state::requests) fn lab_handler(
                                 break;
                             }
                         }
-                    };
+                    }
                 }
             } else {
                 meta.update(Status::Aborted);
-                warn!("{} can't get reagents for lab request: {:?}", home.get_name(), data);
+                warn!("{} can't get reagents for lab request: {:?}", home.name(), data);
             }
         }
         Status::OnHold => {
@@ -149,17 +157,4 @@ pub(in crate::rooms::state::requests) fn lab_handler(
     }
 
     events
-}
-
-fn try_supply(
-    home: &Claimed,
-    lab: &StructureLab,
-    res: ResourceType,
-    amount: u32,
-) -> Result<RoomEvent, LabError> {
-    if lab.store().get_used_capacity(Some(res)) < LAB_PRODUCTION {
-        home.load_lab(lab, (res, amount)).ok_or(LabError::NotFound(res))
-    } else {
-        Err(LabError::IsNotEmpty)
-    }
 }

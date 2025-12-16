@@ -62,18 +62,29 @@ impl Kind for Guard {
 
     fn boosts(&self, creep: &Creep) -> HashMap<Part, [ResourceType; 2]> {
         if creep.ticks_to_live().is_some_and(|tick| tick > 1400) {
-            [(Part::Attack, [ResourceType::CatalyzedUtriumAcid, ResourceType::UtriumAcid])].into()
+            [
+                (Part::Attack, [ResourceType::CatalyzedUtriumAcid, ResourceType::UtriumAcid]),
+                (
+                    Part::Heal,
+                    [ResourceType::CatalyzedLemergiumAlkalide, ResourceType::LemergiumAlkalide],
+                ),
+            ]
+            .into()
         } else {
             HashMap::new()
         }
     }
 
     fn get_task(&self, creep: &Creep, home: &mut Shelter) -> Task {
-        home.get_available_boost(creep, self.boosts(creep))
-            .map_or_else(
-                || Task::DefendHome,
-                |(id, body_part)| Task::Boost(id, u32::try_from(
-                    creep.body().iter().filter(|bp| bp.part() == body_part).count()).ok()
-                ))
+        home.get_available_boost(creep, self.boosts(creep)).map_or_else(
+            || Task::DefendHome,
+            |(id, body_part)| {
+                Task::Boost(
+                    id,
+                    u32::try_from(creep.body().iter().filter(|bp| bp.part() == body_part).count())
+                        .ok(),
+                )
+            },
+        )
     }
 }

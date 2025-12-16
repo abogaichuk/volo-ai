@@ -48,7 +48,7 @@ pub enum RoomEvent {
     Buy(JsString, ResourceType, u32),
     Intrusion(Option<String>),
     NukeFalling,
-    Defend(RoomName, Vec<CreepHostile>),
+    Defend(RoomName),
     ActivateSafeMode(String),
     BlackList(String),
     UpdateStatistic, /* #[default]

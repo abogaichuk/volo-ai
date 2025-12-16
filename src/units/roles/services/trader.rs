@@ -1,7 +1,7 @@
 use std::fmt;
 
 use arrayvec::ArrayVec;
-use log::{warn, debug};
+use log::{debug, warn};
 use screeps::{Creep, HasId, HasPosition, Part, ResourceType, RoomName, SharedCreepProperties};
 use serde::{Deserialize, Serialize};
 
@@ -79,13 +79,12 @@ impl Kind for Trader {
                             )
                         } else if let Some(bank) = home
                             .storage()
-                            .filter(|storage| storage.store().get_free_capacity(None) > 10000)
+                            .filter(|storage| storage.store().get_free_capacity(None) > 10_000)
                         {
                             Task::DeliverToStructure(bank.pos(), bank.raw_id(), resource, None)
                         } else {
-                            //no available storage found, just drop the resources
                             warn!("{} no free storage space here!", home.name());
-                            let _ = creep.drop(resource, None);
+                            // let _ = creep.drop(resource, None);
                             Task::Idle(1)
                         }
                     })

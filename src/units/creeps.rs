@@ -1,6 +1,6 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
-use log::{info, warn, debug};
+use log::{debug, info, warn};
 use screeps::{Creep, HasPosition, Position, RoomName, SharedCreepProperties, game};
 use serde::{Deserialize, Serialize};
 
@@ -56,22 +56,12 @@ impl CrUnit<'_, '_, '_> {
         }
     }
 
-    pub fn run_unit(&mut self) -> Option<MovementGoal> {
+    pub fn run_unit(&mut self, black_list: &HashSet<String>) -> Option<MovementGoal> {
         let task = self
             .memory
             .task
             .take()
             .unwrap_or_else(|| self.memory.role.get_task(&self.creep, self.home));
-
-        // let name = self.name();
-        // if let Task::Carry(a, b, c, d, _) = &task {
-        //     let t = Task::Carry(*a, *b, *c, *d, None);
-        //     if let Ok(req) = Request::try_from(t) {
-        //         if let Some(found) = self.home.get_request(&req) {
-        //             info!("{} is working on: {}", name, found);
-        //         }
-        //     }
-        // };
 
         match task.run_task(&self.creep, &self.memory.role) {
             TaskResult::StillWorking(task, movement_goal) => {
@@ -179,7 +169,8 @@ impl CrUnit<'_, '_, '_> {
     fn try_respawn(&mut self) {
         if !self.memory.respawned
             && self.creep.ticks_to_live().is_some_and(|ticks| {
-                (ticks as usize) < self.memory.role.respawn_timeout(Some(&self.creep)).unwrap_or_default()
+                (ticks as usize)
+                    < self.memory.role.respawn_timeout(Some(&self.creep)).unwrap_or_default()
             })
         {
             debug!("time to respawn {}", self.creep.name());
@@ -215,6 +206,7 @@ pub fn run_creeps(
     creeps_state: &mut HashMap<String, CreepMemory>,
     homes: &mut HashMap<RoomName, Shelter<'_>>,
     movement: &mut Movement,
+    black_list: &HashSet<String>,
 ) {
     let mut creeps: HashMap<String, Creep> = game::creeps().entries().collect();
 
@@ -231,7 +223,7 @@ pub fn run_creeps(
             .map(|home| CrUnit { creep, memory, home })
         {
             unit.try_respawn();
-            let goal = unit.run_unit();
+            let goal = unit.run_unit(black_list);
             unit.move_to_goal(goal, movement);
         }
     }

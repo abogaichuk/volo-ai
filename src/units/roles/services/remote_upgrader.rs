@@ -14,7 +14,7 @@ use crate::rooms::shelter::Shelter;
 #[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct RemoteUpgrader {
     pub(crate) home: Option<RoomName>,
-    workplace: Option<Position>,
+    pub(crate) workplace: Option<Position>,
     ctrl: ObjectId<StructureController>,
     #[serde(default)]
     boost: bool,

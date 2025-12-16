@@ -1,9 +1,9 @@
 use std::cmp::Ordering;
 
-use log::{debug, warn, info};
+use log::{debug, info, warn};
 use screeps::{
-    Attackable, Creep, HasPosition, INVADER_USERNAME, ObjectId, Part, Position, Room,
-    RoomCoordinate, RoomName, SOURCE_KEEPER_USERNAME, SYSTEM_USERNAME, SharedCreepProperties,
+    Attackable, BodyPart, Creep, HasHits, HasPosition, INVADER_USERNAME, ObjectId, Part, Position,
+    Room, RoomCoordinate, RoomName, SOURCE_KEEPER_USERNAME, SYSTEM_USERNAME, SharedCreepProperties,
     StructureInvaderCore, StructureKeeperLair, StructureObject, StructureRampart, StructureTower,
     find, game,
 };
@@ -12,7 +12,11 @@ use crate::movement::MovementGoal;
 use crate::movement::walker::Walker;
 use crate::units::roles::Role;
 use crate::units::{Task, TaskResult, has_part, with_parts};
-use crate::utils::commons::{closest_attacker, find_closest_injured_my_creeps, closest_creep, find_walkable_positions_near_by, try_heal, find_ramparts, is_walkable, find_keeper_lairs};
+use crate::utils::commons::{
+    closest_attacker, closest_creep, find_closest_injured, find_closest_injured_my_creeps,
+    find_keeper_lairs, find_ramparts, find_walkable_positions_near_by, has_boosted_part,
+    is_walkable, try_heal,
+};
 use crate::utils::constants::{CLOSE_RANGE_ACTION, LONG_RANGE_ACTION};
 
 //todo chase into another room task !
@@ -27,13 +31,13 @@ pub fn defend(
         TaskResult::RunAnother(Task::MoveMe(room_name, Walker::Aggressive))
     } else if let Some(attacker) = closest_attacker(creep, hostiles.iter()) {
         debug!("{} hostiles is not empty move to room_name: {}", creep.name(), room_name);
-        let goal = combat(creep, role, attacker, &hostiles);
+        let goal = defend_combat(creep, role, attacker, &hostiles);
+        TaskResult::StillWorking(Task::Defend(room_name, room_requested), goal)
+    } else if let Some(any_not_ally) = hostiles.first() {
+        let goal = defend_combat(creep, role, any_not_ally, &hostiles);
         TaskResult::StillWorking(Task::Defend(room_name, room_requested), goal)
     } else if room_requested {
         TaskResult::ResolveRequest(Task::Defend(room_name, room_requested), false)
-    } else if let Some(any_not_ally) = hostiles.first() {
-        let goal = combat(creep, role, any_not_ally, &hostiles);
-        TaskResult::StillWorking(Task::Defend(room_name, room_requested), goal)
     } else if let Some(injured) = find_closest_injured_my_creeps(creep) {
         let goal = Walker::Therapeutic.walk(injured.pos(), 0, creep, role, hostiles);
         TaskResult::StillWorking(Task::Defend(room_name, room_requested), Some(goal))
@@ -41,6 +45,24 @@ pub fn defend(
         let _ = creep.say("🚬", false);
         let _ = creep.heal(creep);
         TaskResult::Completed
+    }
+}
+
+fn heal(creep: &Creep) {
+    if is_injured(creep) {
+        let _ = creep.heal(creep);
+    } else {
+        match find_closest_injured(creep) {
+            Some(injured) if creep.pos().get_range_to(injured.pos()) == 1 => {
+                let _ = creep.heal(&injured);
+            }
+            Some(injured) if creep.pos().get_range_to(injured.pos()) <= 3 => {
+                let _ = creep.ranged_heal(&injured);
+            }
+            _ => {
+                let _ = creep.heal(creep);
+            }
+        };
     }
 }
 
@@ -244,12 +266,14 @@ pub fn protect(
         //injured
         if creep.pos().room_name() == room_name {
             //injured in a target room -> run away
-            let closest_exit =
-                creep.pos().find_closest_by_path(find::EXIT, None).map_or(Position::new(
-                        unsafe { RoomCoordinate::unchecked_new(25) },
-                        unsafe { RoomCoordinate::unchecked_new(25) },
-                        *role.get_home().expect("expect home room"),
-                    ), std::convert::Into::into);
+            let closest_exit = creep.pos().find_closest_by_path(find::EXIT, None).map_or(
+                Position::new(
+                    unsafe { RoomCoordinate::unchecked_new(25) },
+                    unsafe { RoomCoordinate::unchecked_new(25) },
+                    *role.get_home().expect("expect home room"),
+                ),
+                std::convert::Into::into,
+            );
 
             if let Some(any) = any_in_range_structure(creep, &structures) {
                 let _ = creep.ranged_attack(any);
@@ -295,6 +319,70 @@ fn caravan_combat(
     }
 }
 
+fn defend_combat(
+    creep: &Creep,
+    role: &Role,
+    closest: &Creep,
+    hostiles: &[Creep],
+) -> Option<MovementGoal> {
+    let in_range_list: Vec<&Creep> = hostiles
+        .iter()
+        .filter(|hostile| creep.pos().in_range_to(hostile.pos(), LONG_RANGE_ACTION))
+        .collect();
+
+    if in_range_list.len() >= 2 {
+        let _ = creep.ranged_mass_attack();
+        let _ = creep.heal(creep);
+    } else if let Some(enemy) = in_range_list.first() {
+        let _ = creep.ranged_attack(*enemy);
+        let _ = creep.heal(creep);
+    } else {
+        try_heal(creep);
+    }
+
+    let with_attack_part = has_part(&[Part::Attack], closest, true);
+    let with_boosted_ranged_part = has_boosted_part(&[Part::RangedAttack], closest, true);
+
+    if creep.hits() * 10 <= creep.hits_max() * 9 {
+        let closest_exit = creep.pos().find_closest_by_path(find::EXIT, None).map_or(
+            Position::new(
+                unsafe { RoomCoordinate::unchecked_new(25) },
+                unsafe { RoomCoordinate::unchecked_new(25) },
+                *role.get_home().expect("expect home room"),
+            ),
+            std::convert::Into::into,
+        );
+        Some(Walker::Exploring(false).walk(closest_exit, 0, creep, role, Vec::new()))
+    } else if closest.owner().username() != INVADER_USERNAME {
+        if with_attack_part
+            || with_boosted_ranged_part
+            || has_more_range_attack_parts(creep, closest)
+        {
+            match creep.pos().get_range_to(closest.pos()) {
+                ..=2 => Some(Walker::Flee.walk(
+                    closest.pos(),
+                    LONG_RANGE_ACTION,
+                    creep,
+                    role,
+                    Vec::new(),
+                )),
+                3 => None,
+                _ => Some(Walker::Exploring(false).walk(closest.pos(), 3, creep, role, Vec::new())),
+            }
+        } else {
+            match creep.pos().get_range_to(closest.pos()) {
+                1 => Some(Walker::Exploring(false).walk(closest.pos(), 0, creep, role, Vec::new())),
+                _ => Some(Walker::Exploring(false).walk(closest.pos(), 1, creep, role, Vec::new())),
+            }
+        }
+    } else {
+        match creep.pos().get_range_to(closest.pos()) {
+            1 => Some(Walker::Exploring(false).walk(closest.pos(), 0, creep, role, Vec::new())),
+            _ => Some(Walker::Exploring(false).walk(closest.pos(), 1, creep, role, Vec::new())),
+        }
+    }
+}
+
 //todo a bug, sometimes heal injured instead of attack enemy
 fn combat(creep: &Creep, role: &Role, closest: &Creep, hostiles: &[Creep]) -> Option<MovementGoal> {
     let in_range_list: Vec<&Creep> = hostiles
@@ -316,15 +404,68 @@ fn combat(creep: &Creep, role: &Role, closest: &Creep, hostiles: &[Creep]) -> Op
     }
 
     let with_attack_part = has_part(&[Part::Attack], closest, true);
-    match creep.pos().get_range_to(closest.pos()) {
-        1 if closest.owner().username() != INVADER_USERNAME && with_attack_part => {
-            let goal = Walker::Flee.walk(closest.pos(), LONG_RANGE_ACTION, creep, role, Vec::new());
-            Some(goal)
+    let with_boosted_ranged_part = has_boosted_part(&[Part::RangedAttack], closest, true);
+
+    if creep.hits() * 5 <= creep.hits_max() * 4 {
+        Some(Walker::Flee.walk(closest.pos(), LONG_RANGE_ACTION, creep, role, Vec::new()))
+    } else if closest.owner().username() != INVADER_USERNAME {
+        if with_attack_part
+            || with_boosted_ranged_part
+            || has_more_range_attack_parts(creep, closest)
+        {
+            match creep.pos().get_range_to(closest.pos()) {
+                ..=2 => Some(Walker::Flee.walk(
+                    closest.pos(),
+                    LONG_RANGE_ACTION,
+                    creep,
+                    role,
+                    Vec::new(),
+                )),
+                3 => None,
+                _ => Some(Walker::Exploring(false).walk(closest.pos(), 3, creep, role, Vec::new())),
+            }
+        } else {
+            match creep.pos().get_range_to(closest.pos()) {
+                1 => Some(Walker::Exploring(false).walk(closest.pos(), 0, creep, role, Vec::new())),
+                _ => Some(Walker::Exploring(false).walk(closest.pos(), 1, creep, role, Vec::new())),
+            }
         }
-        1 => Some(Walker::Exploring(false).walk(closest.pos(), 0, creep, role, Vec::new())),
-        2 | 3 if closest.owner().username() != INVADER_USERNAME && with_attack_part => None, /* just stay */
-        _ => Some(Walker::Exploring(false).walk(closest.pos(), 1, creep, role, Vec::new())),
+    } else {
+        match creep.pos().get_range_to(closest.pos()) {
+            1 => Some(Walker::Exploring(false).walk(closest.pos(), 0, creep, role, Vec::new())),
+            _ => Some(Walker::Exploring(false).walk(closest.pos(), 1, creep, role, Vec::new())),
+        }
     }
+}
+
+pub fn has_more_range_attack_parts(creep: &Creep, closest: &Creep) -> bool {
+    let creep_range_attack_parts_count = creep
+        .body()
+        .iter()
+        .filter(|bodypart| bodypart.hits() > 0 && bodypart.part() == Part::RangedAttack)
+        .count();
+
+    let closest_range_attack_parts_count = closest
+        .body()
+        .iter()
+        .filter(|bodypart| bodypart.hits() > 0 && bodypart.part() == Part::RangedAttack)
+        .count();
+
+    creep_range_attack_parts_count * 3 <= closest_range_attack_parts_count * 2
+}
+
+fn is_injured<T>(t: &T) -> bool
+where
+    T: HasHits,
+{
+    t.hits() < t.hits_max()
+}
+
+fn is_damaged<T>(t: &T) -> bool
+where
+    T: HasHits,
+{
+    t.hits() * 5 <= t.hits_max() * 4
 }
 
 fn get_closest_walkable_rampart(

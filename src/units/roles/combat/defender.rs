@@ -1,9 +1,10 @@
+use std::collections::HashMap;
 use std::fmt;
 
 use arrayvec::ArrayVec;
 use screeps::objects::Creep;
-use screeps::prelude::*;
 use screeps::{Part, RoomName};
+use screeps::{ResourceType, prelude::*};
 use serde::{Deserialize, Serialize};
 
 use super::{Kind, Task, can_scale, default_parts_priority};
@@ -15,6 +16,8 @@ use crate::rooms::state::requests::{Request, RequestKind};
 #[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Defender {
     pub(crate) home: Option<RoomName>,
+    #[serde(default)]
+    pub(crate) boost: bool,
 }
 
 impl fmt::Debug for Defender {
@@ -24,8 +27,8 @@ impl fmt::Debug for Defender {
 }
 
 impl Defender {
-    pub const fn new(home: Option<RoomName>) -> Self {
-        Self { home }
+    pub const fn new(home: Option<RoomName>, boost: bool) -> Self {
+        Self { home, boost }
     }
 }
 
@@ -49,6 +52,18 @@ impl Kind for Defender {
             MovementProfile::RoadsOneToTwo
         } else {
             MovementProfile::PlainsOneToOne
+        }
+    }
+
+    fn boosts(&self, creep: &Creep) -> HashMap<Part, [ResourceType; 2]> {
+        if self.boost && creep.ticks_to_live().is_some_and(|tick| tick > 1350) {
+            [(
+                Part::RangedAttack,
+                [ResourceType::CatalyzedKeaniumAlkalide, ResourceType::KeaniumAlkalide],
+            )]
+            .into()
+        } else {
+            HashMap::new()
         }
     }
 

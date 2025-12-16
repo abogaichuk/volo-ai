@@ -1,3 +1,4 @@
+use std::cmp;
 use std::collections::HashMap;
 
 use screeps::{RawObjectId, ResourceType, RoomName};
@@ -74,12 +75,26 @@ pub type ResourceOnLowHandlerFn =
     fn(ResourceType, u32, &ColonyContext) -> Option<ResourceOnLowResult>;
 
 pub fn lack_handler_for(res: ResourceType) -> ResourceOnLowHandlerFn {
-    use ResourceType::{Energy, Battery, CatalyzedGhodiumAcid};
+    use ResourceType::{
+        Battery, Catalyst, CatalyzedGhodiumAcid, Energy, Hydrogen, Keanium, Lemergium, Oxygen,
+        Utrium, Zynthium,
+    };
 
     match res {
         Energy | Battery | CatalyzedGhodiumAcid => contain_excessive,
+        Oxygen | Hydrogen | Zynthium | Keanium | Catalyst | Utrium | Lemergium => limited_transfer,
         _ => divide_by_half,
     }
+}
+
+fn limited_transfer(
+    res: ResourceType,
+    amount: u32,
+    ctx: &ColonyContext,
+) -> Option<ResourceOnLowResult> {
+    find_room_with_high_amount(res, ctx)
+        .filter(|(_, available)| *available > amount * 2)
+        .map(|(room_name, _)| ResourceOnLowResult { amount: cmp::min(amount, 1000), room_name })
 }
 
 fn divide_by_half(

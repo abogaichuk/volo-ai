@@ -36,6 +36,12 @@ pub(in crate::rooms::state::requests) fn factory_handler(
         return events;
     };
 
+    if meta.updated_at + 2_500 < game::time() {
+        warn!("{} request: {:?} timeout exceed!", home.name(), data);
+        meta.update(Status::Aborted);
+        return events;
+    }
+
     let recipe = data.resource.commodity_recipe().expect("expect commodity receipe");
     match meta.status {
         Status::InProgress => {

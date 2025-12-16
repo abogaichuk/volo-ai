@@ -91,7 +91,7 @@ impl Request {
             RequestKind::Defend(d) => defend_handler(d, meta, assignment, home, creeps),
             RequestKind::Transfer(d) => transfer_handler(d, meta, home),
             RequestKind::Factory(d) => factory_handler(d, meta, home),
-            RequestKind::Lab(d) => lab_handler(d, meta, &home.base),
+            RequestKind::Lab(d) => lab_handler(d, meta, home),
             RequestKind::Powerbank(d) => powerbank_handler(d, meta, assignment, home),
             RequestKind::Deposit(d) => deposit_handler(d, meta, assignment, home.name()),
             RequestKind::Caravan(d) => caravan_handler(d, meta, home.name()),

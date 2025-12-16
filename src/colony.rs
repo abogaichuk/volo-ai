@@ -2,10 +2,10 @@ use std::collections::{HashMap, HashSet};
 use std::iter::once;
 
 use js_sys::JsString;
-use log::{debug, info, error, warn};
+use log::{debug, error, info, warn};
 use screeps::game::map::get_room_linear_distance;
 use screeps::game::{self};
-use screeps::{ResourceType, RoomName, raw_memory};
+use screeps::{OrderType, ResourceType, RoomName, raw_memory};
 use serde::{Deserialize, Serialize};
 
 use crate::movement::Movement;
@@ -15,7 +15,7 @@ use crate::rooms::state::requests::{
     CaravanData, DepositData, LRWData, PowerbankData, ProtectData, Request, RequestKind,
     TransferData,
 };
-use crate::rooms::state::{FarmStatus, RoomState};
+use crate::rooms::state::{FarmStatus, RoomState, TradeData};
 use crate::rooms::wrappers::claimed::Claimed;
 use crate::statistics::Statistic;
 use crate::units::creeps::{CreepMemory, run_creeps};
@@ -100,7 +100,7 @@ impl GlobalState {
         debug!("run_power_creeps {} cpu!", game::cpu::get_used() - cpu_start);
 
         let cpu_start = game::cpu::get_used();
-        run_creeps(&mut self.creeps, &mut homes, &mut movement);
+        run_creeps(&mut self.creeps, &mut homes, &mut movement, &self.black_list);
         debug!("finished run creeps {} cpu!", game::cpu::get_used() - cpu_start);
 
         movement.swap_move();
@@ -153,6 +153,20 @@ impl GlobalState {
         debug!("add_request to :{}, request: {:?}", to, request);
         self.rooms.entry(to).and_modify(|room_state| {
             room_state.requests.insert(request);
+        });
+    }
+
+    fn try_sell(&mut self, room_name: RoomName, resource: ResourceType, amount: u32) {
+        self.rooms.entry(room_name).and_modify(|room_state| {
+            if let Some(mut trade) =
+                room_state.trades.take(&TradeData::new(OrderType::Sell, resource))
+            {
+                trade.amount = amount;
+                room_state.trades.insert(trade);
+                info!("{} selling {}:{}", room_name, resource, amount);
+            } else {
+                error!("{} not found trade {:?} resource {}", room_name, OrderType::Sell, resource);
+            }
         });
     }
 

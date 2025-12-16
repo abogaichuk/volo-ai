@@ -1,5 +1,5 @@
-use std::str::FromStr;
 use std::fmt::Write;
+use std::str::FromStr;
 
 use log::info;
 use ordered_float::OrderedFloat;

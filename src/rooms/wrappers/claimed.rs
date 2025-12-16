@@ -1,14 +1,13 @@
-use std::{cmp::min, collections::HashMap, iter::once};
+use std::{collections::HashMap, iter::once};
 
 use log::{error, info};
 use screeps::{
-    ConstructionSite, Creep, Event, HasHits, HasId, HasPosition, HasStore, INVADER_USERNAME,
-    MaybeHasId, Mineral, Nuke, Part, PowerCreep, RESOURCES_ALL, RawObjectId, Resource,
-    ResourceType, Room, RoomName, RoomXY, SharedCreepProperties, Source, StructureContainer,
-    StructureController, StructureExtension, StructureFactory, StructureLab, StructureNuker,
-    StructureObject, StructureObserver, StructurePowerSpawn, StructureRoad, StructureSpawn,
-    StructureStorage, StructureTerminal, StructureTower, StructureType, StructureWall, Tombstone,
-    find, game,
+    ConstructionSite, Creep, Event, HasHits, HasId, HasPosition, INVADER_USERNAME, MaybeHasId,
+    Mineral, Nuke, Part, PowerCreep, RESOURCES_ALL, RawObjectId, Resource, ResourceType, Room,
+    RoomName, RoomXY, SharedCreepProperties, Source, StructureContainer, StructureController,
+    StructureExtension, StructureFactory, StructureNuker, StructureObject, StructureObserver,
+    StructurePowerSpawn, StructureRoad, StructureSpawn, StructureStorage, StructureTerminal,
+    StructureTower, StructureType, StructureWall, Tombstone, find, game,
 };
 use smallvec::SmallVec;
 
@@ -38,7 +37,7 @@ use crate::units::{
     },
 };
 use crate::utils::constants::{
-    MAX_CARRY_REQUEST_AMOUNT, MAX_WALL_HITS, MIN_PERIMETR_HITS, MY_ROOMS_PICKUP_RESOURCE_THRESHOLD,
+    MAX_WALL_HITS, MIN_PERIMETR_HITS, MY_ROOMS_PICKUP_RESOURCE_THRESHOLD,
 };
 
 mod structures;
@@ -270,35 +269,6 @@ impl Claimed {
         }
     }
 
-    //todo withdrawrequest instead of carry
-    pub fn unload<T>(&self, obj: &T, allowed: &[ResourceType]) -> Option<RoomEvent>
-    where
-        T: HasStore + HasId,
-    {
-        self.storage
-            .as_ref()
-            .filter(|storage| storage.store().get_free_capacity(None) > 10_000)
-            .and_then(|storage| {
-                obj.store().store_types().into_iter().find_map(|resource| {
-                    if !allowed.contains(&resource) {
-                        let amount = obj.store().get_used_capacity(Some(resource));
-                        if resource != ResourceType::Energy || amount > 15_000 {
-                            return Some(RoomEvent::Request(Request::new(
-                                RequestKind::Carry(CarryData::new(
-                                    obj.raw_id(),
-                                    storage.raw_id(),
-                                    resource,
-                                    min(amount, MAX_CARRY_REQUEST_AMOUNT),
-                                )),
-                                Assignment::Single(None),
-                            )));
-                        }
-                    }
-                    None
-                })
-            })
-    }
-
     pub fn supply_resources(
         &self,
         to: RawObjectId,
@@ -322,7 +292,8 @@ impl Claimed {
             .or_else(|| {
                 self.factory().filter(|f| f.raw_id() != to).and_then(|f| {
                     let f_capacity = f.store().get_used_capacity(Some(resource));
-                    if f_capacity < amount || ResourceType::Energy == resource && f_capacity < 10000
+                    if f_capacity < amount
+                        || ResourceType::Energy == resource && f_capacity < 10_000
                     {
                         None
                     } else {
@@ -399,10 +370,6 @@ impl Claimed {
 
     pub const fn factory(&self) -> Option<&StructureFactory> {
         self.factory.as_ref()
-    }
-
-    pub fn production_labs(&self) -> (&[StructureLab], &[StructureLab]) {
-        (self.labs.inputs(), self.labs.outputs())
     }
 
     pub fn energy_available(&self) -> u32 {
