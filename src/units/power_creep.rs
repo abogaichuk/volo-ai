@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use log::{error, warn, debug};
+use log::{debug, error, warn};
 use screeps::{
     Effect, EffectType, HasPosition, Position, PowerCreep, PowerInfo, PowerType, ResourceType,
     RoomName, RoomObjectProperties, RoomXY, SharedCreepProperties, StructureController, game,

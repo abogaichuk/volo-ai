@@ -140,7 +140,7 @@ fn minimal_rectangles(spawn: Option<RoomXY>, sources: &[RoomXY], sat: &Sat) -> V
         let outer_w: u8 = w + 2 * SAFE_RANGE;
         let outer_h: u8 = h + 2 * SAFE_RANGE;
 
-        let max_x0 = BUILD_MAX.saturating_sub((outer_w ) - 1);
+        let max_x0 = BUILD_MAX.saturating_sub((outer_w) - 1);
         let max_y0 = BUILD_MAX.saturating_sub((outer_h) - 1);
 
         let mut found: Vec<OuterRectangle> = Vec::new();

@@ -8,8 +8,7 @@ impl Claimed {
     pub(crate) fn run_links(&self) {
         if let Some(farm_link) = self.links.other.iter().find(|link| {
             link.cooldown() == 0 && link.store().get_used_capacity(Some(ResourceType::Energy)) > 700
-        })
-        {
+        }) {
             if let Some(receiver) = self.links.receiver() {
                 let transfer_result = farm_link.transfer_energy(receiver, None);
                 match transfer_result {
@@ -23,7 +22,8 @@ impl Claimed {
             }
         }
 
-        if let Some(ctrl_link) = self.links.ctrl() && ctrl_link.store().get_free_capacity(Some(ResourceType::Energy)) > 500
+        if let Some(ctrl_link) = self.links.ctrl()
+            && ctrl_link.store().get_free_capacity(Some(ResourceType::Energy)) > 500
             && let Some(sender) = self.links.sender().filter(|s| {
                 s.cooldown() == 0 && s.store().get_used_capacity(Some(ResourceType::Energy)) > 0
             })

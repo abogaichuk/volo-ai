@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::str::FromStr;
 
 use itertools::Itertools;
-use log::{error, debug, info};
+use log::{debug, error, info};
 use screeps::pathfinder::SearchGoal;
 use screeps::{Position, RoomName, RoomXY, game};
 
@@ -219,9 +219,8 @@ impl Farm {
                 acc
             });
 
-        for xy in structures
-            .get(&self.get_name())
-            .ok_or(RoomPlannerError::ContainerPlacementError)?
+        for xy in
+            structures.get(&self.get_name()).ok_or(RoomPlannerError::ContainerPlacementError)?
         {
             let cell = PlannedCell::new(*xy, RoomStructure::Container(RoomPart::Red), 0, None);
             plans.entry(self.get_name()).and_modify(|plan| plan.add_cell(cell));

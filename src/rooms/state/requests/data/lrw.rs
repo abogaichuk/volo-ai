@@ -35,7 +35,9 @@ pub(in crate::rooms::state::requests) fn lrw_handler(
                 meta.update(Status::Spawning);
                 events.push(RoomEvent::Spawn(carrier, 1));
             }
-            Status::InProgress if game::time().is_multiple_of(100) && !assignment.has_alive_members() => {
+            Status::InProgress
+                if game::time().is_multiple_of(100) && !assignment.has_alive_members() =>
+            {
                 meta.update(Status::Created);
                 *assignment = Assignment::Single(None);
             }

@@ -24,8 +24,11 @@ impl Claimed {
                                 nuker.raw_id(),
                                 ResourceType::Energy,
                                 min(
-                                    u32::try_from(nuker.store().get_free_capacity(Some(ResourceType::Energy))).ok()
-                                        .unwrap_or(MIN_CARRY_REQUEST_AMOUNT),
+                                    u32::try_from(
+                                        nuker.store().get_free_capacity(Some(ResourceType::Energy)),
+                                    )
+                                    .ok()
+                                    .unwrap_or(MIN_CARRY_REQUEST_AMOUNT),
                                     MAX_CARRY_REQUEST_AMOUNT,
                                 ),
                             )),
@@ -34,7 +37,9 @@ impl Claimed {
                     })
             } else {
                 let nuker_amount = nuker.store().get_used_capacity(Some(ResourceType::Ghodium));
-                if nuker_amount < GHODIUM_LOAD_CAPACITY && let Some(storage) = self.storage() {
+                if nuker_amount < GHODIUM_LOAD_CAPACITY
+                    && let Some(storage) = self.storage()
+                {
                     let storage_amount =
                         storage.store().get_used_capacity(Some(ResourceType::Ghodium));
                     if storage_amount > 0 {

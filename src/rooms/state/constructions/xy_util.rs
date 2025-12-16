@@ -30,18 +30,17 @@ pub const fn to_index(xy: RoomXY) -> usize {
 }
 
 fn iter_xy() -> impl Iterator<Item = RoomXY> {
-    (0..ROOM_AREA)
-        .map(|i| unsafe { RoomXY::unchecked_new(
+    (0..ROOM_AREA).map(|i| unsafe {
+        RoomXY::unchecked_new(
             u8::try_from(i % ROOM_SIZE as usize).expect("expect u8"),
-            u8::try_from(i / ROOM_SIZE as usize).expect("expect u8")) })
+            u8::try_from(i / ROOM_SIZE as usize).expect("expect u8"),
+        )
+    })
 }
 
 #[inline]
 pub fn exit_distance(xy: RoomXY) -> u8 {
-    min(
-        min(xy.x.u8(), xy.y.u8()),
-        min(ROOM_SIZE - 1 - xy.x.u8(), ROOM_SIZE - 1 - xy.y.u8()),
-    )
+    min(min(xy.x.u8(), xy.y.u8()), min(ROOM_SIZE - 1 - xy.x.u8(), ROOM_SIZE - 1 - xy.y.u8()))
 }
 
 #[inline]

@@ -151,15 +151,17 @@ fn get_closest_energy_container(creep: &Creep) -> Option<StructureObject> {
 }
 
 fn has_energy(structure: &StructureObject) -> bool {
-    structure
-        .as_has_store()
-        .is_some_and(|storeable| storeable.store().get_used_capacity(Some(ResourceType::Energy)) > 500)
+    structure.as_has_store().is_some_and(|storeable| {
+        storeable.store().get_used_capacity(Some(ResourceType::Energy)) > 500
+    })
 }
 
 fn get_active_job(home: &Shelter, creep: &Creep) -> Option<Request> {
     home.requests()
-        .find(|r| matches!(&r.kind, RequestKind::Repair(_) | RequestKind::Build(_)
-            if matches!(*r.status(), Status::InProgress) && r.assigned_to(&creep.name())))
+        .find(|r| {
+            matches!(&r.kind, RequestKind::Repair(_) | RequestKind::Build(_)
+            if matches!(*r.status(), Status::InProgress) && r.assigned_to(&creep.name()))
+        })
         .cloned()
 }
 

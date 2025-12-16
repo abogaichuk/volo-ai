@@ -38,10 +38,8 @@ pub(in crate::rooms::state::requests) fn deposit_handler(
             if let Some(squad_id) = assignment.new_squad(data.id.to_string(), meta) {
                 let dep_miner =
                     Role::DepositMiner(DepositMiner::new(Some(squad_id.clone()), Some(home_name)));
-                let dep_hauler = Role::DepositHauler(DepositHauler::new(
-                    Some(squad_id),
-                    Some(home_name),
-                ));
+                let dep_hauler =
+                    Role::DepositHauler(DepositHauler::new(Some(squad_id), Some(home_name)));
 
                 events.push(RoomEvent::Spawn(dep_miner, min(3, data.empty_cells)));
                 events.push(RoomEvent::Spawn(dep_hauler, 1));
@@ -55,14 +53,12 @@ pub(in crate::rooms::state::requests) fn deposit_handler(
             {
                 meta.update(Status::Carry);
             } else if game::time() > meta.updated_at + 1350 {
-                let fast_spawn = game::rooms()
-                    .get(data.pos.room_name())
-                    .is_some_and(|room| {
-                        room.find(find::HOSTILE_CREEPS, None).iter().any(|hostile| {
-                            has_part(&[Part::Work], hostile, false)
-                                && hostile.pos().in_range_to(data.pos, 5)
-                        })
-                    });
+                let fast_spawn = game::rooms().get(data.pos.room_name()).is_some_and(|room| {
+                    room.find(find::HOSTILE_CREEPS, None).iter().any(|hostile| {
+                        has_part(&[Part::Work], hostile, false)
+                            && hostile.pos().in_range_to(data.pos, 5)
+                    })
+                });
 
                 if fast_spawn || game::time() > meta.updated_at + 1400 {
                     if let Some(squad_id) = assignment.new_squad(data.id.to_string(), meta) {

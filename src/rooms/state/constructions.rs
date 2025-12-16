@@ -4,9 +4,9 @@ use std::hash::{Hash, Hasher};
 use std::mem;
 
 use itertools::{Either, Itertools};
+use screeps::ROOM_SIZE;
 use screeps::constants::Terrain;
 use screeps::local::RoomXY;
-use screeps::ROOM_SIZE;
 use screeps::{Position, ResourceType, RoomName, StructureType};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;

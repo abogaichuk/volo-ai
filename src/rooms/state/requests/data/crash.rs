@@ -39,7 +39,9 @@ pub(in crate::rooms::state::requests) fn crash_handler(
                 events.push(RoomEvent::Spawn(overseer, 1));
             }
         }
-        Status::InProgress if game::time().is_multiple_of(100) && !assignment.has_alive_members() => {
+        Status::InProgress
+            if game::time().is_multiple_of(100) && !assignment.has_alive_members() =>
+        {
             meta.update(Status::Created);
             *assignment = Assignment::Single(None);
         }

@@ -15,7 +15,11 @@ pub struct SMData {
 }
 
 impl SMData {
-    pub const fn new(id: ObjectId<StructureController>, pos: Position, storage_id: RawObjectId) -> Self {
+    pub const fn new(
+        id: ObjectId<StructureController>,
+        pos: Position,
+        storage_id: RawObjectId,
+    ) -> Self {
         Self { id, pos, storage_id }
     }
 }
@@ -32,7 +36,9 @@ pub(in crate::rooms::state::requests) fn sm_handler(
             let carrier = Role::Carrier(Carrier::new(Some(home_name)));
             events.push(RoomEvent::Spawn(carrier, 1));
         }
-        Status::InProgress if game::time().is_multiple_of(100) && !assignment.has_alive_members() => {
+        Status::InProgress
+            if game::time().is_multiple_of(100) && !assignment.has_alive_members() =>
+        {
             meta.update(Status::Created);
             *assignment = Assignment::Single(None);
         }

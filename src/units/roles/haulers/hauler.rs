@@ -111,9 +111,9 @@ impl Kind for Hauler {
 
 fn can_fill(str_free_capacity: i32, creep: &Creep) -> bool {
     let energy_in_store = creep.store().get_used_capacity(Some(ResourceType::Energy));
-    u32::try_from(str_free_capacity).ok()
-        .is_some_and(|free_capacity| free_capacity <= energy_in_store
-            || energy_in_store == creep.store().get_capacity(None))
+    u32::try_from(str_free_capacity).ok().is_some_and(|free_capacity| {
+        free_capacity <= energy_in_store || energy_in_store == creep.store().get_capacity(None)
+    })
 }
 
 fn take_energy(home: &Shelter, creep: &Creep) -> Option<Task> {
@@ -151,14 +151,18 @@ fn take_energy(home: &Shelter, creep: &Creep) -> Option<Task> {
 
 fn get_active_job(home: &Shelter, creep: &Creep) -> Option<Request> {
     home.requests()
-        .find(|r| matches!(&r.kind, RequestKind::Withdraw(_) | RequestKind::Pickup(_)
-            if matches!(*r.status(), Status::InProgress) && r.assigned_to(&creep.name())))
+        .find(|r| {
+            matches!(&r.kind, RequestKind::Withdraw(_) | RequestKind::Pickup(_)
+            if matches!(*r.status(), Status::InProgress) && r.assigned_to(&creep.name()))
+        })
         .cloned()
 }
 
 fn get_new_job(home: &Shelter) -> Option<Request> {
     home.requests()
-        .find(|r| matches!(&r.kind, RequestKind::Withdraw(_) | RequestKind::Pickup(_)
-            if matches!(*r.status(), Status::Created)))
+        .find(|r| {
+            matches!(&r.kind, RequestKind::Withdraw(_) | RequestKind::Pickup(_)
+            if matches!(*r.status(), Status::Created))
+        })
         .cloned()
 }
