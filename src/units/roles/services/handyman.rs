@@ -98,7 +98,7 @@ impl Kind for HandyMan {
     }
 
     fn respawn_timeout(&self, _: Option<&Creep>) -> Option<usize> {
-        Some(800)
+        Some(550)
     }
 
     fn get_task(&self, creep: &Creep, home: &mut Shelter) -> Task {

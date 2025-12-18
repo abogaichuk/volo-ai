@@ -13,10 +13,14 @@ pub struct Statistic {
     pub cpu_bucket: i32,
     #[serde(default)]
     pub cpu_limit: u32,
-    #[serde(default)]
+    #[serde(default = "default_cpu_used")]
     pub cpu_used: f64,
     #[serde(default = "HashMap::new")]
     pub rooms: HashMap<RoomName, RoomStats>,
+}
+
+fn default_cpu_used() -> f64 {
+    0.
 }
 
 impl Statistic {
@@ -99,7 +103,7 @@ pub struct Perimetr {
     min: u32,
     #[serde(default)]
     max: u32,
-    #[serde(default, serialize_with = "serialize_f64")]
+    #[serde(default = "default_cpu_used", serialize_with = "serialize_f64")]
     average: f64,
 }
 

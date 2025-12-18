@@ -1,8 +1,11 @@
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
+use std::iter::once;
 
 use itertools::Itertools;
-use screeps::{Direction, HasPosition, Position, RoomPosition, RoomXY, Step};
+use screeps::{
+    Direction, HasPosition, OutOfBoundsError, Position, RoomCoordinate, RoomPosition, RoomXY, Step,
+};
 
 use self::central::central_square;
 use self::polygon::{smallest_perimeter, walk_border};
@@ -12,8 +15,7 @@ use super::xy_util::{outside_rect, square_sides};
 use super::{
     OuterRectangle, RoomPart, RoomPlan, RoomPlannerError, Walls, build_wall_bitmap, is_wall,
 };
-use crate::movement::callback::closest_in_room_range;
-use crate::movement::find_path_in_room;
+use crate::movement::{callback::closest_in_room_range, find_path_in_room};
 use crate::rooms::wrappers::claimed::Claimed;
 
 mod central;
@@ -31,7 +33,10 @@ mod towers;
 type Route = (RoomXY, Vec<Step>);
 
 impl Claimed {
-    pub fn generate_plan(&self) -> Result<RoomPlan, RoomPlannerError> {
+    pub fn generate_plan(
+        &self,
+        rect: Option<OuterRectangle>,
+    ) -> Result<RoomPlan, RoomPlannerError> {
         let sources: Vec<RoomXY> = self.sources.iter().map(|source| source.pos().xy()).collect();
 
         let ctrl = self.controller.pos().xy();
@@ -43,13 +48,17 @@ impl Claimed {
         let terrain = self.room.get_terrain();
         let walls = build_wall_bitmap(&|a, b| terrain.get(a, b));
 
-        let perimeter = smallest_perimeter(initial_spawn, &sources, &walls)?;
+        let perimeter = match rect {
+            Some(r) => Perimeter::new(r, &walls),
+            None => smallest_perimeter(initial_spawn, &sources, &walls)?,
+        };
         let grid = room_grid(&perimeter, &walls)?;
 
         let RoadNet { config, roads, mut squares } =
             best_net(perimeter.rectangle(), initial_spawn, &grid)?;
 
-        //todo guide cell could be an exit from farm to a base
+        // todo guide cell could be an exit from farm to a base
+        // the idea is to turn the base in direction to the guide cell!
         let guide = guide_cell(ctrl, &sources, perimeter.rectangle())?;
 
         let central = central_square(guide, initial_spawn, &roads, &mut squares, &walls)?;
@@ -227,15 +236,16 @@ fn guide_cell(
     sources: &[RoomXY],
     rect: OuterRectangle,
 ) -> Result<RoomXY, RoomPlannerError> {
-    if outside_rect(ctrl, rect) {
-        Ok(ctrl)
-    } else if let Some(source) = sources.iter().find(|source| outside_rect(**source, rect))
-    //todo add default target, perim center?
-    {
-        Ok(*source)
-    } else {
-        Err(RoomPlannerError::GiudePointNotFound)
-    }
+    once(ctrl)
+        .chain(sources.iter().copied())
+        .find(|xy| outside_rect(*xy, rect))
+        .map_or_else(|| rect_center(rect).map_err(|_| RoomPlannerError::GiudePointNotFound), Ok)
+}
+
+fn rect_center(rect: OuterRectangle) -> Result<RoomXY, OutOfBoundsError> {
+    let x = RoomCoordinate::new(rect.0 + rect.2 / 2)?;
+    let y = RoomCoordinate::new(rect.1 + rect.3 / 2)?;
+    Ok(RoomXY::new(x, y))
 }
 
 #[derive(Debug, Clone)]

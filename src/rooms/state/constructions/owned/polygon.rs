@@ -11,8 +11,8 @@ use crate::rooms::state::constructions::{
 const SAFE_RANGE: u8 = 3; // Chebyshev radius for "safe from perimeter"
 const MIN_SAFE_CELLS: usize = 150;
 
-const BUILD_MIN: u8 = 8;
-const BUILD_MAX: u8 = 42;
+const BUILD_MIN: u8 = 5;
+const BUILD_MAX: u8 = 45;
 const MIN_CORE: u8 = 13;
 const MAX_CORE: u8 = 20;
 

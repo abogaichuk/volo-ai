@@ -14,6 +14,7 @@ use crate::GLOBAL_MEMORY;
 use crate::rooms::state::constructions::{PlannedCell, RoomStructure};
 use crate::rooms::state::requests::Request;
 use crate::rooms::state::{BoostReason, FarmInfo, RoomState, TradeData};
+use crate::rooms::wrappers::claimed::Claimed;
 use crate::units::creeps::CreepMemory;
 use crate::units::roles::Role;
 
@@ -453,6 +454,38 @@ pub fn delete_plan_for(room_name: String, x: u8, y: u8, structure: JsValue) -> S
                 format!("incorrect structure: {err}")
             }
         },
+        Err(error) => {
+            format!("incorrect room name: {error}")
+        }
+    }
+}
+
+#[wasm_bindgen]
+pub fn generate_plan(room_name: String, x0: u8, y0: u8, x1: u8, y1: u8) -> String {
+    match RoomName::from_str(&room_name) {
+        Ok(room_name) => GLOBAL_MEMORY.with(|mem_refcell| {
+            match mem_refcell.borrow_mut().rooms.get_mut(&room_name) {
+                Some(room_state) => {
+                    if let Some(room) = game::rooms().get(room_name) {
+                        let claimed = Claimed::new(room, Vec::new(), room_state);
+                        match claimed.generate_plan(Some((x0, y0, x1, y1))) {
+                            Ok(plan) => {
+                                room_state.plan = Some(plan);
+                                "plan generated!".to_string()
+                            }
+                            Err(err) => {
+                                format!("room plan error: {err}")
+                            }
+                        }
+                    } else {
+                        "room not found!".to_string()
+                    }
+                }
+                _ => {
+                    format!("room: {room_name} is not claimed room")
+                }
+            }
+        }),
         Err(error) => {
             format!("incorrect room name: {error}")
         }

@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use log::{debug, info};
+use log::debug;
 use screeps::{
     Creep, EffectType, Event, HasHits, HasId, HasPosition, MaybeHasId, Mineral, Part, Room,
     RoomName, RoomObjectProperties, SOURCE_KEEPER_USERNAME, SharedCreepProperties, Source,

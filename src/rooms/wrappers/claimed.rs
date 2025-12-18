@@ -257,7 +257,7 @@ impl Claimed {
                 }
             }
         } else if !is_cpu_on_low() {
-            match self.generate_plan() {
+            match self.generate_plan(None) {
                 Ok(plan) => Some(RoomEvent::Plan(plan)),
                 Err(err) => {
                     error!("{}", err);
