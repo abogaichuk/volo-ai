@@ -15,6 +15,7 @@ pub enum Assignment {
     /// Many doers in one pool
     Multi(HashSet<String>),
     /// Sequential squads
+    /// //todo changed to Box<Vec<Squad>> to reduce mem allocation
     Squads(Vec<Squad>),
 }
 
