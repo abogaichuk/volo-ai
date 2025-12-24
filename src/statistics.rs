@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use screeps::{HasHits, ResourceType, RoomName, StructureController, StructureRampart, game};
-use serde::{Deserialize, Serialize, Serializer};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::rooms::wrappers::claimed::Claimed;
 
@@ -13,14 +13,10 @@ pub struct Statistic {
     pub cpu_bucket: i32,
     #[serde(default)]
     pub cpu_limit: u32,
-    #[serde(default = "default_cpu_used")]
+    #[serde(default)]
     pub cpu_used: f64,
     #[serde(default = "HashMap::new")]
     pub rooms: HashMap<RoomName, RoomStats>,
-}
-
-fn default_cpu_used() -> f64 {
-    0.
 }
 
 impl Statistic {
@@ -103,8 +99,19 @@ pub struct Perimetr {
     min: u32,
     #[serde(default)]
     max: u32,
-    #[serde(default = "default_cpu_used", serialize_with = "serialize_f64")]
+    #[serde(
+        default,
+        serialize_with = "serialize_f64",
+        deserialize_with = "deserialize_null_to_zero"
+    )]
     average: f64,
+}
+
+fn deserialize_null_to_zero<'de, D>(deserializer: D) -> Result<f64, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    Ok(Option::<f64>::deserialize(deserializer)?.unwrap_or(0.0))
 }
 
 #[allow(clippy::trivially_copy_pass_by_ref)]

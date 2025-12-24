@@ -357,10 +357,10 @@ pub fn clear_trades(room_name: String) -> String {
 }
 
 #[wasm_bindgen]
-pub fn avoid_room(room_name: String) -> String {
+pub fn avoid_room(room_name: String, timeout: u32) -> String {
     match RoomName::from_str(&room_name) {
         Ok(room_name) => GLOBAL_MEMORY.with(|mem_refcell| {
-            mem_refcell.borrow_mut().avoid_rooms.insert(room_name, u32::MAX);
+            mem_refcell.borrow_mut().avoid_rooms.insert(room_name, game::time() + timeout);
             format!("add room: {room_name} to avoid set!")
         }),
         Err(error) => {

@@ -2,7 +2,7 @@ use std::cmp::Ordering;
 
 use log::{debug, info, warn};
 use screeps::{
-    Attackable, BodyPart, Creep, HasHits, HasPosition, INVADER_USERNAME, ObjectId, Part, Position,
+    Attackable, Creep, HasHits, HasPosition, INVADER_USERNAME, ObjectId, Part, Position,
     Room, RoomCoordinate, RoomName, SOURCE_KEEPER_USERNAME, SYSTEM_USERNAME, SharedCreepProperties,
     StructureInvaderCore, StructureKeeperLair, StructureObject, StructureRampart, StructureTower,
     find, game,
@@ -62,7 +62,7 @@ fn heal(creep: &Creep) {
             _ => {
                 let _ = creep.heal(creep);
             }
-        };
+        }
     }
 }
 

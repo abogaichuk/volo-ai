@@ -138,8 +138,8 @@ global.clear_trades = function (room_name) {
     return bot.clear_trades(room_name);
 }
 
-global.avoid_room = function (room_name) {
-    return bot.avoid_room(room_name);
+global.avoid_room = function (room_name, timeout) {
+    return bot.avoid_room(room_name, timeout);
 }
 
 global.get_plan_for = function (room_name, x, y) {

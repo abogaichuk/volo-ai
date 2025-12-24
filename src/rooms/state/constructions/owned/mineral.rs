@@ -28,7 +28,7 @@ pub fn plan(
     .and_then(|xy| {
         grid.get(&xy).map(|part| PlannedCell::new(xy, RoomStructure::Container(*part), 6, None))
     })
-    .ok_or(RoomPlannerError::ControllerPlacementFailure)?;
+    .ok_or(RoomPlannerError::ContainerPlacementError)?;
 
     room_plan.add_cell(container);
 

@@ -1,25 +1,38 @@
 use std::cmp::Ordering;
 use std::collections::HashMap;
-use std::str::FromStr;
+use std::fmt::{Display, Formatter};
 
-use itertools::Itertools;
 use log::{debug, error, info};
-use screeps::pathfinder::SearchGoal;
-use screeps::{Position, RoomName, RoomXY, game};
+use screeps::{Position, RoomName, RoomXY, game, pathfinder::SearchGoal};
 
 use super::{PlannedCell, RoomPart, RoomPlan, RoomPlannerError, RoomStructure};
 use crate::commons::is_cpu_on_low;
-use crate::movement::callback::{closest_multi_rooms_range, construction_multi_rooms};
-use crate::movement::{find_many, find_path};
-use crate::rooms::is_extractor;
-use crate::rooms::wrappers::farm::Farm;
-
-const STEP: usize = 5;
+use crate::movement::{callback::construction_multi_rooms, find_many};
+use crate::rooms::{is_extractor, wrappers::farm::Farm};
 
 #[derive(Debug, Clone)]
 struct CostedRoute {
-    distance: usize,
+    remoted: usize,
     path: Vec<Position>,
+}
+
+impl CostedRoute {
+    fn distance_to_safe(&self) -> usize {
+        self.remoted + self.path.len()
+    }
+}
+
+impl Display for CostedRoute {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        write!(
+            f,
+            "remoted from safe zone: {}, path.len(): {}, sum: {}, last: {:?}",
+            self.remoted,
+            self.path.len(),
+            self.remoted + self.path.len(),
+            self.path.last().map(|pos| (pos.x().u8(), pos.y().u8()))
+        )
+    }
 }
 
 impl PartialOrd for CostedRoute {
@@ -30,25 +43,20 @@ impl PartialOrd for CostedRoute {
 
 impl Ord for CostedRoute {
     fn cmp(&self, other: &Self) -> Ordering {
-        let diff = self.distance.abs_diff(other.distance);
+        let distance = self.distance_to_safe();
+        let o_distance = other.distance_to_safe();
 
-        match self.distance.cmp(&other.distance) {
-            Ordering::Greater => match (self.path.len() + diff).cmp(&other.path.len()) {
-                Ordering::Less => Ordering::Less,
-                _ => Ordering::Greater,
-            },
-            Ordering::Less => match self.path.len().cmp(&(other.path.len() + diff)) {
-                Ordering::Less => Ordering::Less,
-                _ => Ordering::Greater,
-            },
+        // let diff = distance.abs_diff(o_distance);
+        match distance.cmp(&o_distance) {
             Ordering::Equal => self.path.len().cmp(&other.path.len()),
+            r => r,
         }
     }
 }
 
 impl PartialEq for CostedRoute {
     fn eq(&self, other: &Self) -> bool {
-        self.distance == other.distance && self.path.len() == other.path.len()
+        self.remoted == other.remoted && self.path.len() == other.path.len()
     }
 }
 
@@ -69,106 +77,51 @@ impl Farm {
             .map(|(name, plan)| (*name, plan.unwalkable_structures()))
             .collect();
 
-        let base_internal = *existed_roads
-            .iter()
-            .find_map(|(pos, distance)| if *distance == 0 { Some(pos) } else { None })
-            .ok_or(RoomPlannerError::RoadConnectionFailure)?;
-
-        for (target, _) in targets
-            .into_iter()
-            .map(|target| {
-                let search_res = find_path(target, base_internal, 1, closest_multi_rooms_range());
-                (target, if search_res.incomplete() { usize::MAX } else { search_res.path().len() })
-            })
-            .sorted_by_key(|(_, distance)| *distance)
-        {
-            let max_distance = existed_roads.values().max().copied().unwrap_or_default();
-
-            let mut max = STEP;
-            let mut min = 0;
+        for target in targets {
             let mut best_route: Option<CostedRoute> = None;
+            let mut distance_to_safe_zone =
+                existed_roads.values().max().copied().unwrap_or_default();
 
             let cpu_start = game::cpu::get_used();
-            while min < max_distance {
+            while distance_to_safe_zone > 0 {
                 if is_cpu_on_low() {
                     return Err(RoomPlannerError::LowCPU);
                 }
 
                 let goals = existed_roads.iter().filter_map(|(pos, cost)| {
-                    if *cost <= max && *cost >= min { Some(SearchGoal::new(*pos, 0)) } else { None }
+                    if *cost == distance_to_safe_zone {
+                        Some(SearchGoal::new(*pos, 1))
+                    } else {
+                        None
+                    }
                 });
 
                 let search_result = find_many(target, goals, construction_multi_rooms(&structures));
 
                 if search_result.incomplete() {
                     error!("{} construction search_result incomplete!", self.get_name());
-                    min = min.saturating_add(STEP);
-                    max = max.saturating_add(STEP);
+                    distance_to_safe_zone = distance_to_safe_zone.saturating_sub(1);
                     continue;
                 }
 
-                let mut path = search_result.path().into_iter().filter(|pos| !pos.is_room_edge());
-                let distance = path
-                    .next_back()
-                    .and_then(|pos| existed_roads.get(&pos))
-                    .ok_or(RoomPlannerError::RoadPlanFailure)?;
+                let path = search_result.path().into_iter().filter(|pos| !pos.is_room_edge());
 
-                let route = CostedRoute { distance: *distance, path: path.collect() };
-                let best_distance = best_route.as_ref().map(|b| b.distance);
-
-                let (shortest, new_min, new_max) = if let Some(costed_route) = best_route.take() {
-                    debug!(
-                        "comparing distance: {}, len: {}, last: {:?}, with current distance: {}, len: {}, last: {:?}",
-                        distance,
-                        route.path.len(),
-                        route.path.last().map(|pos| (pos.x().u8(), pos.y().u8())),
-                        costed_route.distance,
-                        costed_route.path.len(),
-                        costed_route.path.last().map(|pos| (pos.x().u8(), pos.y().u8()))
-                    );
-                    match costed_route.cmp(&route) {
-                        Ordering::Less => {
-                            debug!(
-                                "less case: min: {}, max: {}, costed_route.dist: {}",
-                                min, max, costed_route.distance
-                            );
-                            (costed_route, min.saturating_add(STEP), max.saturating_add(STEP))
-                        }
-                        Ordering::Equal => {
-                            debug!(
-                                "equal case: min: {}, max: {}, costed_route.dist: {}",
-                                min, max, costed_route.distance
-                            );
-                            (costed_route, min.saturating_add(STEP), max.saturating_add(STEP))
-                        }
-                        Ordering::Greater => {
-                            debug!(
-                                "greater case: min: {}, max: {}, route.dist: {}",
-                                min, max, route.distance
-                            );
-                            (route, min.saturating_add(STEP), max.saturating_add(STEP))
-                        }
-                    }
+                let route = CostedRoute { remoted: distance_to_safe_zone, path: path.collect() };
+                let shortest = if let Some(costed_route) = best_route.take() {
+                    if costed_route <= route { costed_route } else { route }
                 } else {
-                    debug!("None case: min: {}, max: {}, route.dist: {}", min, max, route.distance);
-                    (route, min.saturating_add(STEP), max.saturating_add(STEP))
+                    route
                 };
 
                 let cpu_used = game::cpu::get_used() - cpu_start;
-                info!(
-                    "{} while cpu used: {}, new_min: {}, new_max: {}, shortest:[distance: {}, len:{}, last:{:?}], best_distance: {:?}",
+                debug!(
+                    "{} while cpu used: {}, distance_to_safe_zone: {}, shortest: {}",
                     self.get_name(),
                     cpu_used,
-                    new_min,
-                    new_max,
-                    shortest.distance,
-                    shortest.path.len(),
-                    shortest.path.last().map(|pos| (pos.x().u8(), pos.y().u8())),
-                    best_distance
+                    distance_to_safe_zone,
+                    shortest
                 );
-
-                min = new_min;
-                max = new_max;
+                distance_to_safe_zone = distance_to_safe_zone.saturating_sub(1);
                 best_route = Some(shortest);
             }
 
@@ -176,32 +129,24 @@ impl Farm {
                 info!(
                     "from: {} - distance = {} + {}",
                     target,
-                    costed_route.distance,
-                    costed_route.path.len() - 1
+                    costed_route.remoted,
+                    costed_route.path.len()
                 );
-                let r = costed_route.path.iter().fold(
-                    String::from_str("").expect("expect str"),
-                    |acc, elem| {
-                        format!(
-                            "{} [{}: {}, {}]",
-                            acc,
-                            elem.room_name(),
-                            elem.x().u8(),
-                            elem.y().u8()
-                        )
-                    },
-                );
+                let r = costed_route.path.iter().fold(String::new(), |acc, elem| {
+                    format!("{} [{}: {}, {}]", acc, elem.room_name(), elem.x().u8(), elem.y().u8())
+                });
                 info!("route: {}", r);
 
                 let mut path = costed_route.path.into_iter();
                 let container = path.next().ok_or(RoomPlannerError::RoadPlanFailure)?;
+                info!("container at: {}", container);
                 structures
                     .entry(container.room_name())
                     .and_modify(|s| s.push(container.xy()))
                     .or_insert_with(|| vec![container.xy()]);
 
                 for (i, pos) in path.rev().enumerate() {
-                    existed_roads.insert(pos, costed_route.distance + i + 1);
+                    existed_roads.insert(pos, costed_route.remoted + i + 1);
                 }
             } else {
                 return Err(RoomPlannerError::RoadPlanFailure);

@@ -12,7 +12,7 @@ use screeps::{
 use crate::commons::look_for;
 use crate::rooms::shelter::Shelter;
 use crate::rooms::state::constructions::{PlannedCell, RoomPlan};
-use crate::rooms::state::requests::{CreepHostile, Request};
+use crate::rooms::state::requests::Request;
 use crate::rooms::state::{BoostReason, RoomState};
 use crate::rooms::wrappers::farm::Farm;
 use crate::rooms::wrappers::neutral::Neutral;
@@ -34,7 +34,7 @@ pub enum RoomEvent {
     RetainBoosts,
     StopFarm(RoomName, Option<RoomName>),
     StartFarm(RoomName, Option<RoomName>),
-    AddPlans(HashMap<RoomName, RoomPlan>),
+    EditPlans(HashMap<RoomName, RoomPlan>),
     Plan(RoomPlan),
     ReplaceCell(PlannedCell),
     BuiltAll,
@@ -51,8 +51,7 @@ pub enum RoomEvent {
     Defend(RoomName),
     ActivateSafeMode(String),
     BlackList(String),
-    UpdateStatistic, /* #[default]
-                      * Nothing */
+    UpdateStatistic,
 }
 
 pub fn register_rooms<'a>(
@@ -94,6 +93,7 @@ fn missed_buildings(
                 None
             }
         })
+        .sorted_by_key(|(xy, _)| *xy)
         .take(5)
 }
 

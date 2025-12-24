@@ -209,9 +209,6 @@ fn repair_near(creep: &Creep, room: &Room) -> Option<Task> {
         })
         .min_by_key(|(_, hits)| *hits)
         .map(|(request, _)| request)
-    // .sorted_by_key(|(_, hits)| *hits)
-    // .map(|(request, _)| request)
-    // .next()
 }
 
 #[allow(clippy::cast_possible_wrap)]

@@ -106,11 +106,12 @@ impl Claimed {
 
         for structure in room.find(find::STRUCTURES, None) {
             match structure {
-                StructureObject::StructureTower(tower)
-                    if tower.store().get_used_capacity(Some(ResourceType::Energy)) > 0 =>
-                {
-                    towers.push(tower);
-                }
+                // StructureObject::StructureTower(tower)
+                //     if tower.store().get_used_capacity(Some(ResourceType::Energy)) > 0 =>
+                // {
+                //     towers.push(tower);
+                // }
+                StructureObject::StructureTower(tower) => towers.push(tower),
                 StructureObject::StructureSpawn(s) => spawns.push(s),
                 StructureObject::StructureExtension(e) => extensions.push(e),
                 StructureObject::StructureFactory(f) => factory = Some(f),
@@ -212,7 +213,7 @@ impl Claimed {
     fn constructions_check(&self, memory: &RoomState) -> Option<RoomEvent> {
         if let Some(plan) = &memory.plan {
             match self.plan_farm(plan, &memory.farms) {
-                Ok(plans) => Some(RoomEvent::AddPlans(plans)),
+                Ok(plans) => Some(RoomEvent::EditPlans(plans)),
                 Err(err) => {
                     match err {
                         RoomPlannerError::AlreadyCreated => {
@@ -642,7 +643,9 @@ impl Claimed {
     }
 
     fn perimetr_check(&self) -> Option<RoomEvent> {
-        (self.ramparts.perimeter().any(|rampart| rampart.hits() < MIN_PERIMETR_HITS)).then(|| {
+        (self.controller.level() > 5
+            && self.ramparts.perimeter().any(|rampart| rampart.hits() < MIN_PERIMETR_HITS))
+        .then(|| {
             RoomEvent::ActivateSafeMode("Perimeter out of order! Enabling safe mode!".to_string())
         })
     }

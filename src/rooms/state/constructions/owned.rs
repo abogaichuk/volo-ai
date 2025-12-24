@@ -52,6 +52,7 @@ impl Claimed {
             Some(r) => Perimeter::new(r, &walls),
             None => smallest_perimeter(initial_spawn, &sources, &walls)?,
         };
+
         let grid = room_grid(&perimeter, &walls)?;
 
         let RoadNet { config, roads, mut squares } =
@@ -400,5 +401,25 @@ impl Square {
         ]
         .iter()
         .all(|xy| !is_wall(walls, *xy) && spawn.is_none_or(|spawn_xy| xy != spawn_xy))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use screeps::RoomXY;
+
+    use crate::rooms::state::constructions::{owned::smallest_perimeter, tests::WALLS};
+
+    #[test]
+    fn plan_room_test() {
+        let sources = sources();
+        let initial_spawn = None;
+
+        let perimeter = smallest_perimeter(initial_spawn, &sources, &WALLS).unwrap();
+        assert_eq!(perimeter.rectangle(), (27, 8, 45, 26));
+    }
+
+    pub fn sources() -> Vec<RoomXY> {
+        unsafe { vec![RoomXY::unchecked_new(8, 23), RoomXY::unchecked_new(30, 15)] }
     }
 }

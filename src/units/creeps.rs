@@ -56,7 +56,7 @@ impl CrUnit<'_, '_, '_> {
         }
     }
 
-    pub fn run_unit(&mut self, black_list: &HashSet<String>) -> Option<MovementGoal> {
+    pub fn run_unit(&mut self, _black_list: &HashSet<String>) -> Option<MovementGoal> {
         let task = self
             .memory
             .task

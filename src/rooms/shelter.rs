@@ -224,7 +224,7 @@ impl<'s> Shelter<'s> {
                     );
                     colony_events.push(ColonyEvent::Notify(message, Some(30)));
                 }
-                RoomEvent::AddPlans(plans) => {
+                RoomEvent::EditPlans(plans) => {
                     for (name, additional) in plans {
                         if name == self.name() {
                             self.state.set_plan(additional);
@@ -470,7 +470,6 @@ impl<'s> Shelter<'s> {
                                 RequestKind::Withdraw(WithdrawData::new(
                                     obj.raw_id(),
                                     obj.pos(),
-                                    // vec![(resource, std::max())],
                                     vec![(resource, None)],
                                 )),
                                 Assignment::Single(None),
