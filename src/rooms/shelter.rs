@@ -237,7 +237,28 @@ impl<'s> Shelter<'s> {
                     info!("{} construction plan created!", self.name());
                     self.state.plan = Some(plan);
                 }
-                RoomEvent::BuiltAll => {
+                RoomEvent::Construct(buildings) => {
+                    for (xy, str_type) in buildings {
+                        match self.base.room.create_construction_site(
+                            xy.x.u8(),
+                            xy.y.u8(),
+                            str_type,
+                            None,
+                        ) {
+                            Ok(()) => {}
+                            Err(err) => {
+                                error!(
+                                    "{} can't create cs: {}, at: {}, err: {:?}",
+                                    self.name(),
+                                    str_type,
+                                    xy,
+                                    err
+                                );
+                            }
+                        }
+                    }
+                }
+                RoomEvent::IncrementPlanLvl => {
                     if let Some(mut plan) = self.state.plan.take() {
                         plan.increment_lvl();
                         self.state.plan = Some(plan);

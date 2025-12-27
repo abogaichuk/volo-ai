@@ -142,8 +142,8 @@ global.avoid_room = function (room_name, timeout) {
     return bot.avoid_room(room_name, timeout);
 }
 
-global.get_plan_for = function (room_name, x, y) {
-    return bot.get_plan_for(room_name, x, y)
+global.plan_for = function (room_name, x, y) {
+    return bot.plan_for(room_name, x, y)
 }
 
 global.add_plan = function (room_name, x, y, structure, lvl, r_lvl) {

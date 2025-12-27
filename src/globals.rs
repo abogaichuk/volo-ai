@@ -370,25 +370,18 @@ pub fn avoid_room(room_name: String, timeout: u32) -> String {
 }
 
 #[wasm_bindgen]
-pub fn get_plan_for(room_name: String, x: u8, y: u8) -> String {
+pub fn plan_for(room_name: String, x: u8, y: u8) -> String {
     match RoomName::from_str(&room_name) {
         Ok(room_name) => GLOBAL_MEMORY.with(|mem_refcell| {
             if let Some(memory) = mem_refcell.borrow_mut().rooms.get(&room_name)
                 && let Some(plan) = &memory.plan
             {
                 let xy = unsafe { RoomXY::unchecked_new(x, y) };
-                let result = plan.find_by_xy(xy).fold(
-                    String::from_str("cells: ").expect("expect str"),
-                    |acc, elem| {
-                        format!(
-                            "{}, [{:?}: {}, {}]",
-                            acc,
-                            elem.structure,
-                            elem.xy.x.u8(),
-                            elem.xy.y.u8()
-                        )
-                    },
-                );
+                let result = plan
+                    .find_by_xy(xy)
+                    .fold(String::from_str("cells: ").expect("expect str"), |acc, elem| {
+                        format!("{}, [{:?}]", acc, elem)
+                    });
                 return result;
             }
             format!("memory: {room_name} not found!")

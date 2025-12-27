@@ -65,6 +65,7 @@ pub fn plan(
         .or_else(|| {
             //in other case find available place near container closest to a storage
             walkable_neighbors(container.xy, grid)
+                //todo if the link inside perim and/or ctrl find for longest distance
                 .filter(|xy| !room_plan.is_occupied(*xy))
                 .min_by_key(|xy| xy.get_range_to(storage.xy()))
         })

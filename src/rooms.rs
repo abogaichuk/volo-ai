@@ -11,7 +11,7 @@ use screeps::{
 
 use crate::commons::look_for;
 use crate::rooms::shelter::Shelter;
-use crate::rooms::state::constructions::{PlannedCell, RoomPlan};
+use crate::rooms::state::constructions::{PlannedCell, RoomPlan, RoomStructure};
 use crate::rooms::state::requests::Request;
 use crate::rooms::state::{BoostReason, RoomState};
 use crate::rooms::wrappers::farm::Farm;
@@ -37,7 +37,8 @@ pub enum RoomEvent {
     EditPlans(HashMap<RoomName, RoomPlan>),
     Plan(RoomPlan),
     ReplaceCell(PlannedCell),
-    BuiltAll,
+    Construct(HashMap<RoomXY, StructureType>),
+    IncrementPlanLvl,
     Lack(ResourceType, u32),
     Excess(ResourceType, u32),
     Avoid(RoomName, u32),

@@ -106,11 +106,6 @@ impl Claimed {
 
         for structure in room.find(find::STRUCTURES, None) {
             match structure {
-                // StructureObject::StructureTower(tower)
-                //     if tower.store().get_used_capacity(Some(ResourceType::Energy)) > 0 =>
-                // {
-                //     towers.push(tower);
-                // }
                 StructureObject::StructureTower(tower) => towers.push(tower),
                 StructureObject::StructureSpawn(s) => spawns.push(s),
                 StructureObject::StructureExtension(e) => extensions.push(e),
@@ -214,48 +209,23 @@ impl Claimed {
         if let Some(plan) = &memory.plan {
             match self.plan_farm(plan, &memory.farms) {
                 Ok(plans) => Some(RoomEvent::EditPlans(plans)),
-                Err(err) => {
-                    match err {
-                        RoomPlannerError::AlreadyCreated => {
-                            //todo create cs partially and in specific order
-                            let buildings: HashMap<RoomXY, StructureType> =
-                                missed_buildings(self.get_name(), plan).collect();
-                            let cpu_start = game::cpu::get_used();
-                            if !buildings.is_empty() {
-                                for (xy, str_type) in buildings {
-                                    match self.room.create_construction_site(
-                                        xy.x.u8(),
-                                        xy.y.u8(),
-                                        str_type,
-                                        None,
-                                    ) {
-                                        Ok(()) => {}
-                                        Err(err) => {
-                                            error!(
-                                                "{} can't create cs: {}, at: {}, err: {:?}",
-                                                self.get_name(),
-                                                str_type,
-                                                xy,
-                                                err
-                                            );
-                                        }
-                                    }
-                                }
-                                let cpu_used = game::cpu::get_used() - cpu_start;
-                                info!("{} created cs cpu used: {}", self.get_name(), cpu_used);
-                                None
-                            } else if plan.built_lvl() < self.controller.level() {
-                                Some(RoomEvent::BuiltAll)
-                            } else {
-                                None
-                            }
-                        }
-                        e => {
-                            error!("{} creation plan error: {}", self.get_name(), e);
+                Err(err) => match err {
+                    RoomPlannerError::AlreadyCreated => {
+                        let buildings: HashMap<RoomXY, StructureType> =
+                            missed_buildings(self.get_name(), plan).collect();
+                        if !buildings.is_empty() {
+                            Some(RoomEvent::Construct(buildings))
+                        } else if plan.built_lvl() < self.controller.level() {
+                            Some(RoomEvent::IncrementPlanLvl)
+                        } else {
                             None
                         }
                     }
-                }
+                    e => {
+                        error!("{} creation plan error: {}", self.get_name(), e);
+                        None
+                    }
+                },
             }
         } else if !is_cpu_on_low() {
             match self.generate_plan(None) {
