@@ -66,15 +66,28 @@ pub fn register_rooms<'a>(
         if let Some(base_room) = rooms.remove(room_name) {
             let mut farms = Vec::new();
 
-            for farm_name in state.farms.keys() {
+            for (farm_name, farm_info) in state.farms.iter() {
                 if let Some(farm_room) = rooms.remove(farm_name) {
-                    farms.push(Farm::new(farm_room));
+                    farms.push(Farm::new(farm_room, farm_info.clone()));
                 }
             }
 
             homes.insert(*room_name, Shelter::new(base_room, farms, state, white_list));
         }
     }
+    // for (room_name, state) in states.iter_mut() {
+    //     if let Some(base_room) = rooms.remove(room_name) {
+    //         let mut farms = Vec::new();
+
+    //         for farm_name in state.farms.keys() {
+    //             if let Some(farm_room) = rooms.remove(farm_name) {
+    //                 farms.push(Farm::new(farm_room));
+    //             }
+    //         }
+
+    //         homes.insert(*room_name, Shelter::new(base_room, farms, state, white_list));
+    //     }
+    // }
     debug!("registered shelters: {}", homes.len());
     (homes, rooms.into_values().map(Neutral::new).collect())
 }

@@ -23,6 +23,7 @@ use crate::utils::constants::FARM_ROOMS_PICKUP_RESOURCE_THRESHOLD;
 
 pub struct Farm {
     pub(crate) room: Room,
+    pub(crate) memory: FarmInfo,
     pub(crate) hostiles: Vec<Creep>,
     pub(crate) mineral: Option<Mineral>,
     pub(crate) sources: Vec<Source>,
@@ -34,7 +35,7 @@ pub struct Farm {
 }
 
 impl Farm {
-    pub fn new(room: Room) -> Self {
+    pub fn new(room: Room, memory: FarmInfo) -> Self {
         let mut containers = Vec::new();
         let mut roads = Vec::new();
         let mineral = room.find(find::MINERALS, None).into_iter().find(is_extractor);
@@ -60,7 +61,7 @@ impl Farm {
             }
         }
 
-        Self { room, hostiles, mineral, sources, containers, roads, icore, keepers, events }
+        Self { room, memory, hostiles, mineral, sources, containers, roads, icore, keepers, events }
     }
 
     pub const fn room(&self) -> &Room {
@@ -71,7 +72,7 @@ impl Farm {
         self.room.name()
     }
 
-    pub fn run_farm(&self, info: &FarmInfo) -> Vec<RoomEvent> {
+    pub fn run_farm(&self) -> Vec<RoomEvent> {
         let mut room_events = Vec::new();
 
         let re = get_room_regex();
@@ -99,7 +100,7 @@ impl Farm {
                     // invander core is in the room! insert to avoid_rooms
                     room_events.push(RoomEvent::Avoid(self.get_name(), game::time() + ic_timeout));
 
-                    if info.is_active() {
+                    if self.memory.is_active() {
                         //if farm is_active -> stop it
                         let stop_farm_event = if is_skr_walkway(f_rem, s_rem) {
                             // the sk room is a walkay to a central room, stop farming central too
@@ -112,7 +113,7 @@ impl Farm {
                         };
                         room_events.push(stop_farm_event);
                     }
-                } else if !info.is_active() {
+                } else if !self.memory.is_active() {
                     // no invander core in the room -> enable farming
                     let start_farm_event = if is_skr_walkway(f_rem, s_rem) {
                         // the sk room is a walkay to a central room, start farming central too
@@ -126,13 +127,13 @@ impl Farm {
                     room_events.push(start_farm_event);
                 } else {
                     //active farm and no invander cores
-                    room_events.extend(self.get_farm_requests(info.plan()));
-                    self.create_cs(info.plan());
+                    room_events.extend(self.get_farm_requests(self.memory.plan()));
+                    self.create_cs(self.memory.plan());
                 }
-            } else if info.is_active() {
+            } else if self.memory.is_active() {
                 //just farm remote room
-                room_events.extend(self.get_farm_requests(info.plan()));
-                self.create_cs(info.plan());
+                room_events.extend(self.get_farm_requests(self.memory.plan()));
+                self.create_cs(self.memory.plan());
             } else {
                 //farm is temporarly forbiden, do nothing
             }

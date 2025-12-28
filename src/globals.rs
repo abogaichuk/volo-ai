@@ -488,7 +488,7 @@ pub fn generate_plan(room_name: String, x0: u8, y0: u8, x1: u8, y1: u8) -> Strin
             match mem_refcell.borrow_mut().rooms.get_mut(&room_name) {
                 Some(room_state) => {
                     if let Some(room) = game::rooms().get(room_name) {
-                        let claimed = Claimed::new(room, Vec::new(), room_state);
+                        let claimed = Claimed::new(room, room_state);
                         match claimed.generate_plan(Some((x0, y0, x1, y1))) {
                             Ok(plan) => {
                                 room_state.plan = Some(plan);

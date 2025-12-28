@@ -46,7 +46,7 @@ mod structures;
 pub(crate) struct Claimed {
     pub(crate) room: Room,
     pub(crate) controller: StructureController,
-    pub(crate) farms: Vec<Farm>, //todo move to shelter
+    // pub(crate) farms: Vec<Farm>, //todo move to shelter
     pub(crate) mineral: Mineral,
     pub(crate) sources: Vec<Source>,
     pub(crate) spawns: Vec<StructureSpawn>,
@@ -76,7 +76,7 @@ pub(crate) struct Claimed {
 }
 
 impl Claimed {
-    pub(crate) fn new(room: Room, farms: Vec<Farm>, state: &RoomState) -> Self {
+    pub(crate) fn new(room: Room, state: &RoomState) -> Self {
         let controller = room.controller().expect("expect controller in my Base");
         let mineral = room.find(find::MINERALS, None).remove(0);
         let sources = room.find(find::SOURCES, None);
@@ -151,7 +151,7 @@ impl Claimed {
         Self {
             room,
             controller,
-            farms,
+            // farms,
             mineral,
             sources,
             spawns,
@@ -181,64 +181,64 @@ impl Claimed {
         }
     }
 
-    fn plan_farm(
-        &self,
-        plan: &RoomPlan,
-        farm_infos: &HashMap<RoomName, FarmInfo>,
-    ) -> Result<HashMap<RoomName, RoomPlan>, RoomPlannerError> {
-        if let Some((name, _)) = farm_infos.iter().find(|(_, info)| info.plan().is_none()) {
-            let farm = self
-                .farms
-                .iter()
-                .find(|f| f.get_name() == *name)
-                .ok_or(RoomPlannerError::UnreachableRoom)?;
+    // fn plan_farm(
+    //     &self,
+    //     plan: &RoomPlan,
+    //     farm_infos: &HashMap<RoomName, FarmInfo>,
+    // ) -> Result<HashMap<RoomName, RoomPlan>, RoomPlannerError> {
+    //     if let Some((name, _)) = farm_infos.iter().find(|(_, info)| info.plan().is_none()) {
+    //         let farm = self
+    //             .farms
+    //             .iter()
+    //             .find(|f| f.get_name() == *name)
+    //             .ok_or(RoomPlannerError::UnreachableRoom)?;
 
-            let plans = farm_infos
-                .iter()
-                .filter_map(|(name, info)| info.plan().map(|plan| (*name, plan)))
-                .chain(once((self.get_name(), plan)))
-                .collect();
+    //         let plans = farm_infos
+    //             .iter()
+    //             .filter_map(|(name, info)| info.plan().map(|plan| (*name, plan)))
+    //             .chain(once((self.get_name(), plan)))
+    //             .collect();
 
-            farm.plan_room(plans)
-        } else {
-            Err(RoomPlannerError::AlreadyCreated)
-        }
-    }
+    //         farm.plan_room(plans)
+    //     } else {
+    //         Err(RoomPlannerError::AlreadyCreated)
+    //     }
+    // }
 
-    fn constructions_check(&self, memory: &RoomState) -> Option<RoomEvent> {
-        if let Some(plan) = &memory.plan {
-            match self.plan_farm(plan, &memory.farms) {
-                Ok(plans) => Some(RoomEvent::EditPlans(plans)),
-                Err(err) => match err {
-                    RoomPlannerError::AlreadyCreated => {
-                        let buildings: HashMap<RoomXY, StructureType> =
-                            missed_buildings(self.get_name(), plan).collect();
-                        if !buildings.is_empty() {
-                            Some(RoomEvent::Construct(buildings))
-                        } else if plan.built_lvl() < self.controller.level() {
-                            Some(RoomEvent::IncrementPlanLvl)
-                        } else {
-                            None
-                        }
-                    }
-                    e => {
-                        error!("{} creation plan error: {}", self.get_name(), e);
-                        None
-                    }
-                },
-            }
-        } else if !is_cpu_on_low() {
-            match self.generate_plan(None) {
-                Ok(plan) => Some(RoomEvent::Plan(plan)),
-                Err(err) => {
-                    error!("{}", err);
-                    None
-                }
-            }
-        } else {
-            None
-        }
-    }
+    // fn constructions_check(&self, memory: &RoomState) -> Option<RoomEvent> {
+    //     if let Some(plan) = &memory.plan {
+    //         match self.plan_farm(plan, &memory.farms) {
+    //             Ok(plans) => Some(RoomEvent::EditPlans(plans)),
+    //             Err(err) => match err {
+    //                 RoomPlannerError::AlreadyCreated => {
+    //                     let buildings: HashMap<RoomXY, StructureType> =
+    //                         missed_buildings(self.get_name(), plan).collect();
+    //                     if !buildings.is_empty() {
+    //                         Some(RoomEvent::Construct(buildings))
+    //                     } else if plan.built_lvl() < self.controller.level() {
+    //                         Some(RoomEvent::IncrementPlanLvl)
+    //                     } else {
+    //                         None
+    //                     }
+    //                 }
+    //                 e => {
+    //                     error!("{} creation plan error: {}", self.get_name(), e);
+    //                     None
+    //                 }
+    //             },
+    //         }
+    //     } else if !is_cpu_on_low() {
+    //         match self.generate_plan(None) {
+    //             Ok(plan) => Some(RoomEvent::Plan(plan)),
+    //             Err(err) => {
+    //                 error!("{}", err);
+    //                 None
+    //             }
+    //         }
+    //     } else {
+    //         None
+    //     }
+    // }
 
     pub fn supply_resources(
         &self,
@@ -277,25 +277,25 @@ impl Claimed {
             })
     }
 
-    pub fn time_based_events<'a>(
-        &'a self,
-        room_memory: &'a RoomState,
-        creeps: &'a HashMap<String, CreepMemory>,
-    ) -> impl Iterator<Item = RoomEvent> + 'a {
-        (game::time().is_multiple_of(100))
-            .then(|| {
-                once(RoomEvent::RetainBoosts)
-                    .chain(self.manage_mineral_miner(room_memory, creeps))
-                    .chain(self.manage_controller(room_memory, creeps))
-                    .chain(self.resource_handler())
-                    .chain(self.constructions_check(room_memory))
-                    .chain(once(RoomEvent::UpdateStatistic))
-            })
-            .into_iter()
-            .flatten()
-    }
+    // pub fn time_based_events<'a>(
+    //     &'a self,
+    //     room_memory: &'a RoomState,
+    //     creeps: &'a HashMap<String, CreepMemory>,
+    // ) -> impl Iterator<Item = RoomEvent> + 'a {
+    //     (game::time().is_multiple_of(100))
+    //         .then(|| {
+    //             once(RoomEvent::RetainBoosts)
+    //                 .chain(self.manage_mineral_miner(room_memory, creeps))
+    //                 .chain(self.manage_controller(room_memory, creeps))
+    //                 .chain(self.resource_handler())
+    //                 .chain(self.constructions_check(room_memory))
+    //                 .chain(once(RoomEvent::UpdateStatistic))
+    //         })
+    //         .into_iter()
+    //         .flatten()
+    // }
 
-    fn resource_handler(&self) -> impl Iterator<Item = RoomEvent> + use<'_> {
+    pub fn resource_handler(&self) -> impl Iterator<Item = RoomEvent> + use<'_> {
         //todo create resource handler here because:
         // 1. the same time check
         // 2. easy to create RoomStats because creeps len is here
@@ -319,17 +319,17 @@ impl Claimed {
         self.room.name()
     }
 
-    pub fn get_farms(&self) -> &[Farm] {
-        &self.farms
-    }
+    // pub fn get_farms(&self) -> &[Farm] {
+    //     &self.farms
+    // }
 
-    pub fn all_minerals(&self) -> impl Iterator<Item = &Mineral> {
-        once(&self.mineral).chain(self.farms.iter().filter_map(|farm| farm.mineral.as_ref()))
-    }
+    // pub fn all_minerals(&self) -> impl Iterator<Item = &Mineral> {
+    //     once(&self.mineral).chain(self.farms.iter().filter_map(|farm| farm.mineral.as_ref()))
+    // }
 
-    pub fn all_sources(&self) -> impl Iterator<Item = &Source> {
-        self.sources.iter().chain(self.farms.iter().flat_map(|farm| farm.sources.iter()))
-    }
+    // pub fn all_sources(&self) -> impl Iterator<Item = &Source> {
+    //     self.sources.iter().chain(self.farms.iter().flat_map(|farm| farm.sources.iter()))
+    // }
 
     pub const fn storage(&self) -> Option<&StructureStorage> {
         self.storage.as_ref()
@@ -429,71 +429,71 @@ impl Claimed {
             .collect()
     }
 
-    //spawn mineral miner if needed, he does suicide when finished his job
-    fn manage_mineral_miner<'a>(
-        &'a self,
-        room_memory: &'a RoomState,
-        creeps: &'a HashMap<String, CreepMemory>,
-    ) -> Option<RoomEvent> {
-        if self.mineral.ticks_to_regeneration().is_none()
-            && is_extractor(&self.mineral)
-            && let Some(container) =
-                find_container_near_by(&self.mineral.pos(), 1, &[StructureType::Container])
-        {
-            let role =
-                Role::MineralMiner(MineralMiner::new(Some(container.pos()), Some(self.get_name())));
+    // //spawn mineral miner if needed, he does suicide when finished his job
+    // fn manage_mineral_miner<'a>(
+    //     &'a self,
+    //     room_memory: &'a RoomState,
+    //     creeps: &'a HashMap<String, CreepMemory>,
+    // ) -> Option<RoomEvent> {
+    //     if self.mineral.ticks_to_regeneration().is_none()
+    //         && is_extractor(&self.mineral)
+    //         && let Some(container) =
+    //             find_container_near_by(&self.mineral.pos(), 1, &[StructureType::Container])
+    //     {
+    //         let role =
+    //             Role::MineralMiner(MineralMiner::new(Some(container.pos()), Some(self.get_name())));
 
-            if room_memory.find_roles(&role, creeps).next().is_none() {
-                return Some(RoomEvent::Spawn(role, 1));
-            }
-        }
-        None
-    }
+    //         if room_memory.find_roles(&role, creeps).next().is_none() {
+    //             return Some(RoomEvent::Spawn(role, 1));
+    //         }
+    //     }
+    //     None
+    // }
 
-    fn manage_controller(
-        &self,
-        room_memory: &RoomState,
-        creeps: &HashMap<String, CreepMemory>,
-    ) -> impl Iterator<Item = RoomEvent> {
-        self.storage()
-            .map(|storage| {
-                let boost_amount =
-                    storage.store().get_used_capacity(Some(ResourceType::CatalyzedGhodiumAcid));
+    // fn manage_controller(
+    //     &self,
+    //     room_memory: &RoomState,
+    //     creeps: &HashMap<String, CreepMemory>,
+    // ) -> impl Iterator<Item = RoomEvent> {
+    //     self.storage()
+    //         .map(|storage| {
+    //             let boost_amount =
+    //                 storage.store().get_used_capacity(Some(ResourceType::CatalyzedGhodiumAcid));
 
-                if boost_amount > 500 && !room_memory.boosts.contains_key(&BoostReason::Upgrade) {
-                    Some(RoomEvent::AddBoost(BoostReason::Upgrade, 1500))
-                } else {
-                    None
-                }
-                .into_iter()
-                .chain(self.manage_upgraders(storage, room_memory, creeps))
-            })
-            .into_iter()
-            .flatten()
-    }
+    //             if boost_amount > 500 && !room_memory.boosts.contains_key(&BoostReason::Upgrade) {
+    //                 Some(RoomEvent::AddBoost(BoostReason::Upgrade, 1500))
+    //             } else {
+    //                 None
+    //             }
+    //             .into_iter()
+    //             .chain(self.manage_upgraders(storage, room_memory, creeps))
+    //         })
+    //         .into_iter()
+    //         .flatten()
+    // }
 
-    fn manage_upgraders(
-        &self,
-        storage: &StructureStorage,
-        room_memory: &RoomState,
-        creeps: &HashMap<String, CreepMemory>,
-    ) -> Option<RoomEvent> {
-        let upgrader = Role::Upgrader(Upgrader::new(Some(self.get_name())));
-        let is_alive = room_memory.find_roles(&upgrader, creeps).next().is_some();
-        let energy_amount = storage.store().get_used_capacity(Some(ResourceType::Energy));
+    // fn manage_upgraders(
+    //     &self,
+    //     storage: &StructureStorage,
+    //     room_memory: &RoomState,
+    //     creeps: &HashMap<String, CreepMemory>,
+    // ) -> Option<RoomEvent> {
+    //     let upgrader = Role::Upgrader(Upgrader::new(Some(self.get_name())));
+    //     let is_alive = room_memory.find_roles(&upgrader, creeps).next().is_some();
+    //     let energy_amount = storage.store().get_used_capacity(Some(ResourceType::Energy));
 
-        if self.controller.level() == 8 && energy_amount > 250_000 && !is_alive {
-            Some(RoomEvent::Spawn(upgrader, 1))
-        } else if self.controller.level() == 8 && energy_amount < 150_000 {
-            Some(RoomEvent::CancelRespawn(upgrader))
-        } else if energy_amount > 150_000 && !is_alive {
-            Some(RoomEvent::Spawn(upgrader, 1))
-        } else if energy_amount < 15_000 {
-            Some(RoomEvent::CancelRespawn(upgrader))
-        } else {
-            None
-        }
-    }
+    //     if self.controller.level() == 8 && energy_amount > 250_000 && !is_alive {
+    //         Some(RoomEvent::Spawn(upgrader, 1))
+    //     } else if self.controller.level() == 8 && energy_amount < 150_000 {
+    //         Some(RoomEvent::CancelRespawn(upgrader))
+    //     } else if energy_amount > 150_000 && !is_alive {
+    //         Some(RoomEvent::Spawn(upgrader, 1))
+    //     } else if energy_amount < 15_000 {
+    //         Some(RoomEvent::CancelRespawn(upgrader))
+    //     } else {
+    //         None
+    //     }
+    // }
 
     pub fn repair_roads(&self, plan: Option<&RoomPlan>) -> impl Iterator<Item = Request> {
         let mut requests = Vec::new();
