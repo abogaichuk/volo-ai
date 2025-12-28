@@ -86,8 +86,8 @@ global.info = function () {
     return bot.info();
 }
 
-global.c_info = function () {
-    return bot.c_info();
+global.c_info = function (roomName) {
+    return bot.c_info(roomName);
 }
 
 global.ccm = function (creep_name, creep_memory) {

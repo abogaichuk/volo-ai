@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fmt::Write;
 use std::str::FromStr;
 
@@ -50,8 +51,35 @@ pub fn info() -> String {
 }
 
 #[wasm_bindgen]
-pub fn c_info() -> usize {
-    game::creeps().entries().count()
+pub fn c_info(room_name: String) -> String {
+    match RoomName::from_str(&room_name) {
+        Ok(room) => GLOBAL_MEMORY.with(|mem_refcell| {
+            let creeps = &mem_refcell.borrow().creeps;
+            let mut counts: HashMap<String, usize> = HashMap::new();
+
+            creeps
+                .values()
+                .filter(|memory| memory.role.get_home().is_some_and(|home| *home == room))
+                .for_each(|memory| {
+                    let role = memory.role.to_string();
+                    *counts.entry(role).or_insert(0) += 1;
+                });
+
+            let mut counts: Vec<(String, usize)> = counts.into_iter().collect();
+            counts.sort_unstable_by(|a, b| a.0.cmp(&b.0));
+
+            let mut result = format!("room_name: {room_name}, creeps: ");
+            for (idx, (role, count)) in counts.iter().enumerate() {
+                if idx > 0 {
+                    result.push_str(", ");
+                }
+                let _ = write!(&mut result, "{role}:{count}");
+            }
+
+            result
+        }),
+        _ => format!("{room_name} is not a room name!"),
+    }
 }
 
 #[wasm_bindgen]
