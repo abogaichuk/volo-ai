@@ -10,6 +10,11 @@ use crate::rooms::state::requests::Request;
 use crate::units::roles::{Kind, Role};
 use crate::units::tasks::{Task, TaskResult};
 
+// pub struct MemorizedCreep<'a> {
+//     pub creep: Creep,
+//     pub memory: &'a mut CreepMemory,
+// }
+
 pub struct CrUnit<'m, 'h, 's> {
     creep: Creep,
     memory: &'m mut CreepMemory,
@@ -201,6 +206,57 @@ impl CreepMemory {
         self.role.get_home()
     }
 }
+
+// pub fn register_creeps(
+//     creeps_state: &mut HashMap<String, CreepMemory>,
+// ) -> HashMap<String, MemorizedCreep> {
+//     // game::creeps()
+//     //     .entries()
+//     //     .filter_map(|(name, creep)| {
+//     //         if let Some(memory) = creeps_state.get_mut(&name) {
+//     //             Some((name, MemorizedCreep { creep, memory }))
+//     //         } else {
+//     //             //todo multishard behaviour
+//     //             None
+//     //         }
+//     //     })
+//     //     .collect()
+//     let mut creeps: HashMap<String, Creep> = game::creeps().entries().collect();
+//     let mut died: Vec<String> = Vec::new();
+
+//     let memorized = creeps_state
+//         .iter_mut()
+//         .filter_map(|(name, memory)| {
+//             if let Some(creep) = creeps.remove(name) {
+//                 Some((name.clone(), MemorizedCreep { creep, memory }))
+//             } else {
+//                 died.push(name.clone());
+//                 None
+//             }
+//         })
+//         .collect();
+
+//     memorized
+
+//     // for (name, memory) in creeps_state.iter_mut() {
+
+//     //     // let creep = match creeps.remove(name) {
+//     //     //     Some(c) if !c.spawning() => c,
+//     //     //     _ => continue, //gc will clear them
+//     //     // };
+
+//     //     // if let Some(mut unit) = memory
+//     //     //     .get_home()
+//     //     //     .as_ref()
+//     //     //     .and_then(|home_name| homes.get_mut(home_name))
+//     //     //     .map(|home| CrUnit { creep, memory, home })
+//     //     // {
+//     //     //     unit.try_respawn();
+//     //     //     let goal = unit.run_unit(black_list);
+//     //     //     unit.move_to_goal(goal, movement);
+//     //     // }
+//     // }
+// }
 
 pub fn run_creeps(
     creeps_state: &mut HashMap<String, CreepMemory>,

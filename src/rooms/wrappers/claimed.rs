@@ -295,25 +295,25 @@ impl Claimed {
     //         .flatten()
     // }
 
-    pub fn resource_handler(&self) -> impl Iterator<Item = RoomEvent> + use<'_> {
-        //todo create resource handler here because:
-        // 1. the same time check
-        // 2. easy to create RoomStats because creeps len is here
-        // 3. easy pass to colony by throwing colonyevent
-        if self.controller.level() > 6 {
-            let context = RoomContext::new(
-                self.controller.level(),
-                self.terminal.as_ref().map(screeps::HasId::raw_id),
-                self.storage.as_ref().map(screeps::HasId::raw_id),
-                self.factory.as_ref().map(screeps::StructureFactory::level).unwrap_or_default(),
-            );
-            Some(self.resources.events(context))
-        } else {
-            None
-        }
-        .into_iter()
-        .flatten()
-    }
+    // pub fn resource_handler(&self) -> impl Iterator<Item = RoomEvent> + use<'_> {
+    //     //todo create resource handler here because:
+    //     // 1. the same time check
+    //     // 2. easy to create RoomStats because creeps len is here
+    //     // 3. easy pass to colony by throwing colonyevent
+    //     if self.controller.level() > 6 {
+    //         let context = RoomContext::new(
+    //             self.controller.level(),
+    //             self.terminal.as_ref().map(screeps::HasId::raw_id),
+    //             self.storage.as_ref().map(screeps::HasId::raw_id),
+    //             self.factory.as_ref().map(screeps::StructureFactory::level).unwrap_or_default(),
+    //         );
+    //         Some(self.resources.events(context))
+    //     } else {
+    //         None
+    //     }
+    //     .into_iter()
+    //     .flatten()
+    // }
 
     pub fn get_name(&self) -> RoomName {
         self.room.name()

@@ -19,6 +19,7 @@ pub struct RoomContext {
     pub terminal: Option<RawObjectId>,
     pub storage: Option<RawObjectId>,
     pub fl: u8,
+    pub built_all: bool,
 }
 
 impl RoomContext {
@@ -27,8 +28,9 @@ impl RoomContext {
         terminal: Option<RawObjectId>,
         storage: Option<RawObjectId>,
         fl: u8,
+        built_all: bool,
     ) -> Self {
-        Self { rcl, terminal, storage, fl }
+        Self { rcl, terminal, storage, fl, built_all }
     }
 }
 

@@ -13,7 +13,7 @@ use crate::commons::look_for;
 use crate::rooms::shelter::Shelter;
 use crate::rooms::state::constructions::{PlannedCell, RoomPlan, RoomStructure};
 use crate::rooms::state::requests::Request;
-use crate::rooms::state::{BoostReason, RoomState};
+use crate::rooms::state::{BoostReason, FarmStatus, RoomState};
 use crate::rooms::wrappers::farm::Farm;
 use crate::rooms::wrappers::neutral::Neutral;
 use crate::units::roles::Role;
@@ -32,8 +32,9 @@ pub enum RoomEvent {
     DeletePower(PowerType),
     AddBoost(BoostReason, u32),
     RetainBoosts,
-    StopFarm(RoomName, Option<RoomName>),
-    StartFarm(RoomName, Option<RoomName>),
+    UpdateFarmStatus(RoomName, FarmStatus),
+    // StopFarm(RoomName),
+    // StartFarm(RoomName),
     EditPlans(HashMap<RoomName, RoomPlan>),
     Plan(RoomPlan),
     ReplaceCell(PlannedCell),
@@ -75,19 +76,6 @@ pub fn register_rooms<'a>(
             homes.insert(*room_name, Shelter::new(base_room, farms, state, white_list));
         }
     }
-    // for (room_name, state) in states.iter_mut() {
-    //     if let Some(base_room) = rooms.remove(room_name) {
-    //         let mut farms = Vec::new();
-
-    //         for farm_name in state.farms.keys() {
-    //             if let Some(farm_room) = rooms.remove(farm_name) {
-    //                 farms.push(Farm::new(farm_room));
-    //             }
-    //         }
-
-    //         homes.insert(*room_name, Shelter::new(base_room, farms, state, white_list));
-    //     }
-    // }
     debug!("registered shelters: {}", homes.len());
     (homes, rooms.into_values().map(Neutral::new).collect())
 }

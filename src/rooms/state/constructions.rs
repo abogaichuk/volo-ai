@@ -4,10 +4,10 @@ use std::hash::{Hash, Hasher};
 use std::mem;
 
 use itertools::{Either, Itertools};
-use screeps::ROOM_SIZE;
 use screeps::constants::Terrain;
 use screeps::local::RoomXY;
-use screeps::{Position, ResourceType, RoomName, StructureType};
+use screeps::{HasPosition, Position, ResourceType, RoomName, StructureType};
+use screeps::{ROOM_SIZE, Source};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -207,6 +207,14 @@ impl RoomPlan {
             .collect()
     }
 
+    //todo consider RoomStructure::Container has a type (Source, Mineral, Ctrl, ...)
+    pub fn containers_near(&self, sources: &[Source]) -> Vec<RoomXY> {
+        self.containers()
+            .into_iter()
+            .filter(|xy| sources.iter().any(|s| s.pos().xy().is_near_to(*xy)))
+            .collect()
+    }
+
     pub fn perimeter(&self) -> HashSet<RoomXY> {
         self.planned_cells
             .iter()
@@ -282,7 +290,7 @@ impl RoomPart {
 //don't use numeric representation because of mem::discriminant(self)
 #[derive(Serialize, Deserialize, Copy, Clone, Debug)]
 pub enum RoomStructure {
-    Empty, //walkable cells near controller, reserved for power_creep and others??
+    Empty, //walkable cells near controller, reserved for power_creep?
     Spawn,
     Extension,
     Road(usize),

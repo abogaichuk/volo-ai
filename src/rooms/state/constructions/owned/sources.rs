@@ -79,7 +79,7 @@ pub fn plan(
                 PlannedCell::new(
                     xy,
                     RoomStructure::Link(LinkType::Source),
-                    if i == 0 { 6 } else { 8 },
+                    if i == 0 { 7 } else { 8 },
                     None,
                 )
             })

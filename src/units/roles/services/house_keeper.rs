@@ -19,7 +19,7 @@ use crate::rooms::state::requests::{Request, RequestKind};
 pub struct HouseKeeper {
     pub(crate) home: Option<RoomName>,
     #[serde(default)]
-    boost: bool,
+    periodic: bool,
 }
 
 impl fmt::Debug for HouseKeeper {
@@ -29,8 +29,8 @@ impl fmt::Debug for HouseKeeper {
 }
 
 impl HouseKeeper {
-    pub const fn new(home: Option<RoomName>, boost: bool) -> Self {
-        Self { home, boost }
+    pub const fn new(home: Option<RoomName>, periodic: bool) -> Self {
+        Self { home, periodic }
     }
 }
 

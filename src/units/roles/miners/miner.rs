@@ -2,8 +2,8 @@ use std::fmt;
 
 use arrayvec::ArrayVec;
 use screeps::objects::Creep;
-use screeps::prelude::*;
 use screeps::{EffectType, Part, Position, PowerType, RoomName, find, game};
+use screeps::{SOURCE_ENERGY_KEEPER_CAPACITY, prelude::*};
 use serde::{Deserialize, Serialize};
 
 use super::{Kind, Task, can_scale, default_parts_priority};
@@ -74,23 +74,56 @@ fn limit_based_on_source_effects(workplace: Option<Position>) -> usize {
                 room.find(find::SOURCES, None)
                     .iter()
                     .find(|source| source.pos().is_near_to(workplace))
-                    .map(screeps::RoomObjectProperties::effects)
-                    .and_then(|effects| {
-                        effects.into_iter().find(|effect| match effect.effect() {
-                            EffectType::PowerEffect(p) => matches!(p, PowerType::RegenSource),
-                            EffectType::NaturalEffect(_) => false,
-                        })
-                    })
-                    .and_then(|effect| effect.level())
-                    .map(|level| match level {
-                        1 => 13,
-                        2 => 16,
-                        3 => 19,
-                        4 => 22,
-                        5 => 25,
-                        _ => 10,
+                    .and_then(|source| {
+                        source
+                            .effects()
+                            .into_iter()
+                            .find(|effect| match effect.effect() {
+                                EffectType::PowerEffect(p) => matches!(p, PowerType::RegenSource),
+                                EffectType::NaturalEffect(_) => false,
+                            })
+                            .and_then(|effect| match effect.level() {
+                                Some(1) => Some(13),
+                                Some(2) => Some(16),
+                                Some(3) => Some(19),
+                                Some(4) => Some(22),
+                                Some(5) => Some(25),
+                                _ => Some(10),
+                            })
+                            .or_else(|| {
+                                (source.energy_capacity() == SOURCE_ENERGY_KEEPER_CAPACITY)
+                                    .then(|| 19)
+                            })
                     })
             })
         })
         .unwrap_or(10)
 }
+
+// fn limit_based_on_source_effects(workplace: Option<Position>) -> usize {
+//     workplace
+//         .and_then(|workplace| {
+//             game::rooms().get(workplace.room_name()).and_then(|room| {
+//                 room.find(find::SOURCES, None)
+//                     .iter()
+//                     .find(|source| source.pos().is_near_to(workplace))
+//                     .map(screeps::RoomObjectProperties::effects)
+//                     .and_then(|effects| {
+//                         effects.into_iter().find(|effect| match effect.effect() {
+//                             EffectType::PowerEffect(p) => matches!(p, PowerType::RegenSource),
+//                             EffectType::NaturalEffect(_) => false,
+//                         })
+//                     })
+//                     .and_then(|effect| effect.level())
+//                     .map(|level| match level {
+//                         1 => 13,
+//                         2 => 16,
+//                         3 => 19,
+//                         4 => 22,
+//                         5 => 25,
+//                         _ => 10,
+//                     })
+//             })
+//         })
+//         .unwrap_or(10)
+// }

@@ -17,6 +17,8 @@ use crate::rooms::state::requests::{Request, RequestKind};
 #[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Hauler {
     pub(crate) home: Option<RoomName>,
+    #[serde(default)]
+    periodic: bool,
 }
 
 impl fmt::Debug for Hauler {
@@ -26,8 +28,8 @@ impl fmt::Debug for Hauler {
 }
 
 impl Hauler {
-    pub const fn new(home: Option<RoomName>) -> Self {
-        Self { home }
+    pub const fn new(home: Option<RoomName>, periodic: bool) -> Self {
+        Self { home, periodic }
     }
 }
 

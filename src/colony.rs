@@ -75,6 +75,7 @@ impl Default for GlobalState {
 impl GlobalState {
     pub fn run_tick(&mut self) {
         let orders = game::market::get_all_orders(None);
+
         let (mut homes, neutrals) = register_rooms(&mut self.rooms, &self.white_list);
 
         let mut events = Vec::new();
@@ -120,34 +121,34 @@ impl GlobalState {
         self.gc();
     }
 
-    pub fn begin_farm(&mut self, base: RoomName, farm: RoomName, with_central: Option<RoomName>) {
-        debug!("begin_farm: {}, farm_room: {}, with_central: {:?}", base, farm, with_central);
-        self.set_farm_for(base, farm, FarmStatus::Building);
-        if let Some(central) = with_central {
-            self.set_farm_for(base, central, FarmStatus::Building);
-        }
-    }
+    // pub fn begin_farm(&mut self, base: RoomName, farm: RoomName, with_central: Option<RoomName>) {
+    //     debug!("begin_farm: {}, farm_room: {}, with_central: {:?}", base, farm, with_central);
+    //     self.set_farm_for(base, farm, FarmStatus::Building);
+    //     if let Some(central) = with_central {
+    //         self.set_farm_for(base, central, FarmStatus::Building);
+    //     }
+    // }
 
-    pub fn finish_farm(&mut self, base: RoomName, farm: RoomName, with_central: Option<RoomName>) {
-        debug!("finish_farm: {}, farm_room: {}, with_central: {:?}", base, farm, with_central);
-        self.set_farm_for(base, farm, FarmStatus::Suspended);
-        if let Some(central) = with_central {
-            self.set_farm_for(base, central, FarmStatus::Suspended);
-        }
-    }
+    // pub fn finish_farm(&mut self, base: RoomName, farm: RoomName, with_central: Option<RoomName>) {
+    //     debug!("finish_farm: {}, farm_room: {}, with_central: {:?}", base, farm, with_central);
+    //     self.set_farm_for(base, farm, FarmStatus::Suspended);
+    //     if let Some(central) = with_central {
+    //         self.set_farm_for(base, central, FarmStatus::Suspended);
+    //     }
+    // }
 
-    fn set_farm_for(&mut self, base: RoomName, farm: RoomName, status: FarmStatus) {
-        debug!("set_farm_for :{}, farm_room: {}", base, farm);
-        self.rooms.entry(base).and_modify(|room_state| {
-            room_state
-                .farms
-                .entry(farm)
-                .and_modify(|farm_room| {
-                    farm_room.update_status(status);
-                })
-                .or_default();
-        });
-    }
+    // fn set_farm_for(&mut self, base: RoomName, farm: RoomName, status: FarmStatus) {
+    //     debug!("set_farm_for :{}, farm_room: {}", base, farm);
+    //     self.rooms.entry(base).and_modify(|room_state| {
+    //         room_state
+    //             .farms
+    //             .entry(farm)
+    //             .and_modify(|farm_room| {
+    //                 farm_room.update_status(status);
+    //             })
+    //             .or_default();
+    //     });
+    // }
 
     fn add_request(&mut self, to: RoomName, request: Request) {
         debug!("add_request to :{}, request: {:?}", to, request);

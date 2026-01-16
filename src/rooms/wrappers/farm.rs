@@ -8,14 +8,14 @@ use screeps::{
     StructureObject, StructureRoad, find, game,
 };
 
-use crate::commons::{capture_room_numbers, get_room_regex, is_skr, is_skr_walkway};
-use crate::rooms::state::FarmInfo;
+use crate::commons::{capture_room_numbers, get_room_regex};
 use crate::rooms::state::constructions::RoomPlan;
 use crate::rooms::state::requests::assignment::Assignment;
 use crate::rooms::state::requests::{
     BodyPart, BookData, BuildData, CrashData, CreepHostile, PickupData, RepairData, Request,
     RequestKind, WithdrawData,
 };
+use crate::rooms::state::{FarmInfo, FarmStatus};
 use crate::rooms::{RoomEvent, is_extractor, missed_buildings};
 use crate::units::roles::Role;
 use crate::units::roles::miners::mineral_miner::MineralMiner;
@@ -32,6 +32,7 @@ pub struct Farm {
     pub(crate) icore: Option<StructureInvaderCore>,
     pub(crate) keepers: Vec<StructureKeeperLair>,
     pub(crate) events: Vec<Event>,
+    kind: FarmKind,
 }
 
 impl Farm {
@@ -61,7 +62,21 @@ impl Farm {
             }
         }
 
-        Self { room, memory, hostiles, mineral, sources, containers, roads, icore, keepers, events }
+        let kind = FarmKind::from(room.name());
+
+        Self {
+            room,
+            memory,
+            hostiles,
+            mineral,
+            sources,
+            containers,
+            roads,
+            icore,
+            keepers,
+            events,
+            kind,
+        }
     }
 
     pub const fn room(&self) -> &Room {
@@ -72,15 +87,18 @@ impl Farm {
         self.room.name()
     }
 
+    pub fn is_active(&self) -> bool {
+        self.memory.is_active()
+    }
+
     pub fn run_farm(&self) -> Vec<RoomEvent> {
-        let mut room_events = Vec::new();
-
-        let re = get_room_regex();
-        if let Some((f_num, s_num)) = capture_room_numbers(&re, self.get_name()) {
-            let (f_rem, s_rem) = (f_num % 10, s_num % 10);
-
-            if is_skr(f_rem, s_rem) {
-                // //source keeper farm room
+        match self.kind {
+            //if reservable or central and is active -> farm this room
+            FarmKind::Reservable | FarmKind::Central if self.memory.is_active() => {
+                self.create_cs(self.memory.plan());
+                self.get_farm_requests(self.memory.plan())
+            }
+            FarmKind::SourceKeeperRoom => {
                 let ic_timeout = self
                     .icore
                     .as_ref()
@@ -98,49 +116,95 @@ impl Farm {
 
                 if ic_timeout > 0 {
                     // invander core is in the room! insert to avoid_rooms
-                    room_events.push(RoomEvent::Avoid(self.get_name(), game::time() + ic_timeout));
-
-                    if self.memory.is_active() {
-                        //if farm is_active -> stop it
-                        let stop_farm_event = if is_skr_walkway(f_rem, s_rem) {
-                            // the sk room is a walkay to a central room, stop farming central too
-                            RoomEvent::StopFarm(
-                                self.get_name(),
-                                get_central_room_name(self.get_name(), f_num, s_num),
-                            )
-                        } else {
-                            RoomEvent::StopFarm(self.get_name(), None)
-                        };
-                        room_events.push(stop_farm_event);
-                    }
+                    vec![
+                        RoomEvent::Avoid(self.get_name(), game::time() + ic_timeout),
+                        RoomEvent::UpdateFarmStatus(self.get_name(), FarmStatus::Suspended),
+                    ]
                 } else if !self.memory.is_active() {
                     // no invander core in the room -> enable farming
-                    let start_farm_event = if is_skr_walkway(f_rem, s_rem) {
-                        // the sk room is a walkay to a central room, start farming central too
-                        RoomEvent::StartFarm(
-                            self.get_name(),
-                            get_central_room_name(self.get_name(), f_num, s_num),
-                        )
-                    } else {
-                        RoomEvent::StartFarm(self.get_name(), None)
-                    };
-                    room_events.push(start_farm_event);
+                    vec![RoomEvent::UpdateFarmStatus(self.get_name(), FarmStatus::Spawning)]
                 } else {
                     //active farm and no invander cores
-                    room_events.extend(self.get_farm_requests(self.memory.plan()));
                     self.create_cs(self.memory.plan());
+                    self.get_farm_requests(self.memory.plan())
                 }
-            } else if self.memory.is_active() {
-                //just farm remote room
-                room_events.extend(self.get_farm_requests(self.memory.plan()));
-                self.create_cs(self.memory.plan());
-            } else {
+            }
+            _ => {
                 //farm is temporarly forbiden, do nothing
+                vec![]
             }
         }
-
-        room_events
     }
+
+    // pub fn run_farm(&self) -> Vec<RoomEvent> {
+    //     let mut room_events = Vec::new();
+
+    //     let re = get_room_regex();
+    //     if let Some((f_num, s_num)) = capture_room_numbers(&re, self.get_name()) {
+    //         let (f_rem, s_rem) = (f_num % 10, s_num % 10);
+
+    //         if is_skr(f_rem, s_rem) {
+    //             // //source keeper farm room
+    //             let ic_timeout = self
+    //                 .icore
+    //                 .as_ref()
+    //                 .and_then(|ic| {
+    //                     ic.effects().iter().find_map(|effect| {
+    //                         match effect.effect() {
+    //                             //add 50 ticks to make sure a request with collapse timer has been
+    //                             // created
+    //                             EffectType::NaturalEffect(_) => Some(effect.ticks_remaining() + 50),
+    //                             EffectType::PowerEffect(_) => None,
+    //                         }
+    //                     })
+    //                 })
+    //                 .unwrap_or_default();
+
+    //             if ic_timeout > 0 {
+    //                 // invander core is in the room! insert to avoid_rooms
+    //                 room_events.push(RoomEvent::Avoid(self.get_name(), game::time() + ic_timeout));
+
+    //                 if self.memory.is_active() {
+    //                     //if farm is_active -> stop it
+    //                     let stop_farm_event = if is_skr_walkway(f_rem, s_rem) {
+    //                         // the sk room is a walkay to a central room, stop farming central too
+    //                         RoomEvent::StopFarm(
+    //                             self.get_name(),
+    //                             get_central_room_name(self.get_name(), f_num, s_num),
+    //                         )
+    //                     } else {
+    //                         RoomEvent::StopFarm(self.get_name(), None)
+    //                     };
+    //                     room_events.push(stop_farm_event);
+    //                 }
+    //             } else if !self.memory.is_active() {
+    //                 // no invander core in the room -> enable farming
+    //                 let start_farm_event = if is_skr_walkway(f_rem, s_rem) {
+    //                     // the sk room is a walkay to a central room, start farming central too
+    //                     RoomEvent::StartFarm(
+    //                         self.get_name(),
+    //                         get_central_room_name(self.get_name(), f_num, s_num),
+    //                     )
+    //                 } else {
+    //                     RoomEvent::StartFarm(self.get_name(), None)
+    //                 };
+    //                 room_events.push(start_farm_event);
+    //             } else {
+    //                 //active farm and no invander cores
+    //                 room_events.extend(self.get_farm_requests(self.memory.plan()));
+    //                 self.create_cs(self.memory.plan());
+    //             }
+    //         } else if self.memory.is_active() {
+    //             //just farm remote room
+    //             room_events.extend(self.get_farm_requests(self.memory.plan()));
+    //             self.create_cs(self.memory.plan());
+    //         } else {
+    //             //farm is temporarly forbiden, do nothing
+    //         }
+    //     }
+
+    //     room_events
+    // }
 
     fn create_cs(&self, plan: Option<&RoomPlan>) {
         if let Some(plan) = plan
@@ -378,6 +442,43 @@ impl Farm {
     pub fn get_hostiles(&self) -> &[Creep] {
         &self.hostiles
     }
+}
+
+pub enum FarmKind {
+    Reservable,
+    SourceKeeperRoom,
+    Central,
+}
+
+impl From<RoomName> for FarmKind {
+    fn from(name: RoomName) -> Self {
+        let re = get_room_regex();
+        if let Some((f_num, s_num)) = capture_room_numbers(&re, name) {
+            let (f_reminder, s_reminder) = (f_num % 10, s_num % 10);
+
+            if is_central(f_reminder, s_reminder) {
+                FarmKind::Central
+            } else if is_skr(f_reminder, s_reminder) {
+                FarmKind::SourceKeeperRoom
+            } else {
+                FarmKind::Reservable
+            }
+        } else {
+            FarmKind::Reservable
+        }
+    }
+}
+
+fn is_central(f_mod: u32, s_mod: u32) -> bool {
+    f_mod == 5 && s_mod == 5
+}
+
+fn is_skr(f_mod: u32, s_mod: u32) -> bool {
+    (4..=6).contains(&f_mod) && (4..=6).contains(&s_mod)
+}
+
+fn is_walkway_to_center(f_rem: u32, s_rem: u32) -> bool {
+    (f_rem == 5 && (s_rem == 4 || s_rem == 6)) || (s_rem == 5 && (f_rem == 4 || f_rem == 6))
 }
 
 fn get_central_room_name(sk_name: RoomName, f_num: u32, s_num: u32) -> Option<RoomName> {

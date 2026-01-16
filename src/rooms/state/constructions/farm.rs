@@ -98,7 +98,7 @@ impl Farm {
 
                 let search_result = find_many(target, goals, construction_multi_rooms(&structures));
 
-                if search_result.incomplete() {
+                if search_result.incomplete() || search_result.path().is_empty() {
                     error!("{} construction search_result incomplete!", self.get_name());
                     distance_to_safe_zone = distance_to_safe_zone.saturating_sub(1);
                     continue;

@@ -16,6 +16,7 @@ pub fn get_handler_for(res: ResourceType) -> ResourceRoomHandlerFn {
 
     match res {
         Energy => energy_handler,
+        Battery => battery_handler,
         Power => power_handler,
         Ops => ops_handler,
         GhodiumMelt => ghodium_melt_handler,
@@ -238,6 +239,23 @@ fn energy_handler(
             Some(RoomEvent::Lack(ResourceType::Energy, 50000))
         }
         _ => None,
+    }
+}
+
+fn battery_handler(
+    _res: ResourceType,
+    battery: u32,
+    resources: &Resources,
+    ctx: &RoomContext,
+) -> Option<RoomEvent> {
+    let energy = resources.amount(ResourceType::Energy);
+    if ctx.rcl == 8 && ctx.built_all && battery < 20_000 && energy > 150_000 {
+        Some(RoomEvent::Request(Request::new(
+            RequestKind::Factory(FactoryData::new(ResourceType::Battery, 1000)),
+            Assignment::None,
+        )))
+    } else {
+        None
     }
 }
 
