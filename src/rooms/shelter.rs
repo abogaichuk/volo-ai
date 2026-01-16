@@ -19,13 +19,10 @@ use crate::{
     resources::RoomContext,
     rooms::{
         missed_buildings,
-        state::{BoostReason, FarmInfo, FarmStatus, constructions::RoomPlan},
+        state::{BoostReason, FarmInfo, constructions::RoomPlan},
     },
     units::roles::{
-        Kind,
-        combat::overseer::{self, Overseer},
-        haulers::hauler::Hauler,
-        miners::sk_miner::SKMiner,
+        Kind, combat::overseer::Overseer, haulers::hauler::Hauler, miners::sk_miner::SKMiner,
         services::house_keeper::HouseKeeper,
     },
     utils::commons::is_cpu_on_low,
@@ -104,7 +101,7 @@ impl<'s> Shelter<'s> {
                 .chain(self.base.security_check(self.state, creeps))
                 .chain(self.base.run_spawns(self.state))
                 .chain(self.time_based_events(creeps))
-                .chain(self.farms.iter().flat_map(|farm| farm.run_farm())),
+                .chain(self.farms.iter().flat_map(super::wrappers::farm::Farm::run_farm)),
         );
 
         let mut colony_events = Vec::new();
@@ -165,20 +162,34 @@ impl<'s> Shelter<'s> {
                 RoomEvent::Avoid(room_name, timeout) => {
                     colony_events.push(ColonyEvent::AvoidRoom(room_name, timeout));
                 }
-                RoomEvent::UpdateFarmStatus(room_name, status) => {
-                    match status {
-                        FarmStatus::Suspended => {
-                            let roles = self.get_periodic_roles(room_name);
-                            for creep in creeps.iter_mut() {
-                                if roles.contains(&creep.1.role) {
-                                    creep.1.respawned = true;
-                                }
+                RoomEvent::UpdateFarmStatus(room_name, active) => {
+                    if active {
+                        self.add_request(Request::new(
+                            RequestKind::Farm(room_name),
+                            Assignment::None,
+                        ));
+                    } else {
+                        let roles = self.get_periodic_roles(room_name);
+                        for creep in creeps.iter_mut() {
+                            if roles.contains(&creep.1.role) {
+                                creep.1.respawned = true;
                             }
                         }
-                        FarmStatus::Spawning => {}
-                        _ => {}
-                    };
-                    self.state.set_farm_status(room_name, status);
+                    }
+                    self.state.set_farm_status(room_name, active);
+                    // match status {
+                    //     FarmStatus::Suspended => {
+                    //         let roles = self.get_periodic_roles(room_name);
+                    //         for creep in creeps.iter_mut() {
+                    //             if roles.contains(&creep.1.role) {
+                    //                 creep.1.respawned = true;
+                    //             }
+                    //         }
+                    //     }
+                    //     FarmStatus::Spawning => {}
+                    //     _ => {}
+                    // }
+                    // self.state.set_farm_status(room_name, status);
                 }
                 // RoomEvent::StopFarm(room_name) => {
                 //     self.state.set_farm_status(room_name, FarmStatus::Suspended);
@@ -383,7 +394,7 @@ impl<'s> Shelter<'s> {
     //spawn mineral miner if needed, he does suicide when finished his job
     fn manage_mineral_miner(&self, creeps: &HashMap<String, CreepMemory>) -> Option<RoomEvent> {
         if self.mineral().ticks_to_regeneration().is_none()
-            && is_extractor(&self.mineral())
+            && is_extractor(self.mineral())
             && let Some(container) =
                 find_container_near_by(&self.mineral().pos(), 1, &[StructureType::Container])
         {
@@ -442,7 +453,7 @@ impl<'s> Shelter<'s> {
 
     fn manage_overseer(&self, creeps: &HashMap<String, CreepMemory>) -> Option<RoomEvent> {
         let overseer = Role::Overseer(Overseer::new(None, Some(self.name())));
-        let is_alive = self.state.find_roles(&overseer, creeps).next().is_some();
+        let _is_alive = self.state.find_roles(&overseer, creeps).next().is_some();
         // let overseer = self
         //     .alive_creeps(creeps)
         //     .filter(|role| matches!(role, Role::Overseer(Overseer::new(None, None))));
@@ -460,8 +471,8 @@ impl<'s> Shelter<'s> {
     }
 
     fn manage_haulers(&self, creeps: &HashMap<String, CreepMemory>) -> Option<RoomEvent> {
-        let haulers = self.alive_creeps(creeps).filter(|role| matches!(role, Role::Hauler(_)));
-        let miners = self.alive_creeps(creeps).filter(|role| matches!(role, Role::Miner(_)));
+        let _haulers = self.alive_creeps(creeps).filter(|role| matches!(role, Role::Hauler(_)));
+        let _miners = self.alive_creeps(creeps).filter(|role| matches!(role, Role::Miner(_)));
 
         // self.state.spawns.iter().chain(c)
         // self.state.find_roles(&hauler, creeps)
@@ -480,7 +491,7 @@ impl<'s> Shelter<'s> {
     ) -> impl Iterator<Item = &'a Role> {
         creeps
             .iter()
-            .filter_map(|(name, mem)| {
+            .filter_map(|(_name, mem)| {
                 if mem.role.get_home().is_some_and(|home| *home == self.name()) {
                     // mem.role.respawn_timeout(option)
                     // if game::creeps().get(*name).is_some_and(|c| c.ticks_to_live().is_some_and(|ticks| ticks < 150))

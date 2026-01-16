@@ -11,9 +11,9 @@ use screeps::{
 
 use crate::commons::look_for;
 use crate::rooms::shelter::Shelter;
-use crate::rooms::state::constructions::{PlannedCell, RoomPlan, RoomStructure};
+use crate::rooms::state::constructions::{PlannedCell, RoomPlan};
 use crate::rooms::state::requests::Request;
-use crate::rooms::state::{BoostReason, FarmStatus, RoomState};
+use crate::rooms::state::{BoostReason, RoomState};
 use crate::rooms::wrappers::farm::Farm;
 use crate::rooms::wrappers::neutral::Neutral;
 use crate::units::roles::Role;
@@ -32,7 +32,7 @@ pub enum RoomEvent {
     DeletePower(PowerType),
     AddBoost(BoostReason, u32),
     RetainBoosts,
-    UpdateFarmStatus(RoomName, FarmStatus),
+    UpdateFarmStatus(RoomName, bool),
     // StopFarm(RoomName),
     // StartFarm(RoomName),
     EditPlans(HashMap<RoomName, RoomPlan>),
@@ -67,7 +67,7 @@ pub fn register_rooms<'a>(
         if let Some(base_room) = rooms.remove(room_name) {
             let mut farms = Vec::new();
 
-            for (farm_name, farm_info) in state.farms.iter() {
+            for (farm_name, farm_info) in &state.farms {
                 if let Some(farm_room) = rooms.remove(farm_name) {
                     farms.push(Farm::new(farm_room, farm_info.clone()));
                 }

@@ -9,13 +9,13 @@ use screeps::{
 };
 
 use crate::commons::{capture_room_numbers, get_room_regex};
+use crate::rooms::state::FarmInfo;
 use crate::rooms::state::constructions::RoomPlan;
 use crate::rooms::state::requests::assignment::Assignment;
 use crate::rooms::state::requests::{
     BodyPart, BookData, BuildData, CrashData, CreepHostile, PickupData, RepairData, Request,
     RequestKind, WithdrawData,
 };
-use crate::rooms::state::{FarmInfo, FarmStatus};
 use crate::rooms::{RoomEvent, is_extractor, missed_buildings};
 use crate::units::roles::Role;
 use crate::units::roles::miners::mineral_miner::MineralMiner;
@@ -118,11 +118,11 @@ impl Farm {
                     // invander core is in the room! insert to avoid_rooms
                     vec![
                         RoomEvent::Avoid(self.get_name(), game::time() + ic_timeout),
-                        RoomEvent::UpdateFarmStatus(self.get_name(), FarmStatus::Suspended),
+                        RoomEvent::UpdateFarmStatus(self.get_name(), false),
                     ]
                 } else if !self.memory.is_active() {
                     // no invander core in the room -> enable farming
-                    vec![RoomEvent::UpdateFarmStatus(self.get_name(), FarmStatus::Spawning)]
+                    vec![RoomEvent::UpdateFarmStatus(self.get_name(), true)]
                 } else {
                     //active farm and no invander cores
                     self.create_cs(self.memory.plan());

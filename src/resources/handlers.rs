@@ -196,10 +196,7 @@ fn reaction_third_tier(
         }
     } else if amount < 10_000 {
         Some(RoomEvent::Request(Request::new(
-            RequestKind::Lab(LabData::new(
-                ResourceType::CatalyzedUtriumAcid,
-                max(MIN_LAB_PRODUCTION, 10_000 - amount),
-            )),
+            RequestKind::Lab(LabData::new(res, max(MIN_LAB_PRODUCTION, 10_000 - amount))),
             Assignment::None,
         )))
     } else {
@@ -335,25 +332,35 @@ fn mineral_handler(
     resources: &Resources,
     ctx: &RoomContext,
 ) -> Option<RoomEvent> {
-    if amount > 50_000
-        && let Some(compressed_resource) = get_compressed_resource(res)
-    {
+    if let Some(compressed_resource) = get_compressed_resource(res) {
         let compressed_amount = resources.amount(compressed_resource);
-        if compressed_amount > 100_000
-            && let (Some(t_id), Some(s_id)) = (ctx.terminal, ctx.storage)
-        {
-            Some(RoomEvent::Request(Request::new(
-                RequestKind::Carry(CarryData::new(s_id, t_id, res, amount - 50_000)),
-                Assignment::Single(None),
-            )))
+
+        if amount > 50_000 {
+            if compressed_amount > 100_000
+                && let (Some(t_id), Some(s_id)) = (ctx.terminal, ctx.storage)
+            {
+                Some(RoomEvent::Request(Request::new(
+                    RequestKind::Carry(CarryData::new(s_id, t_id, res, amount - 50_000)),
+                    Assignment::Single(None),
+                )))
+            } else {
+                Some(RoomEvent::Request(Request::new(
+                    RequestKind::Factory(FactoryData::new(compressed_resource, 5_000)),
+                    Assignment::None,
+                )))
+            }
+        } else if amount < 5_000 {
+            if compressed_amount > 10_000 {
+                Some(RoomEvent::Request(Request::new(
+                    RequestKind::Factory(FactoryData::new(res, 5_000)),
+                    Assignment::None,
+                )))
+            } else {
+                Some(RoomEvent::Lack(res, 5_000 - amount))
+            }
         } else {
-            Some(RoomEvent::Request(Request::new(
-                RequestKind::Factory(FactoryData::new(compressed_resource, 5_000)),
-                Assignment::None,
-            )))
+            None
         }
-    } else if amount < 5_000 {
-        Some(RoomEvent::Lack(res, 5_000 - amount))
     } else {
         None
     }

@@ -1,24 +1,23 @@
-use std::{collections::HashMap, iter::once};
+use std::collections::HashMap;
 
-use log::{error, info};
+use log::info;
 use screeps::{
     ConstructionSite, Creep, Event, HasHits, HasId, HasPosition, INVADER_USERNAME, MaybeHasId,
     Mineral, Nuke, Part, PowerCreep, RESOURCES_ALL, RawObjectId, Resource, ResourceType, Room,
-    RoomName, RoomXY, SharedCreepProperties, Source, StructureContainer, StructureController,
+    RoomName, SharedCreepProperties, Source, StructureContainer, StructureController,
     StructureExtension, StructureFactory, StructureNuker, StructureObject, StructureObserver,
     StructurePowerSpawn, StructureRoad, StructureSpawn, StructureStorage, StructureTerminal,
-    StructureTower, StructureType, StructureWall, Tombstone, find, game,
+    StructureTower, StructureWall, Tombstone, find, game,
 };
 use smallvec::SmallVec;
 
-use super::farm::Farm;
-use crate::commons::{find_container_near_by, has_part, is_cpu_on_low};
-use crate::resources::{Resources, RoomContext};
+use crate::commons::has_part;
+use crate::resources::Resources;
 use crate::rooms::{
-    RoomEvent, RoomState, is_extractor, missed_buildings,
+    RoomEvent, RoomState,
     state::{
-        BoostReason, FarmInfo,
-        constructions::{RoomPlan, RoomPlannerError},
+        BoostReason,
+        constructions::RoomPlan,
         requests::{
             BodyPart, BuildData, CarryData, CreepHostile, PickupData, RepairData, Request,
             RequestKind, WithdrawData, assignment::Assignment,
@@ -32,8 +31,7 @@ use crate::rooms::{
 use crate::units::{
     creeps::CreepMemory,
     roles::{
-        Role, combat::guard::Guard, miners::mineral_miner::MineralMiner,
-        services::upgrader::Upgrader,
+        Role, combat::guard::Guard,
     },
 };
 use crate::utils::constants::{

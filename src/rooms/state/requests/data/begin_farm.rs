@@ -1,16 +1,10 @@
-use std::collections::HashMap;
-
 use log::{info, warn};
-use screeps::{Creep, INVADER_USERNAME, Part, Position, RoomName, SOURCE_KEEPER_USERNAME, game};
-use serde::{Deserialize, Serialize};
+use screeps::{Position, RoomName, game};
 use smallvec::SmallVec;
 
-use crate::commons::find_roles;
 use crate::rooms::RoomEvent;
 use crate::rooms::shelter::Shelter;
-use crate::rooms::state::requests::{Assignment, CreepHostile, Meta, Status};
-use crate::rooms::state::{BoostReason, FarmStatus};
-use crate::units::creeps::CreepMemory;
+use crate::rooms::state::requests::{Assignment, Meta, Status};
 use crate::units::roles::Role;
 use crate::units::roles::combat::overseer::Overseer;
 use crate::units::roles::haulers::hauler::Hauler;
@@ -18,7 +12,7 @@ use crate::units::roles::miners::sk_miner::SKMiner;
 use crate::units::roles::services::house_keeper::HouseKeeper;
 
 pub(in crate::rooms::state::requests) fn begin_farm_handler(
-    room_name: &RoomName,
+    room_name: RoomName,
     meta: &mut Meta,
     _assignment: &mut Assignment,
     home: &Shelter,
@@ -27,8 +21,8 @@ pub(in crate::rooms::state::requests) fn begin_farm_handler(
 
     match meta.status {
         Status::Created => {
-            if home.get_farm(*room_name).and_then(|farm| farm.memory.plan()).is_some() {
-                let overseer = Role::Overseer(Overseer::new(Some(*room_name), Some(home.name())));
+            if home.get_farm(room_name).and_then(|farm| farm.memory.plan()).is_some() {
+                let overseer = Role::Overseer(Overseer::new(Some(room_name), Some(home.name())));
                 let house_keeper = Role::HouseKeeper(HouseKeeper::new(Some(home.name()), true));
 
                 events.push(RoomEvent::Spawn(overseer, 1));
@@ -41,7 +35,7 @@ pub(in crate::rooms::state::requests) fn begin_farm_handler(
             }
         }
         Status::Spawning if meta.updated_at + 500 < game::time() => {
-            if let Some(farm) = home.get_farm(*room_name) {
+            if let Some(farm) = home.get_farm(room_name) {
                 let containers = farm
                     .memory
                     .plan()
@@ -53,7 +47,7 @@ pub(in crate::rooms::state::requests) fn begin_farm_handler(
                 } else {
                     let spawn_events = containers.into_iter().map(|xy| {
                         let miner = Role::SkMiner(SKMiner::new(
-                            Some(Position::new(xy.x, xy.y, *room_name)),
+                            Some(Position::new(xy.x, xy.y, room_name)),
                             Some(home.name()),
                         ));
                         RoomEvent::Spawn(miner, 1)

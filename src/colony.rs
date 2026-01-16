@@ -15,7 +15,7 @@ use crate::rooms::state::requests::{
     CaravanData, DepositData, LRWData, PowerbankData, ProtectData, Request, RequestKind,
     TransferData,
 };
-use crate::rooms::state::{FarmStatus, RoomState, TradeData};
+use crate::rooms::state::{RoomState, TradeData};
 use crate::rooms::wrappers::claimed::Claimed;
 use crate::statistics::Statistic;
 use crate::units::creeps::{CreepMemory, run_creeps};

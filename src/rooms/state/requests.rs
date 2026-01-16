@@ -108,7 +108,7 @@ impl Request {
             RequestKind::Withdraw(_) => withdraw_handler(meta, assignment),
             RequestKind::Carry(_) => carry_handler(meta, assignment),
             RequestKind::LongRangeWithdraw(_) => lrw_handler(meta, assignment, home.name()),
-            RequestKind::Farm(room_name) => begin_farm_handler(room_name, meta, assignment, home),
+            RequestKind::Farm(room_name) => begin_farm_handler(*room_name, meta, assignment, home),
         }
     }
 

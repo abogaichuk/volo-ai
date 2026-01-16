@@ -408,7 +408,7 @@ pub fn plan_for(room_name: String, x: u8, y: u8) -> String {
                 let result = plan
                     .find_by_xy(xy)
                     .fold(String::from_str("cells: ").expect("expect str"), |acc, elem| {
-                        format!("{}, [{:?}]", acc, elem)
+                        format!("{acc}, [{elem:?}]")
                     });
                 return result;
             }

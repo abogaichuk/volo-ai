@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
 use std::iter::Iterator;
 
-use log::{debug, info};
+use log::info;
 use ordered_float::OrderedFloat;
 use screeps::{OrderType, PowerType, ResourceType, RoomName, game};
 use serde::{Deserialize, Serialize};
@@ -85,11 +85,11 @@ impl RoomState {
     //     }
     // }
 
-    pub fn set_farm_status(&mut self, farm: RoomName, status: FarmStatus) {
+    pub fn set_farm_status(&mut self, farm: RoomName, active: bool) {
         self.farms
             .entry(farm)
             .and_modify(|farm_room| {
-                farm_room.update_status(status);
+                farm_room.update_status(active);
             })
             .or_default();
     }
@@ -129,7 +129,7 @@ impl RoomState {
 pub struct FarmInfo {
     // #[serde(skip)]
     // kind: FarmKind,
-    farm_status: FarmStatus,
+    // farm_status: FarmStatus,
     #[serde(default = "default_active")]
     active: bool,
     plan: Option<RoomPlan>,
@@ -140,8 +140,8 @@ fn default_active() -> bool {
 }
 
 impl FarmInfo {
-    pub const fn update_status(&mut self, status: FarmStatus) {
-        self.farm_status = status;
+    pub const fn update_status(&mut self, active: bool) {
+        self.active = active
     }
 
     pub const fn plan(&self) -> Option<&RoomPlan> {
@@ -149,7 +149,7 @@ impl FarmInfo {
     }
 
     pub fn is_active(&self) -> bool {
-        self.farm_status.is_active()
+        self.active
     }
 }
 
@@ -161,20 +161,20 @@ impl FarmInfo {
 //     Central,
 // }
 
-#[derive(Serialize, Deserialize, Debug, Default, Clone)]
-pub enum FarmStatus {
-    Building,
-    Spawning,
-    #[default]
-    Ready,
-    Suspended,
-}
+// #[derive(Serialize, Deserialize, Debug, Default, Clone)]
+// pub enum FarmStatus {
+//     Building,
+//     Spawning,
+//     #[default]
+//     Ready,
+//     Suspended,
+// }
 
-impl FarmStatus {
-    const fn is_active(&self) -> bool {
-        !matches!(self, FarmStatus::Suspended)
-    }
-}
+// impl FarmStatus {
+//     const fn is_active(&self) -> bool {
+//         !matches!(self, FarmStatus::Suspended)
+//     }
+// }
 
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Hash)]
 #[repr(u8)]
