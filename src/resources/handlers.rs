@@ -228,12 +228,12 @@ fn energy_handler(
         ))),
         8 if battery > 20_000 => Some(RoomEvent::Excess(ResourceType::Battery, battery - 20_000)),
         7 | 8 if energy < 50_000 && battery >= 50 => Some(RoomEvent::Request(Request::new(
-            RequestKind::Factory(FactoryData::new(ResourceType::Energy, 50000)),
+            RequestKind::Factory(FactoryData::new(ResourceType::Energy, 50_000)),
             Assignment::None,
         ))),
         7 | 8 if energy < 50_000 => Some(RoomEvent::Lack(ResourceType::Battery, 5000)),
         6 if energy < 50_000 && ctx.terminal.is_some() => {
-            Some(RoomEvent::Lack(ResourceType::Energy, 50000))
+            Some(RoomEvent::Lack(ResourceType::Energy, 50_000))
         }
         _ => None,
     }

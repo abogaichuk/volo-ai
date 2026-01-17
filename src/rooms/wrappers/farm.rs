@@ -239,7 +239,7 @@ impl Farm {
         self.containers
             .iter()
             .filter_map(|container| {
-                if container.store().get_used_capacity(None) >= 1250 {
+                if container.store().get_used_capacity(None) >= 1200 {
                     Some(RoomEvent::Request(Request::new(
                         RequestKind::Withdraw(WithdrawData::new(
                             container.id().into(),

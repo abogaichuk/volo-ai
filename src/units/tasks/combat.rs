@@ -8,10 +8,8 @@ use screeps::{
     find, game,
 };
 
-use crate::movement::MovementGoal;
-use crate::movement::walker::Walker;
-use crate::units::roles::Role;
-use crate::units::{Task, TaskResult, has_part, with_parts};
+use crate::movement::{MovementGoal, walker::Walker};
+use crate::units::{Task, TaskResult, has_part, roles::Role, with_parts};
 use crate::utils::commons::{
     closest_attacker, closest_creep, find_closest_injured, find_closest_injured_my_creeps,
     find_keeper_lairs, find_ramparts, find_walkable_positions_near_by, has_boosted_part,
