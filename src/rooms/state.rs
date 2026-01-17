@@ -65,25 +65,8 @@ impl RoomState {
         info!("add {:?}: {} to spawn queue", role, times);
         for _ in 1..=times {
             self.spawns.push(role.clone());
-            // self.spawns.insert(role.clone());
         }
     }
-
-    // pub fn finish_farm(&mut self, farm: RoomName, with_central: Option<RoomName>) {
-    //     debug!("finish_farm: {}, with_central: {:?}", farm, with_central);
-    //     self.set_farm_for(farm, FarmStatus::Suspended);
-    //     if let Some(central) = with_central {
-    //         self.set_farm_for(central, FarmStatus::Suspended);
-    //     }
-    // }
-
-    // pub fn begin_farm(&mut self, farm: RoomName, with_central: Option<RoomName>) {
-    //     debug!("begin_farm: {}, with_central: {:?}", farm, with_central);
-    //     self.set_farm_for(farm, FarmStatus::Building);
-    //     if let Some(central) = with_central {
-    //         self.set_farm_for(central, FarmStatus::Building);
-    //     }
-    // }
 
     pub fn set_farm_status(&mut self, farm: RoomName, active: bool) {
         self.farms
@@ -105,13 +88,6 @@ impl RoomState {
             .or_insert(time);
     }
 
-    // pub fn get_roles<'a>(
-    //     &'a self,
-    //     creeps: &'a HashMap<String, CreepMemory>,
-    // ) -> impl Iterator<Item = &'a Role> {
-    //     self.spawns.iter().chain(creeps.values())
-    // }
-
     pub fn find_roles<'a>(
         &'a self,
         role: &'a Role,
@@ -127,21 +103,14 @@ impl RoomState {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct FarmInfo {
-    // #[serde(skip)]
-    // kind: FarmKind,
-    // farm_status: FarmStatus,
-    #[serde(default = "default_active")]
+    #[serde(default)]
     active: bool,
     plan: Option<RoomPlan>,
 }
 
-fn default_active() -> bool {
-    true
-}
-
 impl FarmInfo {
     pub const fn update_status(&mut self, active: bool) {
-        self.active = active
+        self.active = active;
     }
 
     pub const fn plan(&self) -> Option<&RoomPlan> {
@@ -152,29 +121,6 @@ impl FarmInfo {
         self.active
     }
 }
-
-// #[derive(Debug, Default, Clone)]
-// pub enum FarmKind {
-//     #[default]
-//     Reservable,
-//     SourceKeeperRoom,
-//     Central,
-// }
-
-// #[derive(Serialize, Deserialize, Debug, Default, Clone)]
-// pub enum FarmStatus {
-//     Building,
-//     Spawning,
-//     #[default]
-//     Ready,
-//     Suspended,
-// }
-
-// impl FarmStatus {
-//     const fn is_active(&self) -> bool {
-//         !matches!(self, FarmStatus::Suspended)
-//     }
-// }
 
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Hash)]
 #[repr(u8)]

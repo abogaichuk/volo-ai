@@ -1,5 +1,3 @@
-use std::str::FromStr;
-
 use log::debug;
 use screeps::{
     Creep, EffectType, Event, HasHits, HasId, HasPosition, MaybeHasId, Mineral, Part, Room,
@@ -135,76 +133,6 @@ impl Farm {
             }
         }
     }
-
-    // pub fn run_farm(&self) -> Vec<RoomEvent> {
-    //     let mut room_events = Vec::new();
-
-    //     let re = get_room_regex();
-    //     if let Some((f_num, s_num)) = capture_room_numbers(&re, self.get_name()) {
-    //         let (f_rem, s_rem) = (f_num % 10, s_num % 10);
-
-    //         if is_skr(f_rem, s_rem) {
-    //             // //source keeper farm room
-    //             let ic_timeout = self
-    //                 .icore
-    //                 .as_ref()
-    //                 .and_then(|ic| {
-    //                     ic.effects().iter().find_map(|effect| {
-    //                         match effect.effect() {
-    //                             //add 50 ticks to make sure a request with collapse timer has been
-    //                             // created
-    //                             EffectType::NaturalEffect(_) => Some(effect.ticks_remaining() + 50),
-    //                             EffectType::PowerEffect(_) => None,
-    //                         }
-    //                     })
-    //                 })
-    //                 .unwrap_or_default();
-
-    //             if ic_timeout > 0 {
-    //                 // invander core is in the room! insert to avoid_rooms
-    //                 room_events.push(RoomEvent::Avoid(self.get_name(), game::time() + ic_timeout));
-
-    //                 if self.memory.is_active() {
-    //                     //if farm is_active -> stop it
-    //                     let stop_farm_event = if is_skr_walkway(f_rem, s_rem) {
-    //                         // the sk room is a walkay to a central room, stop farming central too
-    //                         RoomEvent::StopFarm(
-    //                             self.get_name(),
-    //                             get_central_room_name(self.get_name(), f_num, s_num),
-    //                         )
-    //                     } else {
-    //                         RoomEvent::StopFarm(self.get_name(), None)
-    //                     };
-    //                     room_events.push(stop_farm_event);
-    //                 }
-    //             } else if !self.memory.is_active() {
-    //                 // no invander core in the room -> enable farming
-    //                 let start_farm_event = if is_skr_walkway(f_rem, s_rem) {
-    //                     // the sk room is a walkay to a central room, start farming central too
-    //                     RoomEvent::StartFarm(
-    //                         self.get_name(),
-    //                         get_central_room_name(self.get_name(), f_num, s_num),
-    //                     )
-    //                 } else {
-    //                     RoomEvent::StartFarm(self.get_name(), None)
-    //                 };
-    //                 room_events.push(start_farm_event);
-    //             } else {
-    //                 //active farm and no invander cores
-    //                 room_events.extend(self.get_farm_requests(self.memory.plan()));
-    //                 self.create_cs(self.memory.plan());
-    //             }
-    //         } else if self.memory.is_active() {
-    //             //just farm remote room
-    //             room_events.extend(self.get_farm_requests(self.memory.plan()));
-    //             self.create_cs(self.memory.plan());
-    //         } else {
-    //             //farm is temporarly forbiden, do nothing
-    //         }
-    //     }
-
-    //     room_events
-    // }
 
     fn create_cs(&self, plan: Option<&RoomPlan>) {
         if let Some(plan) = plan
@@ -475,20 +403,4 @@ fn is_central(f_mod: u32, s_mod: u32) -> bool {
 
 fn is_skr(f_mod: u32, s_mod: u32) -> bool {
     (4..=6).contains(&f_mod) && (4..=6).contains(&s_mod)
-}
-
-fn is_walkway_to_center(f_rem: u32, s_rem: u32) -> bool {
-    (f_rem == 5 && (s_rem == 4 || s_rem == 6)) || (s_rem == 5 && (f_rem == 4 || f_rem == 6))
-}
-
-fn get_central_room_name(sk_name: RoomName, f_num: u32, s_num: u32) -> Option<RoomName> {
-    let fr = (f_num / 10) * 10 + 5;
-    let sr = (s_num / 10) * 10 + 5;
-
-    let central_room_str = sk_name
-        .to_string()
-        .replace(&f_num.to_string(), &fr.to_string())
-        .replace(&s_num.to_string(), &sr.to_string());
-
-    RoomName::from_str(&central_room_str).ok()
 }
