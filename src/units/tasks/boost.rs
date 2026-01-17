@@ -1,4 +1,4 @@
-use log::{info, error};
+use log::{error, info};
 use screeps::{Creep, HasId, HasPosition, ObjectId, SharedCreepProperties, StructureLab};
 
 use crate::movement::MovementProfile;

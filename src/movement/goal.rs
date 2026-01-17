@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use log::{warn, debug};
+use log::{debug, warn};
 use screeps::RoomXY;
 use screeps::game::map;
 use screeps::local::{Position, RoomName};

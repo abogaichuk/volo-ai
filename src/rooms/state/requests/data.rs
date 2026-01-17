@@ -1,3 +1,4 @@
+pub(crate) mod begin_farm;
 pub(crate) mod book;
 pub(crate) mod build;
 pub(crate) mod caravan;

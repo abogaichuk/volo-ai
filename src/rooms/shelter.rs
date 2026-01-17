@@ -1,33 +1,54 @@
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    iter::once,
+};
 
 use itertools::Itertools;
 use log::{debug, error, info, warn};
-use screeps::game::market::Order;
-use screeps::game::{self};
 use screeps::{
     Creep, Effect, EffectType, HasId, HasPosition, HasStore, Mineral, ObjectId, OrderType, Part,
-    Position, PowerType, RawObjectId, ResourceType, Room, RoomName, RoomObjectProperties, Source,
-    StructureController, StructureFactory, StructureLab, StructureLink, StructurePowerSpawn,
-    StructureRampart, StructureSpawn, StructureStorage, StructureTerminal, StructureTower,
+    Position, PowerType, RawObjectId, ResourceType, Room, RoomName, RoomObjectProperties, RoomXY,
+    Source, StructureController, StructureFactory, StructureLab, StructureLink,
+    StructurePowerSpawn, StructureRampart, StructureSpawn, StructureStorage, StructureTerminal,
+    StructureTower, StructureType,
+    game::{self, market::Order},
 };
 
-use crate::colony::ColonyEvent;
-use crate::commons::find_roles;
-use crate::rooms::{
-    RoomEvent,
-    state::{
-        RoomState, TradeData,
-        requests::{CreepHostile, DefendData, Request, RequestKind, assignment::Assignment},
+use crate::{
+    colony::ColonyEvent,
+    resources::RoomContext,
+    rooms::{
+        missed_buildings,
+        state::{BoostReason, FarmInfo, constructions::RoomPlan},
     },
-    wrappers::{Fillable, claimed::Claimed, farm::Farm},
+    units::roles::{
+        combat::overseer::Overseer, haulers::hauler::Hauler, miners::sk_miner::SKMiner,
+        services::house_keeper::HouseKeeper,
+    },
+    utils::commons::is_cpu_on_low,
 };
-use crate::statistics::RoomStats;
-use crate::units::creeps::CreepMemory;
-use crate::units::roles::Role;
+use crate::{commons::find_roles, units::roles::services::upgrader::Upgrader};
+use crate::{rooms::is_extractor, statistics::RoomStats, utils::commons::find_container_near_by};
+use crate::{
+    rooms::state::constructions::RoomPlannerError,
+    units::{creeps::CreepMemory, roles::Role},
+};
+use crate::{
+    rooms::{
+        RoomEvent,
+        state::{
+            RoomState, TradeData,
+            requests::{DefendData, Request, RequestKind, WithdrawData, assignment::Assignment},
+        },
+        wrappers::{Fillable, claimed::Claimed, farm::Farm},
+    },
+    units::roles::miners::mineral_miner::MineralMiner,
+};
 
 pub struct Shelter<'s> {
     pub(crate) base: Claimed,
     pub(crate) state: &'s mut RoomState,
+    pub(crate) farms: Vec<Farm>,
     pub(crate) white_list: &'s HashSet<String>,
 }
 
@@ -38,7 +59,7 @@ impl<'s> Shelter<'s> {
         state: &'s mut RoomState,
         white_list: &'s HashSet<String>,
     ) -> Self {
-        Shelter { base: Claimed::new(base_room, farms, state), state, white_list }
+        Shelter { base: Claimed::new(base_room, state), state, farms, white_list }
     }
 
     pub fn run_shelter(
@@ -46,8 +67,6 @@ impl<'s> Shelter<'s> {
         creeps: &mut HashMap<String, CreepMemory>,
         orders: &[Order],
     ) -> Vec<ColonyEvent> {
-        // todo proportial perimetr security check
-
         let mut events = Vec::new();
         for mut request in self
             .state
@@ -75,22 +94,14 @@ impl<'s> Shelter<'s> {
         // lab, terminal and factory toogle request status to InProgress only
         // because only one request can be correctly handled at one tick
         events.extend(
-            self.base
-                .run_labs(self.state)
+            self.run_labs()
                 .into_iter()
-                .chain(self.base.run_factory(self.state))
-                .chain(self.base.run_terminal(self.state, orders))
+                .chain(self.run_factory())
+                .chain(self.run_terminal(orders))
                 .chain(self.base.security_check(self.state, creeps))
                 .chain(self.base.run_spawns(self.state))
-                .chain(self.base.time_based_events(self.state, creeps))
-                .chain(self.base.farms.iter().flat_map(|farm| {
-                    self.state
-                        .farms
-                        .get(&farm.get_name())
-                        .map(|info| farm.run_farm(info))
-                        .unwrap_or_default()
-                        .into_iter()
-                })),
+                .chain(self.time_based_events(creeps))
+                .chain(self.farms.iter().flat_map(super::wrappers::farm::Farm::run_farm)),
         );
 
         let mut colony_events = Vec::new();
@@ -99,13 +110,9 @@ impl<'s> Shelter<'s> {
                 RoomEvent::Request(request) => {
                     self.add_request(request);
                 }
-                RoomEvent::Defend(farm_name, hostiles) => {
-                    let hostiles: Vec<CreepHostile> = hostiles
-                        .into_iter()
-                        .filter(|ch| !self.white_list.contains(&ch.name))
-                        .collect();
+                RoomEvent::Defend(farm_name) => {
                     self.add_request(Request::new(
-                        RequestKind::Defend(DefendData::with_hostiles(farm_name, hostiles)),
+                        RequestKind::Defend(DefendData::new(farm_name)),
                         Assignment::Multi(HashSet::new()),
                     ));
                 }
@@ -155,11 +162,21 @@ impl<'s> Shelter<'s> {
                 RoomEvent::Avoid(room_name, timeout) => {
                     colony_events.push(ColonyEvent::AvoidRoom(room_name, timeout));
                 }
-                RoomEvent::StopFarm(room_name, with_room) => {
-                    self.state.finish_farm(room_name, with_room);
-                }
-                RoomEvent::StartFarm(room_name, with_room) => {
-                    self.state.begin_farm(room_name, with_room);
+                RoomEvent::UpdateFarmStatus(room_name, active) => {
+                    if active {
+                        self.add_request(Request::new(
+                            RequestKind::Farm(room_name),
+                            Assignment::None,
+                        ));
+                    } else {
+                        let roles = self.get_periodic_roles(room_name);
+                        for creep in creeps.iter_mut() {
+                            if roles.contains(&creep.1.role) {
+                                creep.1.respawned = true;
+                            }
+                        }
+                    }
+                    self.state.set_farm_status(room_name, active);
                 }
                 RoomEvent::Lack(res, amount) => {
                     colony_events.push(ColonyEvent::Lack(self.name(), res, amount));
@@ -231,7 +248,7 @@ impl<'s> Shelter<'s> {
                     );
                     colony_events.push(ColonyEvent::Notify(message, Some(30)));
                 }
-                RoomEvent::AddPlans(plans) => {
+                RoomEvent::EditPlans(plans) => {
                     for (name, additional) in plans {
                         if name == self.name() {
                             self.state.set_plan(additional);
@@ -244,7 +261,28 @@ impl<'s> Shelter<'s> {
                     info!("{} construction plan created!", self.name());
                     self.state.plan = Some(plan);
                 }
-                RoomEvent::BuiltAll => {
+                RoomEvent::Construct(buildings) => {
+                    for (xy, str_type) in buildings {
+                        match self.base.room.create_construction_site(
+                            xy.x.u8(),
+                            xy.y.u8(),
+                            str_type,
+                            None,
+                        ) {
+                            Ok(()) => {}
+                            Err(err) => {
+                                error!(
+                                    "{} can't create cs: {}, at: {}, err: {:?}",
+                                    self.name(),
+                                    str_type,
+                                    xy,
+                                    err
+                                );
+                            }
+                        }
+                    }
+                }
+                RoomEvent::IncrementPlanLvl => {
                     if let Some(mut plan) = self.state.plan.take() {
                         plan.increment_lvl();
                         self.state.plan = Some(plan);
@@ -289,8 +327,195 @@ impl<'s> Shelter<'s> {
         &self.state.spawns
     }
 
+    pub fn time_based_events(
+        &self,
+        creeps: &HashMap<String, CreepMemory>,
+    ) -> impl Iterator<Item = RoomEvent> {
+        (game::time().is_multiple_of(100))
+            .then(|| {
+                once(RoomEvent::RetainBoosts)
+                    .chain(self.manage_mineral_miner(creeps))
+                    .chain(self.manage_controller(creeps))
+                    .chain(self.resource_handler())
+                    // .chain(self.base.resource_handler())
+                    .chain(self.constructions_check())
+                    .chain(once(RoomEvent::UpdateStatistic))
+            })
+            .into_iter()
+            .flatten()
+    }
+
+    fn resource_handler(&self) -> impl Iterator<Item = RoomEvent> + use<'_> {
+        let ctrl_lvl = self.controller().level();
+        if ctrl_lvl > 6 {
+            let context = RoomContext::new(
+                ctrl_lvl,
+                self.terminal().map(screeps::HasId::raw_id),
+                self.storage().map(screeps::HasId::raw_id),
+                self.factory().map(screeps::StructureFactory::level).unwrap_or_default(),
+                self.state.plan.as_ref().is_some_and(|plan| plan.built_lvl() == ctrl_lvl),
+            );
+            Some(self.base.resources.events(context))
+        } else {
+            None
+        }
+        .into_iter()
+        .flatten()
+    }
+
+    //spawn mineral miner if needed, he does suicide when finished his job
+    fn manage_mineral_miner(&self, creeps: &HashMap<String, CreepMemory>) -> Option<RoomEvent> {
+        if self.mineral().ticks_to_regeneration().is_none()
+            && is_extractor(self.mineral())
+            && let Some(container) =
+                find_container_near_by(&self.mineral().pos(), 1, &[StructureType::Container])
+        {
+            let role =
+                Role::MineralMiner(MineralMiner::new(Some(container.pos()), Some(self.name())));
+
+            if self.state.find_roles(&role, creeps).next().is_none() {
+                return Some(RoomEvent::Spawn(role, 1));
+            }
+        }
+        None
+    }
+
+    fn manage_controller(
+        &self,
+        creeps: &HashMap<String, CreepMemory>,
+    ) -> impl Iterator<Item = RoomEvent> {
+        self.storage()
+            .map(|storage| {
+                let boost_amount =
+                    storage.store().get_used_capacity(Some(ResourceType::CatalyzedGhodiumAcid));
+
+                if boost_amount > 500 && !self.state.boosts.contains_key(&BoostReason::Upgrade) {
+                    Some(RoomEvent::AddBoost(BoostReason::Upgrade, 1500))
+                } else {
+                    None
+                }
+                .into_iter()
+                .chain(self.manage_upgraders(storage, creeps))
+            })
+            .into_iter()
+            .flatten()
+    }
+
+    fn manage_upgraders(
+        &self,
+        storage: &StructureStorage,
+        creeps: &HashMap<String, CreepMemory>,
+    ) -> Option<RoomEvent> {
+        let upgrader = Role::Upgrader(Upgrader::new(Some(self.name())));
+        let is_alive = self.state.find_roles(&upgrader, creeps).next().is_some();
+        let energy_amount = storage.store().get_used_capacity(Some(ResourceType::Energy));
+
+        if self.controller().level() == 8 && energy_amount > 250_000 && !is_alive {
+            Some(RoomEvent::Spawn(upgrader, 1))
+        } else if self.controller().level() == 8 && energy_amount < 150_000 {
+            Some(RoomEvent::CancelRespawn(upgrader))
+        } else if energy_amount > 150_000 && !is_alive {
+            Some(RoomEvent::Spawn(upgrader, 1))
+        } else if energy_amount < 15_000 {
+            Some(RoomEvent::CancelRespawn(upgrader))
+        } else {
+            None
+        }
+    }
+
+    fn plan_farm(
+        &self,
+        plan: &RoomPlan,
+        farm_infos: &HashMap<RoomName, FarmInfo>,
+    ) -> Result<HashMap<RoomName, RoomPlan>, RoomPlannerError> {
+        if let Some((name, _)) = farm_infos.iter().find(|(_, info)| info.plan().is_none()) {
+            let farm = self
+                .farms
+                .iter()
+                .find(|f| f.get_name() == *name)
+                .ok_or(RoomPlannerError::UnreachableRoom)?;
+
+            let plans = farm_infos
+                .iter()
+                .filter_map(|(name, info)| info.plan().map(|plan| (*name, plan)))
+                .chain(once((self.name(), plan)))
+                .collect();
+
+            farm.plan_room(plans)
+        } else {
+            Err(RoomPlannerError::AlreadyCreated)
+        }
+    }
+
+    fn constructions_check(&self) -> Option<RoomEvent> {
+        if let Some(plan) = &self.state.plan {
+            match self.plan_farm(plan, &self.state.farms) {
+                Ok(plans) => Some(RoomEvent::EditPlans(plans)),
+                Err(err) => match err {
+                    RoomPlannerError::AlreadyCreated => {
+                        let buildings: HashMap<RoomXY, StructureType> =
+                            missed_buildings(self.name(), plan).collect();
+                        if !buildings.is_empty() {
+                            Some(RoomEvent::Construct(buildings))
+                        } else if plan.built_lvl() < self.controller().level() {
+                            Some(RoomEvent::IncrementPlanLvl)
+                        } else {
+                            None
+                        }
+                    }
+                    e => {
+                        error!("{} creation plan error: {}", self.name(), e);
+                        None
+                    }
+                },
+            }
+        } else if !is_cpu_on_low() {
+            match self.base.generate_plan(None) {
+                Ok(plan) => Some(RoomEvent::Plan(plan)),
+                Err(err) => {
+                    error!("{}", err);
+                    None
+                }
+            }
+        } else {
+            None
+        }
+    }
+
+    //mineral_miners is periodic by default cause don't respawn
+    fn get_periodic_roles(&self, room_name: RoomName) -> Vec<Role> {
+        let mut roles: Vec<Role> = self
+            .state
+            .farms
+            .get(&room_name)
+            .and_then(|farm_info| farm_info.plan())
+            .map(|plan| {
+                plan.containers()
+                    .iter()
+                    .map(|xy| {
+                        Role::SkMiner(SKMiner::new(
+                            Some(Position::new(xy.x, xy.y, room_name)),
+                            Some(self.name()),
+                        ))
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+
+        roles.push(Role::Overseer(Overseer::new(Some(room_name), Some(self.name()))));
+        roles.push(Role::HouseKeeper(HouseKeeper::new(Some(self.name()), true)));
+        roles.push(Role::Hauler(Hauler::new(Some(self.name()), true)));
+
+        roles
+    }
+
+    pub fn get_farm(&self, name: RoomName) -> Option<&Farm> {
+        self.farms.iter().find(|f| f.get_name() == name)
+        // self.base.get_farms().iter().find(|f| f.get_name() == name)
+    }
+
     pub fn get_farms(&self) -> impl Iterator<Item = RoomName> + use<'_> {
-        self.base.get_farms().iter().map(super::wrappers::farm::Farm::get_name)
+        self.farms.iter().map(super::wrappers::farm::Farm::get_name)
     }
 
     pub(crate) fn base(self) -> Claimed {
@@ -397,24 +622,34 @@ impl<'s> Shelter<'s> {
         resources.iter().find_map(|res| self.base.labs.boost_lab(*res))
     }
 
+    pub(crate) fn get_trades(&self) -> impl Iterator<Item = &TradeData> {
+        self.state.trades.iter()
+    }
+
     pub const fn mineral(&self) -> &Mineral {
         &self.base.mineral
     }
 
     pub fn all_minerals(&self) -> impl Iterator<Item = &Mineral> {
-        self.base.all_minerals()
+        once(&self.base.mineral).chain(self.farms.iter().filter_map(|farm| farm.mineral.as_ref()))
     }
 
     pub fn all_sources(&self) -> impl Iterator<Item = &Source> {
-        self.base.all_sources()
+        self.base.sources.iter().chain(self.farms.iter().flat_map(|farm| farm.sources.iter()))
     }
 
     pub fn find_source_near(&self, pos: Position) -> Option<ObjectId<Source>> {
         self.base
             .sources
             .iter()
-            .chain(self.base.farms.iter().flat_map(|farm| farm.sources.iter()))
+            .chain(self.farms.iter().flat_map(|farm| farm.sources.iter()))
             .find_map(|source| if pos.is_near_to(source.pos()) { Some(source.id()) } else { None })
+    }
+
+    pub fn get_hostiles(&self, farm: RoomName) -> Option<&[Creep]> {
+        self.farms
+            .iter()
+            .find_map(|f| if f.get_name() == farm { Some(f.get_hostiles()) } else { None })
     }
 
     pub fn find_container_in_range(
@@ -449,9 +684,29 @@ impl<'s> Shelter<'s> {
 
     pub fn unload<T>(&self, obj: &T, allowed: &[ResourceType]) -> Option<RoomEvent>
     where
-        T: HasStore + HasId,
+        T: HasStore + HasId + HasPosition,
     {
-        self.base.unload(obj, allowed)
+        self.storage()
+            .is_some_and(|s| s.store().get_free_capacity(None) > 10_000)
+            .then(|| {
+                obj.store().store_types().into_iter().find_map(|resource| {
+                    if !allowed.contains(&resource) {
+                        let amount = obj.store().get_used_capacity(Some(resource));
+                        if resource != ResourceType::Energy || amount > 15_000 {
+                            return Some(RoomEvent::Request(Request::new(
+                                RequestKind::Withdraw(WithdrawData::new(
+                                    obj.raw_id(),
+                                    obj.pos(),
+                                    vec![(resource, None)],
+                                )),
+                                Assignment::Single(None),
+                            )));
+                        }
+                    }
+                    None
+                })
+            })
+            .flatten()
     }
 
     pub fn supply_resources(

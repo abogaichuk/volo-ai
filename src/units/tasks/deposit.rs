@@ -59,26 +59,27 @@ pub fn deposit_carry(pos: Position, creep: &Creep, role: &Role, enemies: Vec<Cre
     {
         if let Some(container) = get_place_to_store(&home_room) {
             let resources = creep.store().store_types();
-            let resource_type = resources
-                .first()
-                .expect("expect store type while creep.store.get_used_capacity > 0");
-
-            let goal = Walker::Exploring(false).walk(
-                container.pos(),
-                CLOSE_RANGE_ACTION,
-                creep,
-                role,
-                enemies,
-            );
-            TaskResult::StillWorking(
-                Task::DeliverToStructure(
+            if let Some(resource_type) = resources.first() {
+                let goal = Walker::Exploring(false).walk(
                     container.pos(),
-                    container.as_structure().raw_id(),
-                    *resource_type,
-                    None,
-                ),
-                Some(goal),
-            )
+                    CLOSE_RANGE_ACTION,
+                    creep,
+                    role,
+                    enemies,
+                );
+                TaskResult::StillWorking(
+                    Task::DeliverToStructure(
+                        container.pos(),
+                        container.as_structure().raw_id(),
+                        *resource_type,
+                        None,
+                    ),
+                    Some(goal),
+                )
+            } else {
+                warn!("{} {} injured!", creep.name(), home_room.name());
+                TaskResult::Abort
+            }
         } else {
             warn!("{} {} there is no place to store!", creep.name(), home_room.name());
             TaskResult::Abort

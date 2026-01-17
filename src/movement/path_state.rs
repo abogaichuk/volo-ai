@@ -1,4 +1,4 @@
-use log::{warn, debug};
+use log::{debug, warn};
 use screeps::RoomName;
 use screeps::constants::Direction;
 use screeps::local::Position;

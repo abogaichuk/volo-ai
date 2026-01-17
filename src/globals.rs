@@ -1,5 +1,6 @@
-use std::str::FromStr;
+use std::collections::HashMap;
 use std::fmt::Write;
+use std::str::FromStr;
 
 use log::info;
 use ordered_float::OrderedFloat;
@@ -14,6 +15,7 @@ use crate::GLOBAL_MEMORY;
 use crate::rooms::state::constructions::{PlannedCell, RoomStructure};
 use crate::rooms::state::requests::Request;
 use crate::rooms::state::{BoostReason, FarmInfo, RoomState, TradeData};
+use crate::rooms::wrappers::claimed::Claimed;
 use crate::units::creeps::CreepMemory;
 use crate::units::roles::Role;
 
@@ -49,8 +51,35 @@ pub fn info() -> String {
 }
 
 #[wasm_bindgen]
-pub fn c_info() -> usize {
-    game::creeps().entries().count()
+pub fn c_info(room_name: String) -> String {
+    match RoomName::from_str(&room_name) {
+        Ok(room) => GLOBAL_MEMORY.with(|mem_refcell| {
+            let creeps = &mem_refcell.borrow().creeps;
+            let mut counts: HashMap<String, usize> = HashMap::new();
+
+            creeps
+                .values()
+                .filter(|memory| memory.role.get_home().is_some_and(|home| *home == room))
+                .for_each(|memory| {
+                    let role = memory.role.to_string();
+                    *counts.entry(role).or_insert(0) += 1;
+                });
+
+            let mut counts: Vec<(String, usize)> = counts.into_iter().collect();
+            counts.sort_unstable_by(|a, b| a.0.cmp(&b.0));
+
+            let mut result = format!("room_name: {room_name}, creeps: ");
+            for (idx, (role, count)) in counts.iter().enumerate() {
+                if idx > 0 {
+                    result.push_str(", ");
+                }
+                let _ = write!(&mut result, "{role}:{count}");
+            }
+
+            result
+        }),
+        _ => format!("{room_name} is not a room name!"),
+    }
 }
 
 #[wasm_bindgen]
@@ -356,10 +385,10 @@ pub fn clear_trades(room_name: String) -> String {
 }
 
 #[wasm_bindgen]
-pub fn avoid_room(room_name: String) -> String {
+pub fn avoid_room(room_name: String, timeout: u32) -> String {
     match RoomName::from_str(&room_name) {
         Ok(room_name) => GLOBAL_MEMORY.with(|mem_refcell| {
-            mem_refcell.borrow_mut().avoid_rooms.insert(room_name, u32::MAX);
+            mem_refcell.borrow_mut().avoid_rooms.insert(room_name, game::time() + timeout);
             format!("add room: {room_name} to avoid set!")
         }),
         Err(error) => {
@@ -369,25 +398,18 @@ pub fn avoid_room(room_name: String) -> String {
 }
 
 #[wasm_bindgen]
-pub fn get_plan_for(room_name: String, x: u8, y: u8) -> String {
+pub fn plan_for(room_name: String, x: u8, y: u8) -> String {
     match RoomName::from_str(&room_name) {
         Ok(room_name) => GLOBAL_MEMORY.with(|mem_refcell| {
             if let Some(memory) = mem_refcell.borrow_mut().rooms.get(&room_name)
                 && let Some(plan) = &memory.plan
             {
                 let xy = unsafe { RoomXY::unchecked_new(x, y) };
-                let result = plan.find_by_xy(xy).fold(
-                    String::from_str("cells: ").expect("expect str"),
-                    |acc, elem| {
-                        format!(
-                            "{}, [{:?}: {}, {}]",
-                            acc,
-                            elem.structure,
-                            elem.xy.x.u8(),
-                            elem.xy.y.u8()
-                        )
-                    },
-                );
+                let result = plan
+                    .find_by_xy(xy)
+                    .fold(String::from_str("cells: ").expect("expect str"), |acc, elem| {
+                        format!("{acc}, [{elem:?}]")
+                    });
                 return result;
             }
             format!("memory: {room_name} not found!")
@@ -453,6 +475,38 @@ pub fn delete_plan_for(room_name: String, x: u8, y: u8, structure: JsValue) -> S
                 format!("incorrect structure: {err}")
             }
         },
+        Err(error) => {
+            format!("incorrect room name: {error}")
+        }
+    }
+}
+
+#[wasm_bindgen]
+pub fn generate_plan(room_name: String, x0: u8, y0: u8, x1: u8, y1: u8) -> String {
+    match RoomName::from_str(&room_name) {
+        Ok(room_name) => GLOBAL_MEMORY.with(|mem_refcell| {
+            match mem_refcell.borrow_mut().rooms.get_mut(&room_name) {
+                Some(room_state) => {
+                    if let Some(room) = game::rooms().get(room_name) {
+                        let claimed = Claimed::new(room, room_state);
+                        match claimed.generate_plan(Some((x0, y0, x1, y1))) {
+                            Ok(plan) => {
+                                room_state.plan = Some(plan);
+                                "plan generated!".to_string()
+                            }
+                            Err(err) => {
+                                format!("room plan error: {err}")
+                            }
+                        }
+                    } else {
+                        "room not found!".to_string()
+                    }
+                }
+                _ => {
+                    format!("room: {room_name} is not claimed room")
+                }
+            }
+        }),
         Err(error) => {
             format!("incorrect room name: {error}")
         }

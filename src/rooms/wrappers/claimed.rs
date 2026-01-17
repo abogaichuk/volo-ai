@@ -1,25 +1,23 @@
-use std::{cmp::min, collections::HashMap, iter::once};
+use std::collections::HashMap;
 
-use log::{error, info};
+use log::info;
 use screeps::{
-    ConstructionSite, Creep, Event, HasHits, HasId, HasPosition, HasStore, INVADER_USERNAME,
-    MaybeHasId, Mineral, Nuke, Part, PowerCreep, RESOURCES_ALL, RawObjectId, Resource,
-    ResourceType, Room, RoomName, RoomXY, SharedCreepProperties, Source, StructureContainer,
-    StructureController, StructureExtension, StructureFactory, StructureLab, StructureNuker,
-    StructureObject, StructureObserver, StructurePowerSpawn, StructureRoad, StructureSpawn,
-    StructureStorage, StructureTerminal, StructureTower, StructureType, StructureWall, Tombstone,
-    find, game,
+    ConstructionSite, Creep, Event, HasHits, HasId, HasPosition, INVADER_USERNAME, MaybeHasId,
+    Mineral, Nuke, Part, PowerCreep, RESOURCES_ALL, RawObjectId, Resource, ResourceType, Room,
+    RoomName, SharedCreepProperties, Source, StructureContainer, StructureController,
+    StructureExtension, StructureFactory, StructureNuker, StructureObject, StructureObserver,
+    StructurePowerSpawn, StructureRoad, StructureSpawn, StructureStorage, StructureTerminal,
+    StructureTower, StructureWall, Tombstone, find, game,
 };
 use smallvec::SmallVec;
 
-use super::farm::Farm;
-use crate::commons::{find_container_near_by, has_part, is_cpu_on_low};
-use crate::resources::{Resources, RoomContext};
+use crate::commons::has_part;
+use crate::resources::Resources;
 use crate::rooms::{
-    RoomEvent, RoomState, is_extractor, missed_buildings,
+    RoomEvent, RoomState,
     state::{
-        BoostReason, FarmInfo,
-        constructions::{RoomPlan, RoomPlannerError},
+        BoostReason,
+        constructions::RoomPlan,
         requests::{
             BodyPart, BuildData, CarryData, CreepHostile, PickupData, RepairData, Request,
             RequestKind, WithdrawData, assignment::Assignment,
@@ -32,13 +30,10 @@ use crate::rooms::{
 };
 use crate::units::{
     creeps::CreepMemory,
-    roles::{
-        Role, combat::guard::Guard, miners::mineral_miner::MineralMiner,
-        services::upgrader::Upgrader,
-    },
+    roles::{Role, combat::guard::Guard},
 };
 use crate::utils::constants::{
-    MAX_CARRY_REQUEST_AMOUNT, MAX_WALL_HITS, MIN_PERIMETR_HITS, MY_ROOMS_PICKUP_RESOURCE_THRESHOLD,
+    MAX_WALL_HITS, MIN_PERIMETR_HITS, MY_ROOMS_PICKUP_RESOURCE_THRESHOLD,
 };
 
 mod structures;
@@ -47,7 +42,7 @@ mod structures;
 pub(crate) struct Claimed {
     pub(crate) room: Room,
     pub(crate) controller: StructureController,
-    pub(crate) farms: Vec<Farm>, //todo move to shelter
+    // pub(crate) farms: Vec<Farm>, //todo move to shelter
     pub(crate) mineral: Mineral,
     pub(crate) sources: Vec<Source>,
     pub(crate) spawns: Vec<StructureSpawn>,
@@ -77,7 +72,7 @@ pub(crate) struct Claimed {
 }
 
 impl Claimed {
-    pub(crate) fn new(room: Room, farms: Vec<Farm>, state: &RoomState) -> Self {
+    pub(crate) fn new(room: Room, state: &RoomState) -> Self {
         let controller = room.controller().expect("expect controller in my Base");
         let mineral = room.find(find::MINERALS, None).remove(0);
         let sources = room.find(find::SOURCES, None);
@@ -107,11 +102,7 @@ impl Claimed {
 
         for structure in room.find(find::STRUCTURES, None) {
             match structure {
-                StructureObject::StructureTower(tower)
-                    if tower.store().get_used_capacity(Some(ResourceType::Energy)) > 0 =>
-                {
-                    towers.push(tower);
-                }
+                StructureObject::StructureTower(tower) => towers.push(tower),
                 StructureObject::StructureSpawn(s) => spawns.push(s),
                 StructureObject::StructureExtension(e) => extensions.push(e),
                 StructureObject::StructureFactory(f) => factory = Some(f),
@@ -156,7 +147,6 @@ impl Claimed {
         Self {
             room,
             controller,
-            farms,
             mineral,
             sources,
             spawns,
@@ -186,119 +176,6 @@ impl Claimed {
         }
     }
 
-    fn plan_farm(
-        &self,
-        plan: &RoomPlan,
-        farm_infos: &HashMap<RoomName, FarmInfo>,
-    ) -> Result<HashMap<RoomName, RoomPlan>, RoomPlannerError> {
-        if let Some((name, _)) = farm_infos.iter().find(|(_, info)| info.plan().is_none()) {
-            let farm = self
-                .farms
-                .iter()
-                .find(|f| f.get_name() == *name)
-                .ok_or(RoomPlannerError::UnreachableRoom)?;
-
-            let plans = farm_infos
-                .iter()
-                .filter_map(|(name, info)| info.plan().map(|plan| (*name, plan)))
-                .chain(once((self.get_name(), plan)))
-                .collect();
-
-            farm.plan_room(plans)
-        } else {
-            Err(RoomPlannerError::AlreadyCreated)
-        }
-    }
-
-    fn constructions_check(&self, memory: &RoomState) -> Option<RoomEvent> {
-        if let Some(plan) = &memory.plan {
-            match self.plan_farm(plan, &memory.farms) {
-                Ok(plans) => Some(RoomEvent::AddPlans(plans)),
-                Err(err) => {
-                    match err {
-                        RoomPlannerError::AlreadyCreated => {
-                            //todo create cs partially and in specific order
-                            let buildings: HashMap<RoomXY, StructureType> =
-                                missed_buildings(self.get_name(), plan).collect();
-                            let cpu_start = game::cpu::get_used();
-                            if !buildings.is_empty() {
-                                for (xy, str_type) in buildings {
-                                    match self.room.create_construction_site(
-                                        xy.x.u8(),
-                                        xy.y.u8(),
-                                        str_type,
-                                        None,
-                                    ) {
-                                        Ok(()) => {}
-                                        Err(err) => {
-                                            error!(
-                                                "{} can't create cs: {}, at: {}, err: {:?}",
-                                                self.get_name(),
-                                                str_type,
-                                                xy,
-                                                err
-                                            );
-                                        }
-                                    }
-                                }
-                                let cpu_used = game::cpu::get_used() - cpu_start;
-                                info!("{} created cs cpu used: {}", self.get_name(), cpu_used);
-                                None
-                            } else if plan.built_lvl() < self.controller.level() {
-                                Some(RoomEvent::BuiltAll)
-                            } else {
-                                None
-                            }
-                        }
-                        e => {
-                            error!("{} creation plan error: {}", self.get_name(), e);
-                            None
-                        }
-                    }
-                }
-            }
-        } else if !is_cpu_on_low() {
-            match self.generate_plan() {
-                Ok(plan) => Some(RoomEvent::Plan(plan)),
-                Err(err) => {
-                    error!("{}", err);
-                    None
-                }
-            }
-        } else {
-            None
-        }
-    }
-
-    //todo withdrawrequest instead of carry
-    pub fn unload<T>(&self, obj: &T, allowed: &[ResourceType]) -> Option<RoomEvent>
-    where
-        T: HasStore + HasId,
-    {
-        self.storage
-            .as_ref()
-            .filter(|storage| storage.store().get_free_capacity(None) > 10_000)
-            .and_then(|storage| {
-                obj.store().store_types().into_iter().find_map(|resource| {
-                    if !allowed.contains(&resource) {
-                        let amount = obj.store().get_used_capacity(Some(resource));
-                        if resource != ResourceType::Energy || amount > 15_000 {
-                            return Some(RoomEvent::Request(Request::new(
-                                RequestKind::Carry(CarryData::new(
-                                    obj.raw_id(),
-                                    storage.raw_id(),
-                                    resource,
-                                    min(amount, MAX_CARRY_REQUEST_AMOUNT),
-                                )),
-                                Assignment::Single(None),
-                            )));
-                        }
-                    }
-                    None
-                })
-            })
-    }
-
     pub fn supply_resources(
         &self,
         to: RawObjectId,
@@ -322,7 +199,8 @@ impl Claimed {
             .or_else(|| {
                 self.factory().filter(|f| f.raw_id() != to).and_then(|f| {
                     let f_capacity = f.store().get_used_capacity(Some(resource));
-                    if f_capacity < amount || ResourceType::Energy == resource && f_capacity < 10000
+                    if f_capacity < amount
+                        || ResourceType::Energy == resource && f_capacity < 10_000
                     {
                         None
                     } else {
@@ -335,58 +213,8 @@ impl Claimed {
             })
     }
 
-    pub fn time_based_events<'a>(
-        &'a self,
-        room_memory: &'a RoomState,
-        creeps: &'a HashMap<String, CreepMemory>,
-    ) -> impl Iterator<Item = RoomEvent> + 'a {
-        (game::time().is_multiple_of(100))
-            .then(|| {
-                once(RoomEvent::RetainBoosts)
-                    .chain(self.manage_mineral_miner(room_memory, creeps))
-                    .chain(self.manage_controller(room_memory, creeps))
-                    .chain(self.resource_handler())
-                    .chain(self.constructions_check(room_memory))
-                    .chain(once(RoomEvent::UpdateStatistic))
-            })
-            .into_iter()
-            .flatten()
-    }
-
-    fn resource_handler(&self) -> impl Iterator<Item = RoomEvent> + use<'_> {
-        //todo create resource handler here because:
-        // 1. the same time check
-        // 2. easy to create RoomStats because creeps len is here
-        // 3. easy pass to colony by throwing colonyevent
-        if self.controller.level() > 6 {
-            let context = RoomContext::new(
-                self.controller.level(),
-                self.terminal.as_ref().map(screeps::HasId::raw_id),
-                self.storage.as_ref().map(screeps::HasId::raw_id),
-                self.factory.as_ref().map(screeps::StructureFactory::level).unwrap_or_default(),
-            );
-            Some(self.resources.events(context))
-        } else {
-            None
-        }
-        .into_iter()
-        .flatten()
-    }
-
     pub fn get_name(&self) -> RoomName {
         self.room.name()
-    }
-
-    pub fn get_farms(&self) -> &[Farm] {
-        &self.farms
-    }
-
-    pub fn all_minerals(&self) -> impl Iterator<Item = &Mineral> {
-        once(&self.mineral).chain(self.farms.iter().filter_map(|farm| farm.mineral.as_ref()))
-    }
-
-    pub fn all_sources(&self) -> impl Iterator<Item = &Source> {
-        self.sources.iter().chain(self.farms.iter().flat_map(|farm| farm.sources.iter()))
     }
 
     pub const fn storage(&self) -> Option<&StructureStorage> {
@@ -399,10 +227,6 @@ impl Claimed {
 
     pub const fn factory(&self) -> Option<&StructureFactory> {
         self.factory.as_ref()
-    }
-
-    pub fn production_labs(&self) -> (&[StructureLab], &[StructureLab]) {
-        (self.labs.inputs(), self.labs.outputs())
     }
 
     pub fn energy_available(&self) -> u32 {
@@ -491,72 +315,6 @@ impl Claimed {
             .collect()
     }
 
-    //spawn mineral miner if needed, he does suicide when finished his job
-    fn manage_mineral_miner<'a>(
-        &'a self,
-        room_memory: &'a RoomState,
-        creeps: &'a HashMap<String, CreepMemory>,
-    ) -> Option<RoomEvent> {
-        if self.mineral.ticks_to_regeneration().is_none()
-            && is_extractor(&self.mineral)
-            && let Some(container) =
-                find_container_near_by(&self.mineral.pos(), 1, &[StructureType::Container])
-        {
-            let role =
-                Role::MineralMiner(MineralMiner::new(Some(container.pos()), Some(self.get_name())));
-
-            if room_memory.find_roles(&role, creeps).next().is_none() {
-                return Some(RoomEvent::Spawn(role, 1));
-            }
-        }
-        None
-    }
-
-    fn manage_controller(
-        &self,
-        room_memory: &RoomState,
-        creeps: &HashMap<String, CreepMemory>,
-    ) -> impl Iterator<Item = RoomEvent> {
-        self.storage()
-            .map(|storage| {
-                let boost_amount =
-                    storage.store().get_used_capacity(Some(ResourceType::CatalyzedGhodiumAcid));
-
-                if boost_amount > 500 && !room_memory.boosts.contains_key(&BoostReason::Upgrade) {
-                    Some(RoomEvent::AddBoost(BoostReason::Upgrade, 1500))
-                } else {
-                    None
-                }
-                .into_iter()
-                .chain(self.manage_upgraders(storage, room_memory, creeps))
-            })
-            .into_iter()
-            .flatten()
-    }
-
-    fn manage_upgraders(
-        &self,
-        storage: &StructureStorage,
-        room_memory: &RoomState,
-        creeps: &HashMap<String, CreepMemory>,
-    ) -> Option<RoomEvent> {
-        let upgrader = Role::Upgrader(Upgrader::new(Some(self.get_name())));
-        let is_alive = room_memory.find_roles(&upgrader, creeps).next().is_some();
-        let energy_amount = storage.store().get_used_capacity(Some(ResourceType::Energy));
-
-        if self.controller.level() == 8 && energy_amount > 250_000 && !is_alive {
-            Some(RoomEvent::Spawn(upgrader, 1))
-        } else if self.controller.level() == 8 && energy_amount < 150_000 {
-            Some(RoomEvent::CancelRespawn(upgrader))
-        } else if energy_amount > 150_000 && !is_alive {
-            Some(RoomEvent::Spawn(upgrader, 1))
-        } else if energy_amount < 15_000 {
-            Some(RoomEvent::CancelRespawn(upgrader))
-        } else {
-            None
-        }
-    }
-
     pub fn repair_roads(&self, plan: Option<&RoomPlan>) -> impl Iterator<Item = Request> {
         let mut requests = Vec::new();
         if let Some(plan) = plan {
@@ -599,7 +357,7 @@ impl Claimed {
         requests.into_iter()
     }
 
-    //todo logic close to logic for towers
+    //todo logic similar to logic for towers
     pub fn security_check(
         &self,
         room_memory: &RoomState,
@@ -675,7 +433,9 @@ impl Claimed {
     }
 
     fn perimetr_check(&self) -> Option<RoomEvent> {
-        (self.ramparts.perimeter().any(|rampart| rampart.hits() < MIN_PERIMETR_HITS)).then(|| {
+        (self.controller.level() > 5
+            && self.ramparts.perimeter().any(|rampart| rampart.hits() < MIN_PERIMETR_HITS))
+        .then(|| {
             RoomEvent::ActivateSafeMode("Perimeter out of order! Enabling safe mode!".to_string())
         })
     }

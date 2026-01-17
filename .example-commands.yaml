@@ -19,7 +19,7 @@ rooms:
   delete_boost: delete_boost('claimed_room', boost_number)
   trade: trade('claimed_room', 'sell', 'emanation', n, price)
   delete_trades: clear_trades('claimed_room')
-  get_plan_for_specific_cell: get_plan_for('claimed_room', x, y)
+  get_plan_for_specific_cell: plan_for('claimed_room', x, y)
   add_plan_for_specific_cell: add_plan('claimed_room', x, y, RoomStructure, build_lvl, removal_lvl)
   delete_plan_for_specific_cell: delete_plan_for('claimed_room', x, y, RoomStructure)
 

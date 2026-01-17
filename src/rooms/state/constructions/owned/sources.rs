@@ -1,9 +1,8 @@
 use std::collections::HashMap;
 
 use itertools::Itertools;
-use log::info;
 use screeps::pathfinder::SearchGoal;
-use screeps::{HasPosition, Position, RoomXY};
+use screeps::{Position, RoomXY};
 
 use crate::movement::callback::construction_single_room;
 use crate::movement::find_many_in_room;
@@ -45,7 +44,6 @@ pub fn plan(
             })
         })
         .ok_or(RoomPlannerError::SourcePlacementFailure)?;
-        info!("{} container at: {}", storage.pos().room_name(), container.xy);
 
         let goals = planned_roads.iter().map(|cell| {
             SearchGoal::new(Position::new(cell.xy.x, cell.xy.y, storage.room_name()), 0)
@@ -65,12 +63,10 @@ pub fn plan(
                 0
             } else {
                 let cell = PlannedCell::new(step.xy(), RoomStructure::Road(i), 0, None);
-                planned_roads
-                    .get(&cell)
-                    .map_or(i, |cell| match cell.structure {
-                        RoomStructure::Road(distance) => distance + i,
-                        _ => i,
-                    })
+                planned_roads.get(&cell).map_or(i, |cell| match cell.structure {
+                    RoomStructure::Road(distance) => distance + i,
+                    _ => i,
+                })
             };
             PlannedCell::new(step.xy(), RoomStructure::Road(distance), 0, None)
         });
@@ -83,7 +79,7 @@ pub fn plan(
                 PlannedCell::new(
                     xy,
                     RoomStructure::Link(LinkType::Source),
-                    if i == 0 { 6 } else { 8 },
+                    if i == 0 { 7 } else { 8 },
                     None,
                 )
             })

@@ -39,9 +39,8 @@ pub(in crate::rooms::state::requests) fn powerbank_handler(
     home: &Shelter,
 ) -> SmallVec<[RoomEvent; 3]> {
     let mut events: SmallVec<[RoomEvent; 3]> = SmallVec::new();
-    let time = game::time();
 
-    if meta.created_at + 5200 > time {
+    if meta.created_at + 5200 > game::time() {
         match meta.status {
             Status::Created
                 if home.storage().is_some_and(|storage| {
@@ -92,7 +91,7 @@ pub(in crate::rooms::state::requests) fn powerbank_handler(
                     warn!("creation new squad error: {:?}", data);
                 }
             }
-            Status::InProgress if meta.updated_at + 1350 < time => {
+            Status::InProgress if meta.updated_at + 1350 < game::time() => {
                 if let Some(squad_id) = assignment.new_squad(data.id.to_string(), meta) {
                     meta.update(Status::InProgress);
 
@@ -136,6 +135,8 @@ pub(in crate::rooms::state::requests) fn powerbank_handler(
             }
             _ => {}
         }
+    } else {
+        meta.update(Status::Resolved);
     }
     events
 }

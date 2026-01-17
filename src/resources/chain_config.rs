@@ -9,10 +9,11 @@ pub struct FactoryChainConfig {
 }
 
 impl FactoryChainConfig {
-    pub const fn random_chain(&self) -> &Chain {
+    pub fn random_chain(&self) -> &Chain {
         //todo get chain randomly?
         // once(self.chain).chain(self.opt1).chain(self.opt2);
-        &self.chain
+        // &self.chain
+        self.opt2.as_ref().unwrap_or_else(|| self.opt1.as_ref().unwrap_or(&self.chain))
     }
 }
 
@@ -24,7 +25,11 @@ pub struct Chain {
 }
 
 pub const fn factory_chain_config(res: ResourceType) -> Option<FactoryChainConfig> {
-    use ResourceType::{Metal, Alloy, Tube, Fixtures, Frame, Silicon, Wire, Switch, Transistor, Microchip, Biomass, Cell, Phlegm, Tissue, Muscle, Organoid, Mist, Condensate, Concentrate, Extract, Spirit, Emanation};
+    use ResourceType::{
+        Alloy, Biomass, Cell, Concentrate, Condensate, Emanation, Extract, Fixtures, Frame, Metal,
+        Microchip, Mist, Muscle, Organoid, Phlegm, Silicon, Spirit, Switch, Tissue, Transistor,
+        Tube, Wire,
+    };
 
     Some(match res {
         // mechanical chain
@@ -87,19 +92,21 @@ pub const fn factory_chain_config(res: ResourceType) -> Option<FactoryChainConfi
         Cell => FactoryChainConfig {
             limit: 3_000,
             chain: Chain { f_lvl: 1, resource: Phlegm, amount: 300 },
-            opt1: None, //todo cell for tissue
+            opt1: Some(Chain { f_lvl: 2, resource: Tissue, amount: 150 }),
             opt2: None,
         },
         Phlegm => FactoryChainConfig {
             limit: 400,
             chain: Chain { f_lvl: 2, resource: Tissue, amount: 80 },
-            opt1: None, //todo phlegm for muscle
+            // opt1: Some(Chain { f_lvl: 3, resource: Muscle, amount: 20 }),
+            opt1: None, //uncomment later
             opt2: None,
         },
         Tissue => FactoryChainConfig {
             limit: 99,
-            chain: Chain { f_lvl: 3, resource: Muscle, amount: 33 },
-            opt1: None, //todo tissue for organoid
+            chain: Chain { f_lvl: 4, resource: Organoid, amount: 15 }, //uncomment later
+            // chain: Chain { f_lvl: 3, resource: Muscle, amount: 33 },
+            opt1: Some(Chain { f_lvl: 4, resource: Organoid, amount: 15 }),
             opt2: None,
         },
         Muscle => FactoryChainConfig {

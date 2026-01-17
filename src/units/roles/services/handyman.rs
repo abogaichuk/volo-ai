@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use std::fmt;
 
 use arrayvec::ArrayVec;
-use log::{warn, debug};
+use log::{debug, warn};
 use screeps::constants::look::STRUCTURES;
 use screeps::objects::Creep;
 use screeps::prelude::*;
@@ -26,7 +26,7 @@ use crate::utils::constants::{HANDYMAN_ENERGY_PICKUP_THRESHOLD, NO_TASK_IDLE_TIC
 
 #[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct HandyMan {
-    workplace: Option<Position>,
+    pub(crate) workplace: Option<Position>,
     pub(crate) home: Option<RoomName>,
     #[serde(default)]
     boost: bool,
@@ -98,7 +98,7 @@ impl Kind for HandyMan {
     }
 
     fn respawn_timeout(&self, _: Option<&Creep>) -> Option<usize> {
-        Some(800)
+        Some(400)
     }
 
     fn get_task(&self, creep: &Creep, home: &mut Shelter) -> Task {
@@ -209,9 +209,6 @@ fn repair_near(creep: &Creep, room: &Room) -> Option<Task> {
         })
         .min_by_key(|(_, hits)| *hits)
         .map(|(request, _)| request)
-    // .sorted_by_key(|(_, hits)| *hits)
-    // .map(|(request, _)| request)
-    // .next()
 }
 
 #[allow(clippy::cast_possible_wrap)]

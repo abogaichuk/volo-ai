@@ -276,17 +276,14 @@ impl Task {
                 role,
                 with_parts(hostiles, vec![Part::RangedAttack]),
             ),
-            Task::PowerbankAttack(pos, id, members) => {
-                powerbank::pb_attack(
-                    pos,
-                    id,
-                    members,
-                    creep,
-                    role,
-                    with_parts(hostiles, vec![Part::RangedAttack]),
-                )
-                // with_parts(hostiles, vec![Part::RangedAttack, Part::Attack]))
-            }
+            Task::PowerbankAttack(pos, id, members) => powerbank::pb_attack(
+                pos,
+                id,
+                members,
+                creep,
+                role,
+                with_parts(hostiles, vec![Part::RangedAttack]),
+            ),
             Task::PowerbankCarry(pos, id) => powerbank::pb_carry(
                 pos,
                 id,

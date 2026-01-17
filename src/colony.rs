@@ -2,10 +2,10 @@ use std::collections::{HashMap, HashSet};
 use std::iter::once;
 
 use js_sys::JsString;
-use log::{debug, info, error, warn};
+use log::{debug, error, info, warn};
 use screeps::game::map::get_room_linear_distance;
 use screeps::game::{self};
-use screeps::{ResourceType, RoomName, raw_memory};
+use screeps::{OrderType, ResourceType, RoomName, raw_memory};
 use serde::{Deserialize, Serialize};
 
 use crate::movement::Movement;
@@ -15,7 +15,7 @@ use crate::rooms::state::requests::{
     CaravanData, DepositData, LRWData, PowerbankData, ProtectData, Request, RequestKind,
     TransferData,
 };
-use crate::rooms::state::{FarmStatus, RoomState};
+use crate::rooms::state::{RoomState, TradeData};
 use crate::rooms::wrappers::claimed::Claimed;
 use crate::statistics::Statistic;
 use crate::units::creeps::{CreepMemory, run_creeps};
@@ -75,6 +75,7 @@ impl Default for GlobalState {
 impl GlobalState {
     pub fn run_tick(&mut self) {
         let orders = game::market::get_all_orders(None);
+
         let (mut homes, neutrals) = register_rooms(&mut self.rooms, &self.white_list);
 
         let mut events = Vec::new();
@@ -100,7 +101,7 @@ impl GlobalState {
         debug!("run_power_creeps {} cpu!", game::cpu::get_used() - cpu_start);
 
         let cpu_start = game::cpu::get_used();
-        run_creeps(&mut self.creeps, &mut homes, &mut movement);
+        run_creeps(&mut self.creeps, &mut homes, &mut movement, &self.black_list);
         debug!("finished run creeps {} cpu!", game::cpu::get_used() - cpu_start);
 
         movement.swap_move();
@@ -120,39 +121,53 @@ impl GlobalState {
         self.gc();
     }
 
-    pub fn begin_farm(&mut self, base: RoomName, farm: RoomName, with_central: Option<RoomName>) {
-        debug!("begin_farm: {}, farm_room: {}, with_central: {:?}", base, farm, with_central);
-        self.set_farm_for(base, farm, FarmStatus::Building);
-        if let Some(central) = with_central {
-            self.set_farm_for(base, central, FarmStatus::Building);
-        }
-    }
+    // pub fn begin_farm(&mut self, base: RoomName, farm: RoomName, with_central: Option<RoomName>) {
+    //     debug!("begin_farm: {}, farm_room: {}, with_central: {:?}", base, farm, with_central);
+    //     self.set_farm_for(base, farm, FarmStatus::Building);
+    //     if let Some(central) = with_central {
+    //         self.set_farm_for(base, central, FarmStatus::Building);
+    //     }
+    // }
 
-    pub fn finish_farm(&mut self, base: RoomName, farm: RoomName, with_central: Option<RoomName>) {
-        debug!("finish_farm: {}, farm_room: {}, with_central: {:?}", base, farm, with_central);
-        self.set_farm_for(base, farm, FarmStatus::Suspended);
-        if let Some(central) = with_central {
-            self.set_farm_for(base, central, FarmStatus::Suspended);
-        }
-    }
+    // pub fn finish_farm(&mut self, base: RoomName, farm: RoomName, with_central: Option<RoomName>) {
+    //     debug!("finish_farm: {}, farm_room: {}, with_central: {:?}", base, farm, with_central);
+    //     self.set_farm_for(base, farm, FarmStatus::Suspended);
+    //     if let Some(central) = with_central {
+    //         self.set_farm_for(base, central, FarmStatus::Suspended);
+    //     }
+    // }
 
-    fn set_farm_for(&mut self, base: RoomName, farm: RoomName, status: FarmStatus) {
-        debug!("set_farm_for :{}, farm_room: {}", base, farm);
-        self.rooms.entry(base).and_modify(|room_state| {
-            room_state
-                .farms
-                .entry(farm)
-                .and_modify(|farm_room| {
-                    farm_room.update_status(status);
-                })
-                .or_default();
-        });
-    }
+    // fn set_farm_for(&mut self, base: RoomName, farm: RoomName, status: FarmStatus) {
+    //     debug!("set_farm_for :{}, farm_room: {}", base, farm);
+    //     self.rooms.entry(base).and_modify(|room_state| {
+    //         room_state
+    //             .farms
+    //             .entry(farm)
+    //             .and_modify(|farm_room| {
+    //                 farm_room.update_status(status);
+    //             })
+    //             .or_default();
+    //     });
+    // }
 
     fn add_request(&mut self, to: RoomName, request: Request) {
         debug!("add_request to :{}, request: {:?}", to, request);
         self.rooms.entry(to).and_modify(|room_state| {
             room_state.requests.insert(request);
+        });
+    }
+
+    fn try_sell(&mut self, room_name: RoomName, resource: ResourceType, amount: u32) {
+        self.rooms.entry(room_name).and_modify(|room_state| {
+            if let Some(mut trade) =
+                room_state.trades.take(&TradeData::new(OrderType::Sell, resource))
+            {
+                trade.amount = amount;
+                room_state.trades.insert(trade);
+                info!("{} selling {}:{}", room_name, resource, amount);
+            } else {
+                error!("{} not found trade {:?} resource {}", room_name, OrderType::Sell, resource);
+            }
         });
     }
 

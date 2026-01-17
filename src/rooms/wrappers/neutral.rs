@@ -87,7 +87,9 @@ impl Neutral {
                             ic.effects().iter().find_map(|effect| {
                                 match effect.effect() {
                                     //add 50 ticks to make sure a request with collapse timer has been created
-                                    EffectType::NaturalEffect(_) => Some(effect.ticks_remaining() + 50),
+                                    EffectType::NaturalEffect(_) => {
+                                        Some(effect.ticks_remaining() + 50)
+                                    }
                                     EffectType::PowerEffect(_) => None,
                                 }
                             })

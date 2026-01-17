@@ -35,7 +35,9 @@ pub(in crate::rooms::state::requests) fn repair_handler(
 ) -> SmallVec<[RoomEvent; 3]> {
     if meta.created_at + 1500 > game::time() {
         match meta.status {
-            Status::InProgress if game::time().is_multiple_of(100) && !assignment.has_alive_members() => {
+            Status::InProgress
+                if game::time().is_multiple_of(100) && !assignment.has_alive_members() =>
+            {
                 meta.update(Status::Created);
                 *assignment = Assignment::Single(None);
             }

@@ -59,7 +59,7 @@ function loaded_loop() {
 // cache for each step of the wasm module's initialization
 let wasm_bytes, wasm_module, wasm_instance;
 
-module.exports.loop = function() {
+module.exports.loop = function () {
     // need to freshly override the fake console object each tick
     console.error = console_error;
 
@@ -82,74 +82,78 @@ module.exports.loop = function() {
     console.log(`loading complete, CPU used: ${Game.cpu.getUsed()}`)
 }
 
-global.info = function() {
+global.info = function () {
     return bot.info();
 }
 
-global.c_info = function() {
-    return bot.c_info();
+global.c_info = function (roomName) {
+    return bot.c_info(roomName);
 }
 
-global.ccm = function(creep_name, creep_memory) {
+global.ccm = function (creep_name, creep_memory) {
     return bot.ccm(creep_name, creep_memory);
 }
 
-global.spawn = function(roomName, creep) {
+global.spawn = function (roomName, creep) {
     return bot.spawn(roomName, creep);
 }
 
-global.kill = function(name) {
+global.kill = function (name) {
     return bot.kill(name);
 }
 
-global.requests = function(roomName) {
+global.requests = function (roomName) {
     return bot.requests(roomName);
 }
 
-global.claim_room = function(roomName) {
+global.claim_room = function (roomName) {
     return bot.claim_room(roomName);
 }
 
-global.request = function(roomName, request) {
+global.request = function (roomName, request) {
     return bot.request(roomName, request);
 }
 
-global.resolve_request = function(roomName, index) {
+global.resolve_request = function (roomName, index) {
     return bot.resolve_request(roomName, index);
 }
 
-global.add_farm = function(room_name, remote_name) {
+global.add_farm = function (room_name, remote_name) {
     return bot.add_farm(room_name, remote_name);
 }
 
-global.add_boost = function(roomName, boost, timeout) {
+global.add_boost = function (roomName, boost, timeout) {
     return bot.add_boost(roomName, boost, timeout);
 }
 
-global.delete_boost = function(roomName, boost) {
+global.delete_boost = function (roomName, boost) {
     return bot.delete_boost(roomName, boost);
 }
 
-global.trade = function(room_name, order_type, resource, amount, price) {
+global.trade = function (room_name, order_type, resource, amount, price) {
     return bot.trade(room_name, order_type, resource, amount, price);
 }
 
-global.clear_trades = function(room_name) {
+global.clear_trades = function (room_name) {
     return bot.clear_trades(room_name);
 }
 
-global.avoid_room = function(room_name) {
-    return bot.avoid_room(room_name);
+global.avoid_room = function (room_name, timeout) {
+    return bot.avoid_room(room_name, timeout);
 }
 
-global.get_plan_for = function(room_name, x, y) {
-    return bot.get_plan_for(room_name, x, y)
+global.plan_for = function (room_name, x, y) {
+    return bot.plan_for(room_name, x, y)
 }
 
-global.add_plan = function(room_name, x, y, structure, lvl, r_lvl) {
+global.add_plan = function (room_name, x, y, structure, lvl, r_lvl) {
     return bot.add_plan(room_name, x, y, structure, lvl, r_lvl)
 }
 
-global.delete_plan_for = function(room_name, x, y, structure) {
+global.delete_plan_for = function (room_name, x, y, structure) {
     return bot.delete_plan_for(room_name, x, y, structure)
+}
+
+global.generate_plan = function (room_name, x0, y0, x1, y1) {
+    return bot.generate_plan(room_name, x0, y0, x1, y1)
 }

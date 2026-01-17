@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
 use std::iter::Iterator;
 
-use log::{info, debug};
+use log::info;
 use ordered_float::OrderedFloat;
 use screeps::{OrderType, PowerType, ResourceType, RoomName, game};
 use serde::{Deserialize, Serialize};
@@ -21,8 +21,6 @@ pub struct RoomState {
     pub spawns: Vec<Role>,
     #[serde(default)]
     pub requests: HashSet<Request>,
-    // #[serde(default)]
-    // pub perimetr: Vec<ObjectId<StructureRampart>>,
     #[serde(default)]
     pub plan: Option<RoomPlan>,
     #[serde(default = "HashMap::new")]
@@ -67,31 +65,14 @@ impl RoomState {
         info!("add {:?}: {} to spawn queue", role, times);
         for _ in 1..=times {
             self.spawns.push(role.clone());
-            // self.spawns.insert(role.clone());
         }
     }
 
-    pub fn finish_farm(&mut self, farm: RoomName, with_central: Option<RoomName>) {
-        debug!("finish_farm: {}, with_central: {:?}", farm, with_central);
-        self.set_farm_for(farm, FarmStatus::Suspended);
-        if let Some(central) = with_central {
-            self.set_farm_for(central, FarmStatus::Suspended);
-        }
-    }
-
-    pub fn begin_farm(&mut self, farm: RoomName, with_central: Option<RoomName>) {
-        debug!("begin_farm: {}, with_central: {:?}", farm, with_central);
-        self.set_farm_for(farm, FarmStatus::Building);
-        if let Some(central) = with_central {
-            self.set_farm_for(central, FarmStatus::Building);
-        }
-    }
-
-    fn set_farm_for(&mut self, farm: RoomName, status: FarmStatus) {
+    pub fn set_farm_status(&mut self, farm: RoomName, active: bool) {
         self.farms
             .entry(farm)
             .and_modify(|farm_room| {
-                farm_room.update_status(status);
+                farm_room.update_status(active);
             })
             .or_default();
     }
@@ -112,11 +93,7 @@ impl RoomState {
         role: &'a Role,
         creeps: &'a HashMap<String, CreepMemory>,
     ) -> impl Iterator<Item = &'a Role> {
-        self.in_spawn(role).chain(creeps.values().map(|mem| &mem.role).filter(move |r| *r == role))
-    }
-
-    fn in_spawn<'a>(&'a self, role: &'a Role) -> impl Iterator<Item = &'a Role> {
-        self.spawns.iter().filter(move |future_creep| *future_creep == role)
+        self.spawns.iter().chain(creeps.values().map(|mem| &mem.role).filter(move |r| *r == role))
     }
 
     pub fn update_expired_boosts(&mut self) {
@@ -126,36 +103,22 @@ impl RoomState {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct FarmInfo {
-    farm_status: FarmStatus,
+    #[serde(default)]
+    active: bool,
     plan: Option<RoomPlan>,
 }
 
 impl FarmInfo {
-    pub const fn update_status(&mut self, status: FarmStatus) {
-        self.farm_status = status;
+    pub const fn update_status(&mut self, active: bool) {
+        self.active = active;
     }
 
     pub const fn plan(&self) -> Option<&RoomPlan> {
         self.plan.as_ref()
     }
 
-    pub const fn is_active(&self) -> bool {
-        self.farm_status.is_active()
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Default, Clone)]
-pub enum FarmStatus {
-    Building,
-    Spawning,
-    #[default]
-    Ready,
-    Suspended,
-}
-
-impl FarmStatus {
-    const fn is_active(&self) -> bool {
-        !matches!(self, FarmStatus::Suspended)
+    pub fn is_active(&self) -> bool {
+        self.active
     }
 }
 

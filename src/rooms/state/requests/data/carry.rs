@@ -16,7 +16,12 @@ pub struct CarryData {
 }
 
 impl CarryData {
-    pub const fn new(from: RawObjectId, to: RawObjectId, resource: ResourceType, amount: u32) -> Self {
+    pub const fn new(
+        from: RawObjectId,
+        to: RawObjectId,
+        resource: ResourceType,
+        amount: u32,
+    ) -> Self {
         Self { from, to, resource, amount }
     }
 }
@@ -36,7 +41,9 @@ pub(in crate::rooms::state::requests) fn carry_handler(
     assignment: &mut Assignment,
 ) -> SmallVec<[RoomEvent; 3]> {
     match meta.status {
-        Status::InProgress if game::time().is_multiple_of(100) && !assignment.has_alive_members() => {
+        Status::InProgress
+            if game::time().is_multiple_of(100) && !assignment.has_alive_members() =>
+        {
             meta.update(Status::Created);
             *assignment = Assignment::Single(None);
         }

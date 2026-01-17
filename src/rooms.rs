@@ -12,7 +12,7 @@ use screeps::{
 use crate::commons::look_for;
 use crate::rooms::shelter::Shelter;
 use crate::rooms::state::constructions::{PlannedCell, RoomPlan};
-use crate::rooms::state::requests::{CreepHostile, Request};
+use crate::rooms::state::requests::Request;
 use crate::rooms::state::{BoostReason, RoomState};
 use crate::rooms::wrappers::farm::Farm;
 use crate::rooms::wrappers::neutral::Neutral;
@@ -32,12 +32,14 @@ pub enum RoomEvent {
     DeletePower(PowerType),
     AddBoost(BoostReason, u32),
     RetainBoosts,
-    StopFarm(RoomName, Option<RoomName>),
-    StartFarm(RoomName, Option<RoomName>),
-    AddPlans(HashMap<RoomName, RoomPlan>),
+    UpdateFarmStatus(RoomName, bool),
+    // StopFarm(RoomName),
+    // StartFarm(RoomName),
+    EditPlans(HashMap<RoomName, RoomPlan>),
     Plan(RoomPlan),
     ReplaceCell(PlannedCell),
-    BuiltAll,
+    Construct(HashMap<RoomXY, StructureType>),
+    IncrementPlanLvl,
     Lack(ResourceType, u32),
     Excess(ResourceType, u32),
     Avoid(RoomName, u32),
@@ -48,11 +50,10 @@ pub enum RoomEvent {
     Buy(JsString, ResourceType, u32),
     Intrusion(Option<String>),
     NukeFalling,
-    Defend(RoomName, Vec<CreepHostile>),
+    Defend(RoomName),
     ActivateSafeMode(String),
     BlackList(String),
-    UpdateStatistic, /* #[default]
-                      * Nothing */
+    UpdateStatistic,
 }
 
 pub fn register_rooms<'a>(
@@ -66,9 +67,9 @@ pub fn register_rooms<'a>(
         if let Some(base_room) = rooms.remove(room_name) {
             let mut farms = Vec::new();
 
-            for farm_name in state.farms.keys() {
+            for (farm_name, farm_info) in &state.farms {
                 if let Some(farm_room) = rooms.remove(farm_name) {
-                    farms.push(Farm::new(farm_room));
+                    farms.push(Farm::new(farm_room, farm_info.clone()));
                 }
             }
 
@@ -94,6 +95,7 @@ fn missed_buildings(
                 None
             }
         })
+        .sorted_by_key(|(xy, _)| *xy)
         .take(5)
 }
 

@@ -1,66 +1,72 @@
-use std::cmp;
-use std::collections::{HashMap, HashSet};
+use std::{cmp, collections::HashMap};
 
 use itertools::Itertools;
 use log::debug;
-use screeps::{HasId, HasPosition, ObjectId, ResourceType, StructureLab, StructureStorage};
+use screeps::{HasId, HasPosition, ObjectId, ResourceType, StructureLab};
 
 use crate::commons::find_container_with;
-use crate::rooms::RoomEvent;
-use crate::rooms::state::constructions::{LabStatus, PlannedCell, RoomPlan, RoomStructure};
-use crate::rooms::state::requests::assignment::Assignment;
-use crate::rooms::state::requests::meta::Status;
-use crate::rooms::state::requests::{CarryData, Request, RequestKind};
-use crate::rooms::state::{BoostReason, RoomState};
-use crate::rooms::wrappers::claimed::Claimed;
+use crate::rooms::{
+    RoomEvent,
+    shelter::Shelter,
+    state::{
+        constructions::{LabStatus, PlannedCell, RoomPlan, RoomStructure},
+        requests::{CarryData, Request, RequestKind, assignment::Assignment, meta::Status},
+    },
+};
 
 const MIN_ENERGY_AMOUNT: u32 = 1000;
 const MIN_RESOURCE_AMOUNT: u32 = 2000;
 const LAB_PRODUCTION: u32 = 5;
 
-impl Claimed {
-    pub(crate) fn run_labs(&self, state: &RoomState) -> Option<RoomEvent> {
-        debug!("{} running labs", self.get_name());
+impl Shelter<'_> {
+    pub(crate) fn run_labs(&self) -> Option<RoomEvent> {
+        debug!("{} running labs", self.name());
 
-        self.storage().and_then(|storage|
-                //update lab statuses to current boosts
-                self.update_lab_state(&state.boosts)
-                    .or_else(|| self.labs.boosts().iter()
-                        //load resources for boost
-                        .find_map(|(res, lab)| self.keep_boost_ready(*res, lab)))
-                    .or_else(|| {
-                        let in_progress = state.requests.iter()
-                            .any(|r| matches!(r.kind, RequestKind::Lab(_)) &&
-                                matches!(r.status(), Status::InProgress | Status::OnHold));
-
-                        // if no in progress request
-                        if in_progress {
-                            None
+        //update lab statuses to current boosts
+        self.update_lab_state()
+            .or_else(|| {
+                self.base
+                    .labs
+                    .boosts()
+                    .iter()
+                    //load resources for boost
+                    .find_map(|(res, lab)| self.keep_boost_ready(*res, lab))
+            })
+            .or_else(|| {
+                (!self.are_labs_busy())
+                    .then(|| {
+                        if let Some(mut request) = self.get_lab_request() {
+                            request.join(None, None);
+                            Some(RoomEvent::ReplaceRequest(request))
                         } else {
-                            //take a new one
-                            if let Some(mut request) = new_request(&state.requests, storage) {
-                                request.join(None, None);
-                                Some(RoomEvent::ReplaceRequest(request))
-                            } else {
-                                //no requests found, clear the labs
-                                self.labs.inputs().iter()
-                                    .chain(self.labs.outputs.iter())
-                                    .find_map(|lab| self.unload(lab, &[]))
-                            }
+                            //no requests found, clear the labs
+                            self.base
+                                .labs
+                                .inputs()
+                                .iter()
+                                .chain(self.base.labs.outputs.iter())
+                                .find_map(|lab| self.unload(lab, &[]))
                         }
-                    }))
+                    })
+                    .flatten()
+            })
     }
 
-    fn update_lab_state(&self, boosts: &HashMap<BoostReason, u32>) -> Option<RoomEvent> {
+    fn update_lab_state(&self) -> Option<RoomEvent> {
         //all unique boostable resources
-        let boost_resources: Vec<ResourceType> =
-            boosts.iter().flat_map(|boost_reason| boost_reason.0.value()).unique().collect();
+        let boost_resources: Vec<ResourceType> = self
+            .state
+            .boosts
+            .iter()
+            .flat_map(|boost_reason| boost_reason.0.value())
+            .unique()
+            .collect();
 
         boost_resources
             .iter()
             .find_map(|res| {
-                (!self.labs.boosts().contains_key(res)).then(|| {
-                    self.labs.outputs.first().map(|lab| {
+                (!self.base.labs.boosts().contains_key(res)).then(|| {
+                    self.base.labs.outputs.first().map(|lab| {
                         let cell = PlannedCell::searchable(
                             lab.pos().xy(),
                             RoomStructure::Lab(LabStatus::Boost(*res)),
@@ -71,7 +77,7 @@ impl Claimed {
             })
             .flatten()
             .or_else(|| {
-                self.labs.boosts.iter().find_map(|(res, lab)| {
+                self.base.labs.boosts.iter().find_map(|(res, lab)| {
                     (!boost_resources.contains(res)).then(|| {
                         let cell = PlannedCell::searchable(
                             lab.pos().xy(),
@@ -87,10 +93,12 @@ impl Claimed {
         self.load_lab(lab, (ResourceType::Energy, MIN_ENERGY_AMOUNT)) //supply energy
             .or_else(|| {
                 self.unload(lab, &[resource]) //unload resources
-                .or_else(|| self.load_lab(lab, (resource, MIN_RESOURCE_AMOUNT)))
-            }) //load boost resource
+                    //load boost resource
+                    .or_else(|| self.load_lab(lab, (resource, MIN_RESOURCE_AMOUNT)))
+            })
     }
 
+    //todo might be a bug -> replaces existed request by a new one
     pub fn load_lab(
         &self,
         lab: &StructureLab,
@@ -120,20 +128,28 @@ impl Claimed {
             })
             .flatten()
     }
-}
 
-fn new_request(requests: &HashSet<Request>, storage: &StructureStorage) -> Option<Request> {
-    requests
-        .iter()
-        .find(|r| match &r.kind {
-            RequestKind::Lab(d) => d.resource.reaction_components().is_some_and(|components| {
-                components.iter().all(|component| {
-                    storage.store().get_used_capacity(Some(*component)) >= LAB_PRODUCTION
-                })
-            }),
-            _ => false,
+    fn are_labs_busy(&self) -> bool {
+        self.state.requests.iter().any(|r| {
+            matches!(r.kind, RequestKind::Lab(_))
+                && matches!(r.status(), Status::InProgress | Status::OnHold)
         })
-        .cloned()
+    }
+
+    fn get_lab_request(&self) -> Option<Request> {
+        let storage = self.base.storage()?;
+
+        self.requests()
+            .find(|r| match &r.kind {
+                RequestKind::Lab(d) => d.resource.reaction_components().is_some_and(|components| {
+                    components.iter().all(|component| {
+                        storage.store().get_used_capacity(Some(*component)) >= LAB_PRODUCTION
+                    })
+                }),
+                _ => false,
+            })
+            .cloned()
+    }
 }
 
 #[derive(Default)]

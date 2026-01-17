@@ -38,7 +38,9 @@ pub(in crate::rooms::state::requests) fn dismantle_handler(
             events.push(RoomEvent::Spawn(dismantler, 1));
             events.push(RoomEvent::Spawn(puller, 1));
         }
-        Status::InProgress if game::time().is_multiple_of(100) && !assignment.has_alive_members() => {
+        Status::InProgress
+            if game::time().is_multiple_of(100) && !assignment.has_alive_members() =>
+        {
             meta.update(Status::Created);
             *assignment = Assignment::Single(None);
         }

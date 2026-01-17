@@ -1,3 +1,4 @@
+use std::cmp;
 use std::collections::HashMap;
 
 use screeps::{RawObjectId, ResourceType, RoomName};
@@ -18,6 +19,7 @@ pub struct RoomContext {
     pub terminal: Option<RawObjectId>,
     pub storage: Option<RawObjectId>,
     pub fl: u8,
+    pub built_all: bool,
 }
 
 impl RoomContext {
@@ -26,8 +28,9 @@ impl RoomContext {
         terminal: Option<RawObjectId>,
         storage: Option<RawObjectId>,
         fl: u8,
+        built_all: bool,
     ) -> Self {
-        Self { rcl, terminal, storage, fl }
+        Self { rcl, terminal, storage, fl, built_all }
     }
 }
 
@@ -74,12 +77,26 @@ pub type ResourceOnLowHandlerFn =
     fn(ResourceType, u32, &ColonyContext) -> Option<ResourceOnLowResult>;
 
 pub fn lack_handler_for(res: ResourceType) -> ResourceOnLowHandlerFn {
-    use ResourceType::{Energy, Battery, CatalyzedGhodiumAcid};
+    use ResourceType::{
+        Battery, Catalyst, CatalyzedGhodiumAcid, Energy, Hydrogen, Keanium, Lemergium, Oxygen,
+        Utrium, Zynthium,
+    };
 
     match res {
         Energy | Battery | CatalyzedGhodiumAcid => contain_excessive,
+        Oxygen | Hydrogen | Zynthium | Keanium | Catalyst | Utrium | Lemergium => limited_transfer,
         _ => divide_by_half,
     }
+}
+
+fn limited_transfer(
+    res: ResourceType,
+    amount: u32,
+    ctx: &ColonyContext,
+) -> Option<ResourceOnLowResult> {
+    find_room_with_high_amount(res, ctx)
+        .filter(|(_, available)| *available > amount * 2)
+        .map(|(room_name, _)| ResourceOnLowResult { amount: cmp::min(amount, 1000), room_name })
 }
 
 fn divide_by_half(

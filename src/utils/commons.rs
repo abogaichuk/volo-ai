@@ -239,6 +239,14 @@ pub fn has_part(parts: &[Part], creep: &Creep, is_active: bool) -> bool {
         .any(|bodypart| parts.contains(&bodypart.part()))
 }
 
+pub fn has_boosted_part(parts: &[Part], creep: &Creep, is_active: bool) -> bool {
+    creep
+        .body()
+        .iter()
+        .filter(|bodypart| !is_active || (bodypart.hits() > 0 && bodypart.boost().is_some())) //if is_active filter only bodyparts with hits
+        .any(|bodypart| parts.contains(&bodypart.part()))
+}
+
 pub fn get_compressed_resource(resource: ResourceType) -> Option<ResourceType> {
     resource.commodity_recipe().and_then(|recipe| {
         recipe.components.iter().find_map(|(component, _)| {
@@ -391,17 +399,18 @@ pub fn find_walkable_positions_near_by(position: Position, exclude_edge: bool) -
 
 pub fn is_walkable(position: Position) -> bool {
     match position.look() {
-        Ok(results) => results.iter().all(|look_result| {
-            match look_result {
-                LookResult::Creep(_) | LookResult::PowerCreep(_) | LookResult::Deposit(_) | LookResult::Mineral(_) => false,
-                LookResult::Structure(s) => match StructureObject::from(s.to_owned()) {
-                    StructureObject::StructureRampart(rampart) => rampart.my(),
-                    StructureObject::StructureRoad(_) => true,
-                    _ => false,
-                },
-                LookResult::Terrain(terrain) => !matches!(terrain, Terrain::Wall),
-                _ => true,
-            }
+        Ok(results) => results.iter().all(|look_result| match look_result {
+            LookResult::Creep(_)
+            | LookResult::PowerCreep(_)
+            | LookResult::Deposit(_)
+            | LookResult::Mineral(_) => false,
+            LookResult::Structure(s) => match StructureObject::from(s.to_owned()) {
+                StructureObject::StructureRampart(rampart) => rampart.my(),
+                StructureObject::StructureRoad(_) => true,
+                _ => false,
+            },
+            LookResult::Terrain(terrain) => !matches!(terrain, Terrain::Wall),
+            _ => true,
         }),
         Err(_) => {
             // error!("look result error: {:?}", err);
@@ -424,7 +433,8 @@ pub fn find_source_near(pos: Position, room: &Room) -> Option<Source> {
 }
 
 pub fn has_enough_space(container: &dyn HasStore, amount: u32) -> bool {
-    u32::try_from(container.store().get_free_capacity(None)).ok()
+    u32::try_from(container.store().get_free_capacity(None))
+        .ok()
         .is_some_and(|in_store| in_store >= amount)
 }
 
@@ -454,19 +464,17 @@ pub fn find_flags(room: &Room) -> Vec<Flag> {
 
 pub fn try_heal(creep: &Creep) {
     match find_closest_injured(creep) {
-        Some(injured) => {
-            match creep.pos().get_range_to(injured.pos()) {
-                1 => {
-                    let _ = creep.heal(&injured);
-                }
-                2 | 3 => {
-                    let _ = creep.ranged_heal(&injured);
-                }
-                _ => {
-                    let _ = creep.heal(creep);
-                }
+        Some(injured) => match creep.pos().get_range_to(injured.pos()) {
+            1 => {
+                let _ = creep.heal(&injured);
             }
-        }
+            2 | 3 => {
+                let _ = creep.ranged_heal(&injured);
+            }
+            _ => {
+                let _ = creep.heal(creep);
+            }
+        },
         _ => {
             let _ = creep.heal(creep);
         }

@@ -42,7 +42,7 @@ pub fn plan(
     );
 
     if search_result.incomplete() {
-        return Err(RoomPlannerError::SourcePlacementFailure);
+        return Err(RoomPlannerError::ControllerPlacementFailure);
     }
 
     let road = search_result.path().into_iter().rev().enumerate().map(|(i, step)| {
@@ -50,19 +50,25 @@ pub fn plan(
             0
         } else {
             let cell = PlannedCell::new(step.xy(), RoomStructure::Road(i), 0, None);
-            planned_roads
-                .get(&cell)
-                .map_or(i, |cell| match cell.structure {
-                    RoomStructure::Road(distance) => distance + i,
-                    _ => i,
-                })
+            planned_roads.get(&cell).map_or(i, |cell| match cell.structure {
+                RoomStructure::Road(distance) => distance + i,
+                _ => i,
+            })
         };
         PlannedCell::new(step.xy(), RoomStructure::Road(distance), 0, None)
     });
     room_plan.add_cells(road);
 
     let link = walkable_neighbors(container.xy, grid)
+        //find place for link near container and near ctrl
         .find(|xy| xy.is_near_to(ctrl))
+        .or_else(|| {
+            //in other case find available place near container closest to a storage
+            walkable_neighbors(container.xy, grid)
+                //todo if the link inside perim and/or ctrl find for longest distance
+                .filter(|xy| !room_plan.is_occupied(*xy))
+                .min_by_key(|xy| xy.get_range_to(storage.xy()))
+        })
         .map(|xy| PlannedCell::new(xy, RoomStructure::Link(LinkType::Ctrl), 5, None))
         .ok_or(RoomPlannerError::ControllerPlacementFailure)?;
 
@@ -73,41 +79,4 @@ pub fn plan(
     );
 
     Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    // use crate::rooms::constructions::tests::{sources, spawn, ctrl};
-    // use crate::rooms::constructions::blueprints::tests::{perimeter, grid};
-    // use super::*;
-
-    // #[test]
-    // fn ctrl_plan_test() {
-    //     let spawn = spawn();
-    //     let ctrl = ctrl();
-    //     let sources = sources();
-    //     let cross_road = unsafe { RoomXY::unchecked_new(22, 26) };
-
-    //     let perimeter = perimeter(spawn, &sources);
-    //     let grid = grid(&perimeter);
-
-    //     let cells = plan(&cross_road, &ctrl, &grid).expect("expect ctrl
-    // planned cells");
-
-    //     assert_eq!(
-    //         cells.iter().filter(|c| matches!(c.structure,
-    // RoomStructure::Rampart(_))).count(),         4,
-    //         "expect 4 ramparts"
-    //     );
-    //     assert_eq!(
-    //         cells.iter().filter(|c| matches!(c.structure,
-    // RoomStructure::Link(_))).count(),         1,
-    //         "expect 1 link"
-    //     );
-    //     assert_eq!(
-    //         cells.iter().filter(|c| matches!(c.structure,
-    // RoomStructure::Container(_))).count(),         1,
-    //         "expect 1 container"
-    //     );
-    // }
 }

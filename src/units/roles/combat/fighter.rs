@@ -12,7 +12,7 @@ use crate::rooms::shelter::Shelter;
 
 #[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Fighter {
-    target: Option<RoomName>,
+    pub(crate) target: Option<RoomName>,
     pub(crate) home: Option<RoomName>,
     #[serde(default)]
     boost: bool,

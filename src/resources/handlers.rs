@@ -16,6 +16,7 @@ pub fn get_handler_for(res: ResourceType) -> ResourceRoomHandlerFn {
 
     match res {
         Energy => energy_handler,
+        Battery => battery_handler,
         Power => power_handler,
         Ops => ops_handler,
         GhodiumMelt => ghodium_melt_handler,
@@ -117,27 +118,19 @@ fn factory_chain_handler(
 ) -> Option<RoomEvent> {
     let cfg = factory_chain_config(res)?;
 
-    (amount > cfg.limit).then(|| {
-        if ctx.fl == cfg.chain.f_lvl {
-            if let Some(missed) = get_missed_component(cfg.chain.resource, resources) {
-                RoomEvent::Lack(missed.0, missed.1 * 10)
-            } else {
-                RoomEvent::Request(Request::new(
-                    RequestKind::Factory(FactoryData::new(cfg.chain.resource, cfg.chain.amount)),
-                    Assignment::None,
-                ))
-            }
-        } else if let Some(other) = cfg
-            .opt1
-            .filter(|other| ctx.fl == other.f_lvl)
-            .or(cfg.opt2)
-            .filter(|other| ctx.fl == other.f_lvl)
+    (amount >= cfg.limit).then(|| {
+        if let Some(chain) = cfg
+            .opt2
+            .as_ref()
+            .filter(|c| c.f_lvl == ctx.fl)
+            .or_else(|| cfg.opt1.as_ref().filter(|c| c.f_lvl == ctx.fl))
+            .or(if cfg.chain.f_lvl == ctx.fl { Some(&cfg.chain) } else { None })
         {
-            if let Some(missed) = get_missed_component(other.resource, resources) {
+            if let Some(missed) = get_missed_component(chain.resource, resources) {
                 RoomEvent::Lack(missed.0, missed.1 * 10)
             } else {
                 RoomEvent::Request(Request::new(
-                    RequestKind::Factory(FactoryData::new(other.resource, other.amount)),
+                    RequestKind::Factory(FactoryData::new(chain.resource, chain.amount)),
                     Assignment::None,
                 ))
             }
@@ -201,12 +194,9 @@ fn reaction_third_tier(
                 Assignment::None,
             )))
         }
-    } else if amount < 10000 {
+    } else if amount < 10_000 {
         Some(RoomEvent::Request(Request::new(
-            RequestKind::Lab(LabData::new(
-                ResourceType::CatalyzedUtriumAcid,
-                max(MIN_LAB_PRODUCTION, 10_000 - amount),
-            )),
+            RequestKind::Lab(LabData::new(res, max(MIN_LAB_PRODUCTION, 10_000 - amount))),
             Assignment::None,
         )))
     } else {
@@ -238,14 +228,31 @@ fn energy_handler(
         ))),
         8 if battery > 20_000 => Some(RoomEvent::Excess(ResourceType::Battery, battery - 20_000)),
         7 | 8 if energy < 50_000 && battery >= 50 => Some(RoomEvent::Request(Request::new(
-            RequestKind::Factory(FactoryData::new(ResourceType::Energy, 50000)),
+            RequestKind::Factory(FactoryData::new(ResourceType::Energy, 50_000)),
             Assignment::None,
         ))),
         7 | 8 if energy < 50_000 => Some(RoomEvent::Lack(ResourceType::Battery, 5000)),
         6 if energy < 50_000 && ctx.terminal.is_some() => {
-            Some(RoomEvent::Lack(ResourceType::Energy, 50000))
+            Some(RoomEvent::Lack(ResourceType::Energy, 50_000))
         }
         _ => None,
+    }
+}
+
+fn battery_handler(
+    _res: ResourceType,
+    battery: u32,
+    resources: &Resources,
+    ctx: &RoomContext,
+) -> Option<RoomEvent> {
+    let energy = resources.amount(ResourceType::Energy);
+    if ctx.rcl == 8 && ctx.built_all && battery < 20_000 && energy > 150_000 {
+        Some(RoomEvent::Request(Request::new(
+            RequestKind::Factory(FactoryData::new(ResourceType::Battery, 1000)),
+            Assignment::None,
+        )))
+    } else {
+        None
     }
 }
 
@@ -325,25 +332,35 @@ fn mineral_handler(
     resources: &Resources,
     ctx: &RoomContext,
 ) -> Option<RoomEvent> {
-    if amount > 50_000
-        && let Some(compressed_resource) = get_compressed_resource(res)
-    {
+    if let Some(compressed_resource) = get_compressed_resource(res) {
         let compressed_amount = resources.amount(compressed_resource);
-        if compressed_amount > 100_000
-            && let (Some(t_id), Some(s_id)) = (ctx.terminal, ctx.storage)
-        {
-            Some(RoomEvent::Request(Request::new(
-                RequestKind::Carry(CarryData::new(s_id, t_id, res, amount - 50_000)),
-                Assignment::Single(None),
-            )))
+
+        if amount > 50_000 {
+            if compressed_amount > 100_000
+                && let (Some(t_id), Some(s_id)) = (ctx.terminal, ctx.storage)
+            {
+                Some(RoomEvent::Request(Request::new(
+                    RequestKind::Carry(CarryData::new(s_id, t_id, res, amount - 50_000)),
+                    Assignment::Single(None),
+                )))
+            } else {
+                Some(RoomEvent::Request(Request::new(
+                    RequestKind::Factory(FactoryData::new(compressed_resource, 5_000)),
+                    Assignment::None,
+                )))
+            }
+        } else if amount < 5_000 {
+            if compressed_amount > 10_000 {
+                Some(RoomEvent::Request(Request::new(
+                    RequestKind::Factory(FactoryData::new(res, 5_000)),
+                    Assignment::None,
+                )))
+            } else {
+                Some(RoomEvent::Lack(res, 5_000 - amount))
+            }
         } else {
-            Some(RoomEvent::Request(Request::new(
-                RequestKind::Factory(FactoryData::new(compressed_resource, 5_000)),
-                Assignment::None,
-            )))
+            None
         }
-    } else if amount < 5_000 {
-        Some(RoomEvent::Lack(res, 5_000 - amount))
     } else {
         None
     }

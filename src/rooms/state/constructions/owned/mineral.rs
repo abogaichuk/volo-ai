@@ -28,7 +28,7 @@ pub fn plan(
     .and_then(|xy| {
         grid.get(&xy).map(|part| PlannedCell::new(xy, RoomStructure::Container(*part), 6, None))
     })
-    .ok_or(RoomPlannerError::ControllerPlacementFailure)?;
+    .ok_or(RoomPlannerError::ContainerPlacementError)?;
 
     room_plan.add_cell(container);
 
@@ -50,12 +50,10 @@ pub fn plan(
             0
         } else {
             let cell = PlannedCell::new(step.xy(), RoomStructure::Road(i), 6, None);
-            planned_roads
-                .get(&cell)
-                .map_or(i, |cell| match cell.structure {
-                    RoomStructure::Road(distance) => distance + i,
-                    _ => i,
-                })
+            planned_roads.get(&cell).map_or(i, |cell| match cell.structure {
+                RoomStructure::Road(distance) => distance + i,
+                _ => i,
+            })
         };
         PlannedCell::new(step.xy(), RoomStructure::Road(distance), 6, None)
     });

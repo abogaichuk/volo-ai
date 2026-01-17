@@ -8,12 +8,13 @@ pub use data::{
     ProtectData, PullData, RepairData, SMData, TransferData, WithdrawData,
 };
 use log::error;
-use screeps::Part;
+use screeps::{Part, RoomName};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 use thiserror::Error;
 
 use self::assignment::Assignment;
+use self::data::begin_farm::begin_farm_handler;
 use self::data::book::book_handler;
 use self::data::build::build_handler;
 use self::data::caravan::caravan_handler;
@@ -91,7 +92,7 @@ impl Request {
             RequestKind::Defend(d) => defend_handler(d, meta, assignment, home, creeps),
             RequestKind::Transfer(d) => transfer_handler(d, meta, home),
             RequestKind::Factory(d) => factory_handler(d, meta, home),
-            RequestKind::Lab(d) => lab_handler(d, meta, &home.base),
+            RequestKind::Lab(d) => lab_handler(d, meta, home),
             RequestKind::Powerbank(d) => powerbank_handler(d, meta, assignment, home),
             RequestKind::Deposit(d) => deposit_handler(d, meta, assignment, home.name()),
             RequestKind::Caravan(d) => caravan_handler(d, meta, home.name()),
@@ -107,6 +108,7 @@ impl Request {
             RequestKind::Withdraw(_) => withdraw_handler(meta, assignment),
             RequestKind::Carry(_) => carry_handler(meta, assignment),
             RequestKind::LongRangeWithdraw(_) => lrw_handler(meta, assignment, home.name()),
+            RequestKind::Farm(room_name) => begin_farm_handler(*room_name, meta, assignment, home),
         }
     }
 
@@ -157,6 +159,7 @@ impl Hash for Request {
                 d.to.hash(state);
                 d.resource.hash(state);
             }
+            RequestKind::Farm(d) => d.hash(state),
         }
     }
 }
@@ -258,6 +261,10 @@ impl PartialEq for Request {
                 }
                 _ => false,
             },
+            RequestKind::Farm(d) => match &other.kind {
+                RequestKind::Farm(o) => d == o,
+                _ => false,
+            },
         }
     }
 }
@@ -292,6 +299,7 @@ pub enum RequestKind {
     Factory(FactoryData),
     Lab(LabData),
     Transfer(TransferData),
+    Farm(RoomName),
 }
 
 impl Display for RequestKind {
@@ -318,6 +326,7 @@ impl Display for RequestKind {
             RequestKind::Factory(d) => write!(f, "Factory({d:?})"),
             RequestKind::Lab(d) => write!(f, "Lab({d:?})"),
             RequestKind::Transfer(d) => write!(f, "Transfer({d:?})"),
+            RequestKind::Farm(d) => write!(f, "Begin Farm({d:?})"),
         }
     }
 }
