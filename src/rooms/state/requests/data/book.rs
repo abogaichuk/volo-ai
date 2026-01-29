@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 
 use crate::rooms::RoomEvent;
+use crate::rooms::shelter::Shelter;
 use crate::rooms::state::requests::{Assignment, Meta, Status};
 use crate::units::roles::Role;
 use crate::units::roles::services::booker::Booker;
@@ -24,15 +25,16 @@ pub(in crate::rooms::state::requests) fn book_handler(
     data: &BookData,
     meta: &mut Meta,
     assignment: &mut Assignment,
-    home_name: RoomName,
+    home: &Shelter,
 ) -> SmallVec<[RoomEvent; 3]> {
     let mut events: SmallVec<[RoomEvent; 3]> = SmallVec::new();
+
+    let booker = Role::Booker(Booker::new(Some(home.name())));
     match meta.status {
-        Status::Created => {
+        Status::Created if !home.spawn_queue().contains(&booker) => {
             meta.update(Status::Spawning);
-            let booker = Role::Booker(Booker::new(Some(home_name)));
             events.push(RoomEvent::Spawn(booker, 1));
-            warn!("{} spawned booker for: {:?}", home_name, data);
+            warn!("{} spawned booker for: {:?}", home.name(), data);
         }
         Status::InProgress if !assignment.has_alive_members() => {
             meta.update(Status::Aborted);

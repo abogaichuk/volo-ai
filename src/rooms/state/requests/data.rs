@@ -21,6 +21,7 @@ pub(crate) mod safe_mode;
 pub(crate) mod transfer;
 pub(crate) mod withdraw;
 
+pub use begin_farm::FarmData;
 pub use book::BookData;
 pub use build::BuildData;
 pub use caravan::CaravanData;

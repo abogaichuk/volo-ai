@@ -11,7 +11,7 @@ use crate::movement::MovementProfile;
 use crate::movement::walker::Walker;
 use crate::rooms::shelter::Shelter;
 
-#[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct RemoteUpgrader {
     pub(crate) home: Option<RoomName>,
     pub(crate) workplace: Option<Position>,

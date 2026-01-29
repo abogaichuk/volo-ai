@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use super::{Kind, can_scale, default_parts_priority};
 use crate::movement::MovementProfile;
 
-#[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct DismantlerWithHeal {
     pub(crate) home: Option<RoomName>,
 }

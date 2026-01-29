@@ -15,7 +15,7 @@ use crate::rooms::state::requests::{Request, RequestKind};
 use crate::units::Role;
 use crate::units::roles::default_parts_priority;
 
-#[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct PBAttacker {
     pub(crate) squad_id: Option<String>,
     pub(crate) home: Option<RoomName>,

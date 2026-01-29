@@ -24,7 +24,7 @@ use crate::movement::MovementProfile;
 use crate::rooms::shelter::Shelter;
 use crate::utils::constants::{HANDYMAN_ENERGY_PICKUP_THRESHOLD, NO_TASK_IDLE_TICKS};
 
-#[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct HandyMan {
     pub(crate) workplace: Option<Position>,
     pub(crate) home: Option<RoomName>,

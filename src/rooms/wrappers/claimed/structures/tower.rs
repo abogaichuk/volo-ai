@@ -5,6 +5,7 @@ use screeps::{INVADER_USERNAME, Part, Position, PowerCreep};
 
 use crate::commons::full_boosted;
 use crate::rooms::wrappers::claimed::Claimed;
+use crate::utils::commons;
 
 impl Claimed {
     pub(crate) fn run_towers(&self) {
@@ -54,8 +55,12 @@ impl Claimed {
                     && let Some(tower) = get_closest(hostile, self.towers.iter())
                 {
                     let _ = tower.attack::<Creep>(hostile);
-                } else {
+                } else if hostile.hits() < hostile.hits_max()
+                    || commons::remoted_from_edge(hostile.pos(), 4)
+                {
                     self.mass_attack(hostile);
+                } else {
+                    self.distributed_heal(find_all_injured(&self.my_creeps, &self.my_pcreeps));
                 }
             } else {
                 self.distributed_heal(find_all_injured(&self.my_creeps, &self.my_pcreeps));

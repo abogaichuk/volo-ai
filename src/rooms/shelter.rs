@@ -19,7 +19,7 @@ use crate::{
     resources::RoomContext,
     rooms::{
         missed_buildings,
-        state::{BoostReason, FarmInfo, constructions::RoomPlan},
+        state::{BoostReason, FarmInfo, constructions::RoomPlan, requests::FarmData},
     },
     units::roles::{
         combat::overseer::Overseer, haulers::hauler::Hauler, miners::sk_miner::SKMiner,
@@ -165,7 +165,7 @@ impl<'s> Shelter<'s> {
                 RoomEvent::UpdateFarmStatus(room_name, active) => {
                     if active {
                         self.add_request(Request::new(
-                            RequestKind::Farm(room_name),
+                            RequestKind::Farm(FarmData::new(room_name)),
                             Assignment::None,
                         ));
                     } else {
@@ -296,6 +296,10 @@ impl<'s> Shelter<'s> {
                     warn!("{} activated safe mode!!", self.name());
                     colony_events.push(ColonyEvent::Notify(message, Some(30)));
                 }
+                RoomEvent::Origin(v) => {
+                    warn!("{} origin development: {}", self.name(), v);
+                    self.state.origin = v;
+                }
                 RoomEvent::UpdateStatistic => {
                     let creeps_number = creeps
                         .iter()
@@ -337,6 +341,7 @@ impl<'s> Shelter<'s> {
                     .chain(self.manage_mineral_miner(creeps))
                     .chain(self.manage_controller(creeps))
                     .chain(self.resource_handler())
+                    .chain(self.manage_haulers(creeps))
                     // .chain(self.base.resource_handler())
                     .chain(self.constructions_check())
                     .chain(once(RoomEvent::UpdateStatistic))
@@ -361,6 +366,18 @@ impl<'s> Shelter<'s> {
         }
         .into_iter()
         .flatten()
+    }
+
+    fn manage_haulers(&self, creeps: &HashMap<String, CreepMemory>) -> Option<RoomEvent> {
+        let hauler = Role::Hauler(Hauler::new(Some(self.name()), false));
+        if !creeps.values().map(|mem| &mem.role).contains(&hauler) {
+            //if no haulers spawned
+            if !self.state.origin { Some(RoomEvent::Origin(true)) } else { None }
+        } else if self.state.origin {
+            Some(RoomEvent::Origin(false))
+        } else {
+            None
+        }
     }
 
     //spawn mineral miner if needed, he does suicide when finished his job

@@ -4,7 +4,7 @@ use std::hash::{Hash, Hasher};
 
 pub use data::{
     BookData, BuildData, CaravanData, CarryData, ClaimData, CrashData, DefendData, DepositData,
-    DestroyData, DismantleData, FactoryData, LRWData, LabData, PickupData, PowerbankData,
+    DestroyData, DismantleData, FactoryData, FarmData, LRWData, LabData, PickupData, PowerbankData,
     ProtectData, PullData, RepairData, SMData, TransferData, WithdrawData,
 };
 use log::error;
@@ -99,7 +99,7 @@ impl Request {
             RequestKind::Build(_) => build_handler(meta, assignment),
             RequestKind::Repair(_) => repair_handler(meta, assignment),
             RequestKind::Claim(_) => claim_handler(meta, assignment, home.name()),
-            RequestKind::Book(b) => book_handler(b, meta, assignment, home.name()),
+            RequestKind::Book(b) => book_handler(b, meta, assignment, home),
             RequestKind::Dismantle(d) => dismantle_handler(d, meta, assignment, home.name()),
             RequestKind::Crash(_) => crash_handler(meta, assignment, home, creeps),
             RequestKind::SafeMode(_) => sm_handler(meta, assignment, home.name()),
@@ -108,7 +108,7 @@ impl Request {
             RequestKind::Withdraw(_) => withdraw_handler(meta, assignment),
             RequestKind::Carry(_) => carry_handler(meta, assignment),
             RequestKind::LongRangeWithdraw(_) => lrw_handler(meta, assignment, home.name()),
-            RequestKind::Farm(room_name) => begin_farm_handler(*room_name, meta, assignment, home),
+            RequestKind::Farm(d) => begin_farm_handler(d, meta, assignment, home),
         }
     }
 
@@ -159,7 +159,7 @@ impl Hash for Request {
                 d.to.hash(state);
                 d.resource.hash(state);
             }
-            RequestKind::Farm(d) => d.hash(state),
+            RequestKind::Farm(d) => d.room_name.hash(state),
         }
     }
 }
@@ -262,7 +262,7 @@ impl PartialEq for Request {
                 _ => false,
             },
             RequestKind::Farm(d) => match &other.kind {
-                RequestKind::Farm(o) => d == o,
+                RequestKind::Farm(o) => d.room_name == o.room_name,
                 _ => false,
             },
         }
@@ -299,7 +299,7 @@ pub enum RequestKind {
     Factory(FactoryData),
     Lab(LabData),
     Transfer(TransferData),
-    Farm(RoomName),
+    Farm(FarmData),
 }
 
 impl Display for RequestKind {

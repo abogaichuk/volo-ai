@@ -11,7 +11,7 @@ use crate::rooms::shelter::Shelter;
 use crate::rooms::state::requests::meta::Status;
 use crate::rooms::state::requests::{Request, RequestKind};
 
-#[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Carrier {
     pub(crate) home: Option<RoomName>,
 }

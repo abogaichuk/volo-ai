@@ -54,6 +54,7 @@ pub enum RoomEvent {
     ActivateSafeMode(String),
     BlackList(String),
     UpdateStatistic,
+    Origin(bool),
 }
 
 pub fn register_rooms<'a>(

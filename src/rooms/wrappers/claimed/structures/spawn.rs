@@ -1,4 +1,4 @@
-use log::{debug, warn};
+use log::{debug, info, warn};
 use screeps::action_error_codes::SpawnCreepErrorCode;
 use screeps::{ResourceType, SpawnOptions, StructureProperties, StructureSpawn, game};
 use smallvec::SmallVec;
@@ -31,11 +31,16 @@ impl Claimed {
     fn try_spawn(&self, room_memory: &RoomState) -> Option<RoomEvent> {
         get_spawn_data_by_priority(&room_memory.spawns).and_then(|(index, spawn_role)| {
             if let Some(spawn) = self.find_available_spawn() {
-                let max_scale = self.storage().map_or(!room_memory.origin, |storage| {
-                    storage.store().get_used_capacity(Some(ResourceType::Energy))
-                        > MIN_ENERGY_AMOUNT
-                        && !room_memory.origin
-                });
+                // let max_scale = self.storage().map_or(!room_memory.origin, |storage| {
+                //     storage.store().get_used_capacity(Some(ResourceType::Energy))
+                //         > MIN_ENERGY_AMOUNT
+                //         && !room_memory.origin
+                // });
+                let max_scale = if matches!(spawn_role, Role::Hauler(_)) && room_memory.origin {
+                    false
+                } else {
+                    true
+                };
 
                 let room_energy = if max_scale {
                     self.energy_capacity_available()

@@ -9,7 +9,7 @@ use super::{Kind, Task, can_scale, default_parts_priority};
 use crate::movement::MovementProfile;
 use crate::rooms::shelter::Shelter;
 
-#[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Upgrader {
     pub(crate) home: Option<RoomName>,
 }
