@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use super::{Kind, can_scale, pvp_parts_priority};
 use crate::movement::MovementProfile;
 
-#[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Destroyer {
     pub(crate) home: Option<RoomName>,
 }

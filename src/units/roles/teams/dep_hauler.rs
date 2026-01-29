@@ -13,7 +13,7 @@ use crate::rooms::state::requests::meta::Status;
 use crate::rooms::state::requests::{Request, RequestKind};
 use crate::units::Role;
 
-#[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct DepositHauler {
     pub(crate) squad_id: Option<String>,
     pub(crate) home: Option<RoomName>,

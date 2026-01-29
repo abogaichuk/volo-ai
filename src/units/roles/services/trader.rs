@@ -12,7 +12,7 @@ use crate::rooms::state::requests::meta::Status;
 use crate::rooms::state::requests::{Request, RequestKind};
 use crate::utils::constants::MIN_ENERGY_CAPACITY;
 
-#[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Trader {
     pub(crate) home: Option<RoomName>,
 }

@@ -19,9 +19,9 @@ pub const MAX_WALL_HITS: u32 = 100_000;
 pub const ROOM_NUMBER_RE: &str = r"^[WE]([0-9]+)[NS]([0-9]+)$";
 /// Won't do pathing for moving creeps if current-tick CPU spend is above this
 /// level when movement step is reached
-pub const HIGH_CPU_THRESHOLD: f64 = 180.;
+pub const HIGH_CPU_THRESHOLD: f64 = 200.;
 /// Won't do pathing for moving creeps if bucket is below this number
-pub const LOW_BUCKET_THRESHOLD: i32 = 400;
+pub const LOW_BUCKET_THRESHOLD: i32 = 500;
 /// Consider creeps to be stuck and get them a new path after this many ticks
 pub const STUCK_REPATH_THRESHOLD: u8 = 3;
 /// Limit for pathfinder ops

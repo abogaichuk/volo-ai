@@ -82,6 +82,7 @@ impl Farm {
             let mut distance_to_safe_zone =
                 existed_roads.values().max().copied().unwrap_or_default();
 
+            info!("distance to safe zone: {}, target: {}", distance_to_safe_zone, target);
             let cpu_start = game::cpu::get_used();
             while distance_to_safe_zone > 0 {
                 if is_cpu_on_low() {

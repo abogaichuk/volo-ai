@@ -60,11 +60,8 @@ pub fn is_cpu_on_low() -> bool {
     let used_cpu = game::cpu::get_used();
     let bucket_cpu = game::cpu::bucket();
 
-    if used_cpu > HIGH_CPU_THRESHOLD {
+    if used_cpu > HIGH_CPU_THRESHOLD && bucket_cpu < LOW_BUCKET_THRESHOLD {
         debug!("CPU usage high, will skip finding fresh paths: {}", used_cpu);
-        true
-    } else if bucket_cpu < LOW_BUCKET_THRESHOLD {
-        debug!("CPU bucket low, will skip finding fresh paths: {}", bucket_cpu);
         true
     } else {
         false

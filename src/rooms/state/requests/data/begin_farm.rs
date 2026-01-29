@@ -1,5 +1,6 @@
 use log::{info, warn};
 use screeps::{Position, RoomName, game};
+use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 
 use crate::rooms::RoomEvent;
@@ -11,8 +12,19 @@ use crate::units::roles::haulers::hauler::Hauler;
 use crate::units::roles::miners::sk_miner::SKMiner;
 use crate::units::roles::services::house_keeper::HouseKeeper;
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct FarmData {
+    pub room_name: RoomName,
+}
+
+impl FarmData {
+    pub const fn new(room_name: RoomName) -> Self {
+        Self { room_name }
+    }
+}
+
 pub(in crate::rooms::state::requests) fn begin_farm_handler(
-    room_name: RoomName,
+    data: &FarmData,
     meta: &mut Meta,
     _assignment: &mut Assignment,
     home: &Shelter,
@@ -21,8 +33,10 @@ pub(in crate::rooms::state::requests) fn begin_farm_handler(
 
     match meta.status {
         Status::Created => {
-            if home.get_farm(room_name).and_then(|farm| farm.memory.plan()).is_some() {
-                let overseer = Role::Overseer(Overseer::new(Some(room_name), Some(home.name())));
+            //todo farm room could be unvisible in this tick
+            if home.get_farm(data.room_name).and_then(|farm| farm.memory.plan()).is_some() {
+                let overseer =
+                    Role::Overseer(Overseer::new(Some(data.room_name), Some(home.name())));
                 let house_keeper = Role::HouseKeeper(HouseKeeper::new(Some(home.name()), true));
 
                 events.push(RoomEvent::Spawn(overseer, 1));
@@ -30,12 +44,12 @@ pub(in crate::rooms::state::requests) fn begin_farm_handler(
 
                 meta.update(Status::Spawning);
             } else {
-                info!("{} can't begin farm: {}, plan does not exist!", home.name(), room_name);
+                info!("{} can't begin farm: {}, plan does not exist!", home.name(), data.room_name);
                 meta.update(Status::OnHold);
             }
         }
         Status::Spawning if meta.updated_at + 500 < game::time() => {
-            if let Some(farm) = home.get_farm(room_name) {
+            if let Some(farm) = home.get_farm(data.room_name) {
                 let containers = farm
                     .memory
                     .plan()
@@ -43,11 +57,15 @@ pub(in crate::rooms::state::requests) fn begin_farm_handler(
                     .unwrap_or_default();
 
                 if containers.is_empty() {
-                    warn!("{} can't spawn miners, invalid plan for: {}", home.name(), room_name);
+                    warn!(
+                        "{} can't spawn miners, invalid plan for: {}",
+                        home.name(),
+                        data.room_name
+                    );
                 } else {
                     let spawn_events = containers.into_iter().map(|xy| {
                         let miner = Role::SkMiner(SKMiner::new(
-                            Some(Position::new(xy.x, xy.y, room_name)),
+                            Some(Position::new(xy.x, xy.y, data.room_name)),
                             Some(home.name()),
                         ));
                         RoomEvent::Spawn(miner, 1)
@@ -56,7 +74,7 @@ pub(in crate::rooms::state::requests) fn begin_farm_handler(
                     meta.update(Status::InProgress);
                 }
             } else {
-                warn!("{} invalid farm room: {}", home.name(), room_name);
+                warn!("{} invalid farm room: {}", home.name(), data.room_name);
             }
         }
         Status::InProgress if meta.updated_at + 1000 < game::time() => {

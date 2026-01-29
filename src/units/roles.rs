@@ -289,11 +289,15 @@ impl PartialEq for Role {
             Role::MineralMiner(m) => {
                 matches!(other, Role::MineralMiner(o) if m.home == o.home && m.workplace == o.workplace)
             }
-            Role::Hauler(h) => matches!(other, Role::Hauler(o) if h.home == o.home),
+            Role::Hauler(h) => {
+                matches!(other, Role::Hauler(o) if h.home == o.home && h.periodic == o.periodic)
+            }
             Role::HandyMan(h) => {
                 matches!(other, Role::HandyMan(o) if h.home == o.home && h.workplace == o.workplace)
             }
-            Role::HouseKeeper(h) => matches!(other, Role::HouseKeeper(o) if h.home == o.home),
+            Role::HouseKeeper(h) => {
+                matches!(other, Role::HouseKeeper(o) if h.home == o.home && h.periodic == o.periodic)
+            }
             Role::Defender(d) => matches!(other, Role::Defender(o) if d.home == o.home),
             Role::Trader(t) => matches!(other, Role::Trader(o) if t.home == o.home),
             Role::Guard(g) => matches!(other, Role::Guard(o) if g.home == o.home),

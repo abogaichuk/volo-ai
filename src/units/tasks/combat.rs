@@ -2,8 +2,8 @@ use std::cmp::Ordering;
 
 use log::{debug, info, warn};
 use screeps::{
-    Attackable, Creep, HasHits, HasPosition, INVADER_USERNAME, ObjectId, Part, Position, Room,
-    RoomCoordinate, RoomName, SOURCE_KEEPER_USERNAME, SYSTEM_USERNAME, SharedCreepProperties,
+    Attackable, BodyPart, Creep, HasHits, HasPosition, INVADER_USERNAME, ObjectId, Part, Position,
+    Room, RoomCoordinate, RoomName, SOURCE_KEEPER_USERNAME, SYSTEM_USERNAME, SharedCreepProperties,
     StructureInvaderCore, StructureKeeperLair, StructureObject, StructureRampart, StructureTower,
     find, game,
 };
@@ -31,7 +31,11 @@ pub fn defend(
         debug!("{} hostiles is not empty move to room_name: {}", creep.name(), room_name);
         let goal = defend_combat(creep, role, attacker, &hostiles);
         TaskResult::StillWorking(Task::Defend(room_name, room_requested), goal)
-    } else if let Some(any_not_ally) = hostiles.first() {
+    } else if let Some(any_not_ally) = hostiles
+        .iter()
+        .filter(|hostile| !hostile.body().iter().any(|bp| bp.part() == Part::Carry))
+        .next()
+    {
         let goal = defend_combat(creep, role, any_not_ally, &hostiles);
         TaskResult::StillWorking(Task::Defend(room_name, room_requested), goal)
     } else if room_requested {
