@@ -108,6 +108,13 @@ impl PcUnit<'_, '_, '_> {
             return None;
         }
 
+        // self.home.get_hostiles(farm)
+        // let hostiles = self.home.get_hostiles(None);
+
+        // if !hostiles.is_empty() {
+
+        // }
+
         if self.home.invasion() {
             if self.creep.store().get_used_capacity(Some(ResourceType::Ops)) < 10 {
                 if let Some(storage) = self.home.storage()

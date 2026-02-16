@@ -45,7 +45,7 @@ pub(in crate::rooms::state::requests) fn defend_handler(
                 //wait 5 ticks to enter entire squad
                 Status::Created if meta.updated_at + 5 < game::time() => {
                     let (invanders, players): (Vec<_>, Vec<_>) = farm
-                        .get_hostiles()
+                        .hostiles()
                         .iter()
                         .filter(|h| h.owner().username() != SOURCE_KEEPER_USERNAME)
                         .filter(|h| h.body().len() > 2)
@@ -86,7 +86,7 @@ pub(in crate::rooms::state::requests) fn defend_handler(
                 }
                 Status::InProgress if meta.updated_at + 450 < game::time() => {
                     let (invanders, players): (Vec<_>, Vec<_>) = farm
-                        .get_hostiles()
+                        .hostiles()
                         .iter()
                         .filter(|h| h.owner().username() != SOURCE_KEEPER_USERNAME)
                         .partition(|h| h.owner().username() == INVADER_USERNAME);

@@ -81,25 +81,6 @@ pub fn register_rooms<'a>(
     (homes, rooms.into_values().map(Neutral::new).collect())
 }
 
-fn missed_buildings(
-    room_name: RoomName,
-    plan: &RoomPlan,
-) -> impl Iterator<Item = (RoomXY, StructureType)> + use<'_> {
-    plan.current_lvl_buildings()
-        .sorted_by_key(|cell| cell.structure)
-        .filter_map(move |cell| {
-            if let Ok(str_type) = StructureType::try_from(cell.structure) {
-                let room_position = RoomPosition::new(cell.xy.x.u8(), cell.xy.y.u8(), room_name);
-
-                if look_for(&room_position, str_type) { None } else { Some((cell.xy, str_type)) }
-            } else {
-                None
-            }
-        })
-        .sorted_by_key(|(xy, _)| *xy)
-        .take(5)
-}
-
 fn is_extractor(mineral: &Mineral) -> bool {
     look_for(&mineral.pos().into(), screeps::StructureType::Extractor)
 }

@@ -153,12 +153,14 @@ fn reaction_first_tier(
 ) -> Option<RoomEvent> {
     if amount < 5_000 {
         Some(RoomEvent::Request(Request::new(
-            RequestKind::Lab(LabData::new(res, max(MIN_LAB_PRODUCTION, 5_000 - amount))),
+            RequestKind::Lab(LabData::new(res, max(MIN_LAB_PRODUCTION, 5_000 - amount), false)),
             Assignment::None,
         )))
     } else if amount > 20_000 {
-        //todo lab.reverseReaction(lab1, lab2)
-        None
+        Some(RoomEvent::Request(Request::new(
+            RequestKind::Lab(LabData::new(res, 5000, true)),
+            Assignment::None,
+        )))
     } else {
         None
     }
@@ -172,7 +174,7 @@ fn reaction_second_tier(
 ) -> Option<RoomEvent> {
     (amount < 3_000).then(|| {
         RoomEvent::Request(Request::new(
-            RequestKind::Lab(LabData::new(res, max(MIN_LAB_PRODUCTION, 3_000 - amount))),
+            RequestKind::Lab(LabData::new(res, max(MIN_LAB_PRODUCTION, 3_000 - amount), false)),
             Assignment::None,
         ))
     })
@@ -190,13 +192,13 @@ fn reaction_third_tier(
             Some(RoomEvent::Lack(res, 3_000))
         } else {
             Some(RoomEvent::Request(Request::new(
-                RequestKind::Lab(LabData::new(res, max(MIN_LAB_PRODUCTION, 3_000 - amount))),
+                RequestKind::Lab(LabData::new(res, max(MIN_LAB_PRODUCTION, 3_000 - amount), false)),
                 Assignment::None,
             )))
         }
     } else if amount < 10_000 {
         Some(RoomEvent::Request(Request::new(
-            RequestKind::Lab(LabData::new(res, max(MIN_LAB_PRODUCTION, 10_000 - amount))),
+            RequestKind::Lab(LabData::new(res, max(MIN_LAB_PRODUCTION, 10_000 - amount), false)),
             Assignment::None,
         )))
     } else {

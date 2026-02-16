@@ -7,25 +7,22 @@ use itertools::Itertools;
 use log::{debug, error, info, warn};
 use screeps::{
     Creep, Effect, EffectType, HasId, HasPosition, HasStore, Mineral, ObjectId, OrderType, Part,
-    Position, PowerType, RawObjectId, ResourceType, Room, RoomName, RoomObjectProperties, RoomXY,
-    Source, StructureController, StructureFactory, StructureLab, StructureLink,
-    StructurePowerSpawn, StructureRampart, StructureSpawn, StructureStorage, StructureTerminal,
-    StructureTower, StructureType,
+    Position, PowerType, RawObjectId, ResourceType, Room, RoomName, RoomObjectProperties,
+    RoomPosition, RoomXY, Source, StructureController, StructureFactory, StructureLab,
+    StructureLink, StructurePowerSpawn, StructureRampart, StructureSpawn, StructureStorage,
+    StructureTerminal, StructureTower, StructureType,
     game::{self, market::Order},
 };
 
 use crate::{
     colony::ColonyEvent,
     resources::RoomContext,
-    rooms::{
-        missed_buildings,
-        state::{BoostReason, FarmInfo, constructions::RoomPlan, requests::FarmData},
-    },
+    rooms::state::{BoostReason, FarmInfo, constructions::RoomPlan, requests::FarmData},
     units::roles::{
         combat::overseer::Overseer, haulers::hauler::Hauler, miners::sk_miner::SKMiner,
         services::house_keeper::HouseKeeper,
     },
-    utils::commons::is_cpu_on_low,
+    utils::commons::{is_cpu_on_low, look_for},
 };
 use crate::{commons::find_roles, units::roles::services::upgrader::Upgrader};
 use crate::{rooms::is_extractor, statistics::RoomStats, utils::commons::find_container_near_by};
@@ -101,7 +98,7 @@ impl<'s> Shelter<'s> {
                 .chain(self.base.security_check(self.state, creeps))
                 .chain(self.base.run_spawns(self.state))
                 .chain(self.time_based_events(creeps))
-                .chain(self.farms.iter().flat_map(super::wrappers::farm::Farm::run_farm)),
+                .chain(self.farms.iter().flat_map(|farm| farm.run_farm(self.name()))),
         );
 
         let mut colony_events = Vec::new();
@@ -663,10 +660,15 @@ impl<'s> Shelter<'s> {
             .find_map(|source| if pos.is_near_to(source.pos()) { Some(source.id()) } else { None })
     }
 
-    pub fn get_hostiles(&self, farm: RoomName) -> Option<&[Creep]> {
-        self.farms
-            .iter()
-            .find_map(|f| if f.get_name() == farm { Some(f.get_hostiles()) } else { None })
+    pub fn hostiles(&self) -> &[Creep] {
+        self.base.hostiles()
+    }
+
+    pub fn get_hostiles(&self, farm: Option<RoomName>) -> &[Creep] {
+        farm
+            .and_then(|farm| self.farms.iter()
+                .find_map(|f| if f.get_name() == farm { Some(f.hostiles()) } else { None }))
+                .unwrap_or_else(|| self.hostiles())
     }
 
     pub fn find_container_in_range(
@@ -789,4 +791,23 @@ impl<'s> Shelter<'s> {
             })
         })
     }
+}
+
+fn missed_buildings(
+    room_name: RoomName,
+    plan: &RoomPlan,
+) -> impl Iterator<Item = (RoomXY, StructureType)> + use<'_> {
+    plan.current_lvl_buildings()
+        .sorted_by_key(|cell| cell.structure)
+        .filter_map(move |cell| {
+            if let Ok(str_type) = StructureType::try_from(cell.structure) {
+                let room_position = RoomPosition::new(cell.xy.x.u8(), cell.xy.y.u8(), room_name);
+
+                if look_for(&room_position, str_type) { None } else { Some((cell.xy, str_type)) }
+            } else {
+                None
+            }
+        })
+        .sorted_by_key(|(xy, _)| *xy)
+        .take(5)
 }

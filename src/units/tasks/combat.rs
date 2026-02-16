@@ -76,6 +76,10 @@ pub fn oversee(
     hostiles: Vec<Creep>,
 ) -> TaskResult {
     let room = creep.room().expect("expect creep is in a room!");
+    //todo figure out why overseer is able to attack and heal while the guard is not
+    if creep.hits() < creep.hits_max() {
+        let _ = creep.heal(creep);
+    }
 
     if creep.pos().room_name() != room_name {
         //if creep is not in target room -> go to target or to the closest exit to this
@@ -168,9 +172,9 @@ pub fn crash(
 }
 
 pub fn defend_home(creep: &Creep, role: &Role, hostiles: Vec<Creep>) -> TaskResult {
-    if let Some(in_range) = hostiles.iter().find(|hostile| hostile.pos().is_near_to(creep.pos())) {
-        let _ = creep.attack(in_range);
-    }
+    // if let Some(in_range) = hostiles.iter().find(|hostile| hostile.pos().is_near_to(creep.pos())) {
+    //     let _ = creep.attack(in_range);
+    // }
     //todo use shelter instead
     let home_room =
         role.get_home().and_then(|home| game::rooms().get(*home)).expect("expect role has a home!");

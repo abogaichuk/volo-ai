@@ -50,15 +50,20 @@ impl Claimed {
                 } else {
                     self.distributed_heal(find_all_injured(&self.my_creeps, &self.my_pcreeps));
                 }
-            } else if let Some(hostile) = unboosted.first() {
-                if hostile.body().len() < 2
-                    && let Some(tower) = get_closest(hostile, self.towers.iter())
+            } else if !unboosted.is_empty() {
+                if let Some(injured) =
+                    unboosted.iter().find(|hostile| hostile.hits() < hostile.hits_max())
                 {
-                    let _ = tower.attack::<Creep>(hostile);
-                } else if hostile.hits() < hostile.hits_max()
-                    || commons::remoted_from_edge(hostile.pos(), 4)
+                    self.mass_attack(injured);
+                } else if let Some(scout) =
+                    unboosted.iter().find(|hostile| hostile.body().len() < 2)
+                    && let Some(tower) = get_closest(scout, self.towers.iter())
                 {
-                    self.mass_attack(hostile);
+                    let _ = tower.attack::<Creep>(scout);
+                } else if let Some(in_range) =
+                    unboosted.iter().find(|hostile| commons::remoted_from_edge(hostile.pos(), 4))
+                {
+                    self.mass_attack(in_range);
                 } else {
                     self.distributed_heal(find_all_injured(&self.my_creeps, &self.my_pcreeps));
                 }

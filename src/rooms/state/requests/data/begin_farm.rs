@@ -45,7 +45,7 @@ pub(in crate::rooms::state::requests) fn begin_farm_handler(
                 meta.update(Status::Spawning);
             } else {
                 info!("{} can't begin farm: {}, plan does not exist!", home.name(), data.room_name);
-                meta.update(Status::OnHold);
+                meta.update(Status::Created);
             }
         }
         Status::Spawning if meta.updated_at + 500 < game::time() => {

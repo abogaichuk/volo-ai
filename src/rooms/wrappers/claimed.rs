@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use log::info;
+use log::debug;
 use screeps::{
     ConstructionSite, Creep, Event, HasHits, HasId, HasPosition, INVADER_USERNAME, MaybeHasId,
     Mineral, Nuke, Part, PowerCreep, RESOURCES_ALL, RawObjectId, Resource, ResourceType, Room,
@@ -237,6 +237,10 @@ impl Claimed {
         self.room.energy_capacity_available()
     }
 
+    pub fn hostiles(&self) -> &[Creep] {
+        &self.hostiles
+    }
+
     //todo the Box requires cloning, consider to avoid cloning by adding new
     // lifetime to Task -> CreepMemory -> Unit
     pub(crate) fn closest_empty_structure(
@@ -301,7 +305,9 @@ impl Claimed {
     pub fn tomb_requests(&self) -> Vec<Request> {
         self.tombs
             .iter()
-            .filter(|tomb| tomb.store().get_used_capacity(None) > 650)
+            .filter(|tomb| {
+                tomb.store().get_used_capacity(None) > 650 || tomb.store().store_types().len() > 1
+            })
             .map(move |tomb| {
                 Request::new(
                     RequestKind::Withdraw(WithdrawData::new(
@@ -406,20 +412,17 @@ impl Claimed {
                     let guard = Role::Guard(Guard::new(Some(self.get_name())));
 
                     let alive_number = room_memory.find_roles(&guard, creeps).count();
-                    let to_spawn = match boosted_enemies.len() {
-                        1 | 2 if alive_number == 0 => 1,
-                        3 | 4 if alive_number < 2 => 2 - alive_number,
-                        5.. if alive_number < 3 => 3 - alive_number,
-                        _ => 0,
-                    };
-                    info!(
+                    let to_spawn = if alive_number > 0 { 0 } else { 1 };
+                    debug!(
                         "{} alive guards: {} boosted_enemies: {}, to spawn: {}",
                         self.get_name(),
                         alive_number,
                         boosted_enemies.len(),
                         to_spawn
                     );
-                    events.push(RoomEvent::Spawn(guard, to_spawn));
+                    if to_spawn > 0 {
+                        events.push(RoomEvent::Spawn(guard, to_spawn));
+                    }
                     events.push(RoomEvent::Intrusion(Some(format!(
                         "Boosted player invasion in room {}!!",
                         self.get_name()
@@ -446,7 +449,7 @@ fn find_player_boosted_creeps(enemies: &[Creep]) -> Vec<CreepHostile> {
         .iter()
         .filter(|creep| {
             creep.owner().username() != INVADER_USERNAME
-                && creep.body().iter().any(|body_part| body_part.boost().is_some())
+                && creep.body().iter().all(|body_part| body_part.boost().is_some())
         })
         .map(|hostile| CreepHostile {
             name: hostile.name(),

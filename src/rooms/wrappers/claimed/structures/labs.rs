@@ -141,11 +141,19 @@ impl Shelter<'_> {
 
         self.requests()
             .find(|r| match &r.kind {
-                RequestKind::Lab(d) => d.resource.reaction_components().is_some_and(|components| {
-                    components.iter().all(|component| {
-                        storage.store().get_used_capacity(Some(*component)) >= LAB_PRODUCTION
-                    })
-                }),
+                RequestKind::Lab(d) => {
+                    if d.reverse && storage.store().get_used_capacity(Some(d.resource)) >= d.amount
+                    {
+                        true
+                    } else {
+                        d.resource.reaction_components().is_some_and(|components| {
+                            components.iter().all(|component| {
+                                storage.store().get_used_capacity(Some(*component))
+                                    >= LAB_PRODUCTION
+                            })
+                        })
+                    }
+                }
                 _ => false,
             })
             .cloned()
