@@ -431,15 +431,11 @@ impl TryFrom<Task> for Request {
                 RequestKind::Crash(CrashData::new(id, pos)),
                 Assignment::Single(None),
             )),
-            Task::Defend(room_name, room_requested) => {
-                if room_requested {
-                    Ok(Request::new(
-                        RequestKind::Defend(DefendData::new(room_name)),
-                        Assignment::Multi(HashSet::new()),
-                    ))
-                } else {
-                    Err(())
-                }
+            Task::Defend(room_name) => {
+                Ok(Request::new(
+                    RequestKind::Defend(DefendData::new(room_name)),
+                    Assignment::Multi(HashSet::new()),
+                ))
             }
             _ => Err(()),
         }

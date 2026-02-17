@@ -71,10 +71,10 @@ pub enum Task {
     Book(ObjectId<StructureController>, Position),
     Claim(ObjectId<StructureController>, Position),
     Crash(ObjectId<StructureInvaderCore>, Position),
-    FindHeal(RoomName),
+    HealAll,
     Oversee(RoomName, Option<(Position, u32)>),
     Protect(RoomName, Option<Position>),
-    Defend(RoomName, bool),
+    Defend(RoomName),
     Idle(u32),
     Speak,
 }
@@ -403,9 +403,9 @@ impl Task {
             ),
             Task::DefendHome => combat::defend_home(creep, role, hostiles),
             Task::Crash(id, pos) => combat::crash(id, pos, creep, role, hostiles),
-            Task::FindHeal(room_name) => combat::find_heal(room_name, creep, role, hostiles),
-            Task::Defend(room_name, room_requested) => {
-                combat::defend(room_name, room_requested, creep, role, hostiles)
+            Task::HealAll => combat::heal_all(creep, role, hostiles),
+            Task::Defend(room_name) => {
+                combat::defend(room_name, creep, role, hostiles)
             }
             Task::Oversee(room_name, target) => {
                 combat::oversee(room_name, target, creep, role, hostiles)
@@ -437,14 +437,14 @@ impl fmt::Debug for Task {
                 write!(f, "Task::Upgrade[{id}, {container_id:?}]")
             }
             Task::TakeResource(id) => write!(f, "Task::TakeResource[{id}]"),
-            Task::FindHeal(room_name) => write!(f, "Task::FindHeal[{room_name}]"),
+            Task::HealAll => write!(f, "Task::HealAll"),
             Task::Oversee(room_name, target) => {
                 write!(f, "Task::Oversee[{room_name}, {target:?}]")
             }
             Task::Boost(id, parts) => write!(f, "Task::Boost[{id}, {parts:?}]"),
             Task::Crash(id, pos) => write!(f, "Task::Crash[{id}, {pos:?}]"),
-            Task::Defend(room_name, room_requested) => {
-                write!(f, "Task::Defend[{room_name}, {room_requested}]")
+            Task::Defend(room_name) => {
+                write!(f, "Task::Defend[{room_name}]")
             }
             Task::Protect(pos, target_pos) => write!(f, "Task::Protect[{pos}, {target_pos:?}]"),
             Task::Build(id, pos) => write!(f, "Task::Build[{id:?}, {pos}]"),
@@ -527,7 +527,7 @@ impl From<RequestKind> for Task {
             RequestKind::Book(r) => Task::Book(r.id, r.pos),
             RequestKind::Build(r) => Task::Build(r.id, r.pos),
             RequestKind::Repair(r) => Task::Repair(r.id, r.pos, r.attempts_max),
-            RequestKind::Defend(r) => Task::Defend(r.room_name, true),
+            RequestKind::Defend(r) => Task::Defend(r.room_name),
             RequestKind::Carry(r) => Task::Carry(r.from, r.to, r.resource, r.amount, None),
             RequestKind::Withdraw(r) => Task::Withdraw(r.pos, r.id, r.resources),
             RequestKind::LongRangeWithdraw(r) => {
@@ -550,7 +550,7 @@ impl From<RequestKind> for Task {
 pub enum TaskResult {
     RunAnother(Task),
     StillWorking(Task, Option<MovementGoal>),
-    ResolveRequest(Task, bool), //closing room request?
+    ResolveRequest(Task), //graceful suicide
     UpdateRequest(Task),        /* update room request (in the middle of doing something,
                                  * partially carried resource or repair structure) */
     AddNewRequest(Task, Task, Option<MovementGoal>),

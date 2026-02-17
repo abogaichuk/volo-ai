@@ -1,6 +1,7 @@
 use screeps::CREEP_RANGED_ACTION_RANGE;
 
 pub const MIN_STORAGE_FREE_CAPACITY: i32 = 5_000;
+pub const TOWER_ATTACK_RANGE: u8 = 4;
 
 pub const MIN_ENERGY_CAPACITY: u32 = 10_000;
 pub const MAX_POWER_CAPACITY: u32 = 150_000;

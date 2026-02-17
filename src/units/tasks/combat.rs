@@ -20,7 +20,6 @@ use crate::utils::constants::{CLOSE_RANGE_ACTION, LONG_RANGE_ACTION};
 //todo chase into another room task !
 pub fn defend(
     room_name: RoomName,
-    room_requested: bool,
     creep: &Creep,
     role: &Role,
     hostiles: Vec<Creep>,
@@ -30,23 +29,16 @@ pub fn defend(
     } else if let Some(attacker) = closest_attacker(creep, hostiles.iter()) {
         debug!("{} hostiles is not empty move to room_name: {}", creep.name(), room_name);
         let goal = defend_combat(creep, role, attacker, &hostiles);
-        TaskResult::StillWorking(Task::Defend(room_name, room_requested), goal)
+        TaskResult::StillWorking(Task::Defend(room_name), goal)
     } else if let Some(any_not_ally) = hostiles
         .iter()
         .filter(|hostile| !hostile.body().iter().any(|bp| bp.part() == Part::Carry))
         .next()
     {
         let goal = defend_combat(creep, role, any_not_ally, &hostiles);
-        TaskResult::StillWorking(Task::Defend(room_name, room_requested), goal)
-    } else if room_requested {
-        TaskResult::ResolveRequest(Task::Defend(room_name, room_requested), false)
-    } else if let Some(injured) = find_closest_injured_my_creeps(creep) {
-        let goal = Walker::Therapeutic.walk(injured.pos(), 0, creep, role, hostiles);
-        TaskResult::StillWorking(Task::Defend(room_name, room_requested), Some(goal))
+        TaskResult::StillWorking(Task::Defend(room_name), goal)
     } else {
-        let _ = creep.say("🚬", false);
-        let _ = creep.heal(creep);
-        TaskResult::Completed
+        TaskResult::ResolveRequest(Task::Defend(room_name))
     }
 }
 
@@ -116,18 +108,16 @@ pub fn oversee(
 }
 
 //todo consume many cpu > 450 cpu, overseer
-pub fn find_heal(
-    room_name: RoomName,
+pub fn heal_all(
     creep: &Creep,
     role: &Role,
     hostiles: Vec<Creep>,
 ) -> TaskResult {
-    if creep.pos().room_name() != room_name {
-        TaskResult::RunAnother(Task::MoveMe(room_name, Walker::Aggressive))
-    } else if let Some(injured) = find_closest_injured_my_creeps(creep) {
-        let goal = Walker::Aggressive.walk(injured.pos(), 0, creep, role, hostiles);
-        TaskResult::StillWorking(Task::FindHeal(room_name), Some(goal))
+    if let Some(injured) = find_closest_injured_my_creeps(creep) {
+        let goal = Walker::Therapeutic.walk(injured.pos(), 0, creep, role, hostiles);
+        TaskResult::StillWorking(Task::HealAll, Some(goal))
     } else {
+        let _ = creep.heal(creep);
         let _ = creep.say("🚬", false);
         TaskResult::Completed
     }
@@ -167,7 +157,7 @@ pub fn crash(
         let _ = creep.attack(&ic);
         TaskResult::StillWorking(Task::Crash(id, pos), None)
     } else {
-        TaskResult::ResolveRequest(Task::Crash(id, pos), true)
+        TaskResult::ResolveRequest(Task::Crash(id, pos))
     }
 }
 

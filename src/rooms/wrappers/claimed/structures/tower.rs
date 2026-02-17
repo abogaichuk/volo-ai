@@ -6,6 +6,7 @@ use screeps::{INVADER_USERNAME, Part, Position, PowerCreep};
 use crate::commons::full_boosted;
 use crate::rooms::wrappers::claimed::Claimed;
 use crate::utils::commons;
+use crate::utils::constants::TOWER_ATTACK_RANGE;
 
 impl Claimed {
     pub(crate) fn run_towers(&self) {
@@ -61,7 +62,7 @@ impl Claimed {
                 {
                     let _ = tower.attack::<Creep>(scout);
                 } else if let Some(in_range) =
-                    unboosted.iter().find(|hostile| commons::remoted_from_edge(hostile.pos(), 4))
+                    unboosted.iter().find(|hostile| commons::remoted_from_edge(hostile.pos(), TOWER_ATTACK_RANGE))
                 {
                     self.mass_attack(in_range);
                 } else {

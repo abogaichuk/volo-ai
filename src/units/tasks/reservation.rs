@@ -21,7 +21,7 @@ pub fn claim(
         TaskResult::StillWorking(Task::Claim(id, position), Some(goal))
     } else if let Some(controller) = id.resolve() {
         match creep.claim_controller(&controller) {
-            Ok(()) => TaskResult::ResolveRequest(Task::Claim(id, position), false),
+            Ok(()) => TaskResult::ResolveRequest(Task::Claim(id, position)),
             Err(err) => {
                 error!("creep: {}, claim controller error: {:?}", creep.name(), err);
                 TaskResult::StillWorking(Task::Claim(id, position), None)
@@ -62,7 +62,7 @@ pub fn book(
                         .reservation()
                         .is_some_and(|reservation| reservation.ticks_to_end() > 3500)
                     {
-                        TaskResult::ResolveRequest(Task::Book(id, position), false)
+                        TaskResult::ResolveRequest(Task::Book(id, position))
                     } else {
                         TaskResult::StillWorking(Task::Book(id, position), None)
                     }

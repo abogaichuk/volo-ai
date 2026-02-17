@@ -11,6 +11,8 @@ use crate::movement::{Movement, MovementGoal, MovementGoalBuilder, MovementProfi
 use crate::rooms::shelter::Shelter;
 use crate::units::actions::{common_actions, end_of_chain, fortify, operate_controller, operate_factory, operate_mineral, operate_source, operate_spawn, operate_storage, operate_tower, transfer, withdraw};
 use crate::movement::walker::get_danger_zones;
+use crate::utils::commons;
+use crate::utils::constants::TOWER_ATTACK_RANGE;
 
 
 pub fn run_power_creeps(
@@ -205,7 +207,9 @@ impl PcUnit<'_, '_, '_> {
 
         let actions = if self.is_home_invaded() {
             common_actions(withdraw(10, operate_tower(fortify(end_of_chain()))))
-        } else if !hostiles.is_empty() {
+        } else if hostiles.iter()
+            .find(|hostile| commons::remoted_from_edge(hostile.pos(), TOWER_ATTACK_RANGE)).is_some()
+        {
             common_actions(
                 withdraw(
                     100,

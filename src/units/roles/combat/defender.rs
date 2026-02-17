@@ -88,7 +88,7 @@ impl Kind for Defender {
                     })
                 })
             })
-            .unwrap_or_else(|| Task::Defend(creep.pos().room_name(), false))
+            .unwrap_or_else(|| Task::HealAll)
     }
 }
 
