@@ -64,15 +64,20 @@ pub(in crate::rooms::state::requests) fn defend_handler(
                     } else if !players.is_empty() && invanders.is_empty() {
                         let need_boost = need_boost(&players);
 
-                        events.push(RoomEvent::AddBoost(BoostReason::Caravan, 350));
+                        events.push(RoomEvent::AddBoost(BoostReason::Defend, 300));
                         let defender = Role::Defender(Defender::new(Some(home.name()), need_boost));
                         let alive_number = find_roles(&defender, home.spawn_queue(), creeps);
 
-                        match players.len() {
-                            0..=2 if alive_number == 0 => (defender, 1),
-                            _ if alive_number < 2 => (defender, 2 - alive_number),
-                            _ => (defender, 0),
+                        if alive_number == 0 {
+                            (defender, 1)
+                        } else {
+                            (defender, 0)
                         }
+                        // match players.len() {
+                        //     0..=2 if alive_number == 0 => (defender, 1),
+                        //     _ if alive_number < 2 => (defender, 2 - alive_number),
+                        //     _ => (defender, 0),
+                        // }
                     } else {
                         (Role::Defender(Defender::new(Some(home.name()), false)), 0)
                     };
@@ -104,15 +109,20 @@ pub(in crate::rooms::state::requests) fn defend_handler(
                     } else if !players.is_empty() && invanders.is_empty() {
                         let need_boost = need_boost(&players);
 
-                        events.push(RoomEvent::AddBoost(BoostReason::Caravan, 350));
+                        events.push(RoomEvent::AddBoost(BoostReason::Defend, 300));
                         let defender = Role::Defender(Defender::new(Some(home.name()), need_boost));
                         let alive_number = find_roles(&defender, home.spawn_queue(), creeps);
 
-                        match players.len() {
-                            0..=2 if alive_number == 0 => (defender, 1),
-                            _ if alive_number < 2 => (defender, 2 - alive_number),
-                            _ => (defender, 0),
+                        if alive_number == 0 {
+                            (defender, 1)
+                        } else {
+                            (defender, 0)
                         }
+                        // match players.len() {
+                        //     0..=2 if alive_number == 0 => (defender, 1),
+                        //     _ if alive_number < 2 => (defender, 2 - alive_number),
+                        //     _ => (defender, 0),
+                        // }
                     } else {
                         (Role::Defender(Defender::new(Some(home.name()), false)), 0)
                     };
@@ -134,7 +144,8 @@ pub(in crate::rooms::state::requests) fn defend_handler(
 }
 
 fn need_boost(hostiles: &[&Creep]) -> bool {
-    hostiles.iter().any(|h| h.body().iter().any(|body_part| body_part.boost().is_some()))
+    hostiles.iter().any(|h| h.body().iter()
+        .any(|body_part| body_part.boost().is_some()))
         || hostiles.iter().any(|h| {
             h.body().iter().any(|bp| bp.part() == Part::Attack || bp.part() == Part::RangedAttack)
         })

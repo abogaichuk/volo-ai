@@ -124,7 +124,7 @@ impl Walker {
     }
 }
 
-fn get_danger_zones(room_name: RoomName, enemies: &[Creep]) -> Option<(RoomName, Vec<RoomXY>)> {
+pub fn get_danger_zones(room_name: RoomName, enemies: &[Creep]) -> Option<(RoomName, Vec<RoomXY>)> {
     let mut cells_under_attack: Vec<RoomXY> = enemies
         .iter()
         .filter_map(|enemy| {

@@ -1,16 +1,16 @@
 use std::collections::HashMap;
 
-use log::{debug, error, warn};
+use log::{debug, error};
 use screeps::action_error_codes::{EnableRoomErrorCode, RenewErrorCode, TransferErrorCode, UsePowerErrorCode, WithdrawErrorCode};
 use screeps::{
-    Creep, Effect, EffectType, HasPosition, Mineral, Position, PowerCreep, PowerInfo, PowerType, ResourceType, RoomName, RoomObject, RoomObjectProperties, RoomXY, SharedCreepProperties, Source, Store, StructureController, StructureFactory, StructurePowerSpawn, StructureRampart, StructureSpawn, StructureStorage, StructureTower, Transferable, Withdrawable, game
+    Creep, HasPosition, Mineral, Position, PowerCreep, PowerInfo, PowerType, ResourceType, RoomName, RoomObject, RoomObjectProperties, SharedCreepProperties, Source, StructureController, StructureFactory, StructurePowerSpawn, StructureRampart, StructureSpawn, StructureStorage, StructureTower, Transferable, Withdrawable, game
 };
 use serde::{Deserialize, Serialize};
 
 use crate::movement::{Movement, MovementGoal, MovementGoalBuilder, MovementProfile, PathState};
 use crate::rooms::shelter::Shelter;
-use crate::units::actions::{self, common_actions, end_of_chain, fortify, operate_controller, operate_factory, operate_mineral, operate_source, operate_spawn, operate_storage, operate_tower, transfer, withdraw};
-use crate::utils::constants::{CLOSE_RANGE_ACTION, LONG_RANGE_ACTION};
+use crate::units::actions::{common_actions, end_of_chain, fortify, operate_controller, operate_factory, operate_mineral, operate_source, operate_spawn, operate_storage, operate_tower, transfer, withdraw};
+use crate::movement::walker::get_danger_zones;
 
 
 pub fn run_power_creeps(
@@ -160,10 +160,6 @@ impl PcUnit<'_, '_, '_> {
         self.home.lowest_perimetr_hits()
     }
 
-    // pub fn home(&self) -> &Shelter {
-    //     &self.home
-    // }
-
     pub fn withdraw<T>(
         &self,
         target: &T,
@@ -228,7 +224,17 @@ impl PcUnit<'_, '_, '_> {
                                     operate_controller(
                                         transfer(end_of_chain())))))))))
         };
+
         actions(self)
+            .map(|(target, range)| {
+                let danger_zones = get_danger_zones(target.room_name(), hostiles);
+                MovementGoalBuilder::new(target)
+                    .range(range)
+                    .profile(MovementProfile::SwampFiveToOne)
+                    .avoid_creeps(false)
+                    .danger_zones(danger_zones)
+                    .build()
+            })
 
     }
 
@@ -292,33 +298,4 @@ impl PcUnit<'_, '_, '_> {
             movement.idle(position, self.creep.into());
         }
     }
-}
-
-// pub fn controller_without_effect(controller: &StructureController) -> bool {
-//     !controller.effects().into_iter().any(|effect: Effect| match effect.effect() {
-//         EffectType::PowerEffect(p) => matches!(p, PowerType::OperateController),
-//         EffectType::NaturalEffect(_) => false,
-//     })
-// }
-
-fn enable_controller(creep: &PowerCreep, controller: &StructureController) -> Option<MovementGoal> {
-    if creep.pos().is_near_to(controller.pos()) {
-        let _ = creep.enable_room(controller);
-        None
-    } else {
-        Some(build_goal(controller.pos(), CLOSE_RANGE_ACTION, None))
-    }
-}
-
-pub fn build_goal(
-    pos: Position,
-    range: u32,
-    danger_zones: Option<(RoomName, Vec<RoomXY>)>,
-) -> MovementGoal {
-    MovementGoalBuilder::new(pos)
-        .range(range)
-        .profile(MovementProfile::SwampFiveToOne)
-        .avoid_creeps(false)
-        .danger_zones(danger_zones)
-        .build()
 }

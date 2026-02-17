@@ -57,10 +57,16 @@ impl Kind for Defender {
 
     fn boosts(&self, creep: &Creep) -> HashMap<Part, [ResourceType; 2]> {
         if self.boost && creep.ticks_to_live().is_some_and(|tick| tick > 1350) {
-            [(
-                Part::RangedAttack,
-                [ResourceType::CatalyzedKeaniumAlkalide, ResourceType::KeaniumAlkalide],
-            )]
+            [
+                (
+                    Part::RangedAttack,
+                    [ResourceType::CatalyzedKeaniumAlkalide, ResourceType::KeaniumAlkalide],
+                ),
+                (
+                    Part::Heal,
+                    [ResourceType::CatalyzedLemergiumAlkalide, ResourceType::LemergiumAlkalide],
+                )
+            ]
             .into()
         } else {
             HashMap::new()

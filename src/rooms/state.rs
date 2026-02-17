@@ -130,6 +130,7 @@ pub enum BoostReason {
     Repair,
     Dismantle,
     Caravan,
+    Defend,
     Pvp,
     Carry,
 }
@@ -145,6 +146,7 @@ impl BoostReason {
             BoostReason::Repair => vec![ResourceType::CatalyzedLemergiumAcid],
             BoostReason::Dismantle => vec![ResourceType::CatalyzedZynthiumAcid],
             BoostReason::Caravan => vec![ResourceType::CatalyzedKeaniumAlkalide],
+            BoostReason::Defend => vec![ResourceType::CatalyzedKeaniumAlkalide, ResourceType::CatalyzedLemergiumAlkalide],
             BoostReason::Pvp => vec![
                 ResourceType::CatalyzedGhodiumAlkalide,
                 ResourceType::CatalyzedKeaniumAlkalide,
