@@ -1,63 +1,279 @@
-use screeps::{Effect, EffectType, PowerType, RoomObjectProperties, Source, StructureFactory, StructureSpawn, StructureStorage, StructureTower};
+use log::{debug, warn, error};
+use std::sync::Arc;
 
-use crate::{movement::MovementGoal, units::{actions::{enable_controller::EnableController, fortify::Fortify, generate_ops::GenerateOps, operate_controller::OperateController, operate_factory::OperateFactory, operate_mineral::OperateMineral, operate_source::OperateSource, operate_spawn::OperateSpawn, operate_storage::OperateStorage, operate_tower::OperateTower, renew::Renew, transfer::Transfer, withdraw::Withdraw}, power_creep::PcUnit}};
+use screeps::{Effect, EffectType, HasPosition, PowerType, ResourceType, RoomObjectProperties, Source, StructureController, StructureFactory, StructureSpawn, StructureStorage, StructureTower};
+use crate::{movement::MovementGoal, units::power_creep::{PcUnit, build_goal}, utils::constants::{CLOSE_RANGE_ACTION, LONG_RANGE_ACTION, MIN_STORAGE_FREE_CAPACITY}};
 
-mod withdraw;
-mod transfer;
-mod renew;
-mod generate_ops;
-mod enable_controller;
-mod operate_tower;
-mod operate_source;
-mod operate_mineral;
-mod operate_storage;
-mod operate_spawn;
-mod operate_factory;
-mod operate_controller;
-mod fortify;
+const MIN_TICKS: u32 = 100;
 
+type PowerAction = Arc<dyn Fn(&PcUnit) -> Option<MovementGoal> + Send + Sync>;
 
-type ActionFn = Box<dyn Fn(&PcUnit) -> Option<MovementGoal> + Send + Sync>;
+pub fn common_actions(tail: PowerAction) -> PowerAction {
+    enable_controller(
+        renew(
+            generate_ops(tail)
+        )
+    )
+}
 
-fn chain_fns(steps: Vec<ActionFn>) -> ActionFn {
-    Box::new(move |pc| {
-        for f in &steps {
-            if let Some(goal) = f(pc) {
-                return Some(goal);
+pub fn end_of_chain() -> PowerAction {
+    Arc::new(|_| None) // end of chain
+}
+
+fn enable_controller(next: PowerAction) -> PowerAction {
+    Arc::new(move |unit| {
+        let controller = unit.home_controller();
+
+        if !controller.is_power_enabled()
+        {
+            if unit.pos().is_near_to(controller.pos()) {
+                let _ = unit.enable_room(controller);
+                return None;
+            } else {
+                return Some(build_goal(controller.pos(), CLOSE_RANGE_ACTION, None));
             }
         }
-        None
+        next(unit)
     })
 }
 
-pub trait Action {
-    fn handle(&self, pc: &PcUnit) -> Option<MovementGoal>;
-    fn next(&self) -> &Option<Box<dyn Action>>;
+pub fn fortify(next: PowerAction) -> PowerAction {
+    Arc::new(move |unit| {
+        if unit.is_power_available(PowerType::Fortify) {
+            //todo take from room history
+            if let Some(rampart) = unit.home_lowest_perimeter() {
+                if unit.pos().in_range_to(rampart.pos(), LONG_RANGE_ACTION) {
+                    //todo moving safe for powercreep
+                    let _ = unit.use_power(PowerType::Fortify, Some(rampart));
+                    return None;
+                } else {
+                    return Some(build_goal(rampart.pos(), LONG_RANGE_ACTION, None));
+                }
+            } else {
+                return None;
+            }
+        }
+        next(unit)
+    })
 }
 
-pub fn power_actions(unit: &PcUnit) -> Box<dyn Action> {
-    let hostiles = unit.get_hostiles_at_home();
+fn generate_ops(next: PowerAction) -> PowerAction {
+    Arc::new(move |unit| {
+        if unit.is_power_available(PowerType::GenerateOps) {
+            let _ = unit.use_power(PowerType::GenerateOps, None);
+            return None;
+        }
+        next(unit)
+    })
+}
 
-    if unit.is_home_invaded() {
-        Box::new(EnableController::new(Renew::new(GenerateOps::new(Withdraw::new(OperateTower::new(Fortify::default()), 10)))))
-    } else if !hostiles.is_empty() {
-        Box::new(EnableController::new(Renew::new(GenerateOps::new(Withdraw::new(
-            OperateStorage::new(
-                OperateTower::new(
-                    OperateSource::new(
-                        OperateMineral::default()))),
-            100)))))
-    } else {
-        Box::new(EnableController::new(Renew::new(GenerateOps::new(OperateSource::new(
-            Withdraw::new(
-                OperateStorage::new(
-                    OperateMineral::new(
-                        OperateSpawn::new(
-                            OperateFactory::new(
-                                OperateController::new(
-                                    Transfer::default()))))),
-            200))))))
-    }
+pub fn operate_controller(next: PowerAction) -> PowerAction {
+    Arc::new(move |unit| {
+        if controller_without_effect(unit.home_controller())
+            && unit.get_power(PowerType::OperateController).is_some()
+            && unit.is_power_enabled(PowerType::OperateController)
+        {
+            if unit.pos().get_range_to(unit.home_controller().pos()) <= LONG_RANGE_ACTION
+            {
+                let res = unit.use_power(PowerType::OperateController, Some(unit.home_controller()));
+                debug!("creep {} operate controller res: {:?}", unit.name(), res);
+                match res {
+                    Ok(()) => {}
+                    Err(err) => error!("use power error: {:?}", err)
+                }
+                return None;
+            } else {
+                return Some(build_goal(unit.home_controller().pos(), LONG_RANGE_ACTION, None));
+            }
+        }
+        next(unit)
+    })
+}
+
+pub fn operate_factory(next: PowerAction) -> PowerAction {
+    Arc::new(move |unit| {
+        if let (Some(factory), Some(_), true) = (
+            factory_without_effect(unit),
+            unit.get_power(PowerType::OperateFactory),
+            unit.is_power_enabled(PowerType::OperateFactory),
+        ) {
+            if unit.pos().get_range_to(factory.pos()) <= LONG_RANGE_ACTION {
+                let res = unit.use_power(PowerType::OperateFactory, Some(factory));
+                debug!("creep {} operate storage res: {:?}", unit.name(), res);
+                match res {
+                    Ok(()) => {}
+                    Err(err) => error!("use power error: {:?}", err)
+                }
+                return None;
+            } else {
+                return Some(build_goal(factory.pos(), LONG_RANGE_ACTION, None));
+            }
+        }
+        next(unit)
+    })
+}
+
+pub fn operate_mineral(next: PowerAction) -> PowerAction {
+    Arc::new(move |unit| {
+        if mineral_without_effect(unit) && unit.get_power(PowerType::RegenMineral).is_some()
+        {
+            if unit.pos().in_range_to(unit.home_mineral().pos(), 3) {
+                let res = unit.use_power(PowerType::RegenMineral, Some(unit.home_mineral()));
+                match res {
+                    Ok(()) => {}
+                    Err(err) => error!("use power error: {:?}", err)
+                }
+                return None;
+            } else {
+                return Some(build_goal(unit.home_mineral().pos(), LONG_RANGE_ACTION, None));
+            }
+        }
+        next(unit)
+    })
+}
+
+pub fn operate_source(next: PowerAction) -> PowerAction {
+    Arc::new(move |unit| {
+        if let (Some(source), Some(_)) =
+            (source_without_effect(unit), unit.get_power(PowerType::RegenSource))
+        {
+            if unit.pos().in_range_to(source.pos(), LONG_RANGE_ACTION) {
+                let res = unit.use_power(PowerType::RegenSource, Some(source));
+                match res {
+                    Ok(()) => {}
+                    Err(err) => error!("use power error: {:?}", err)
+                }
+                return None;
+            } else {
+                return Some(build_goal(source.pos(), LONG_RANGE_ACTION, None));
+            }
+        }
+        next(unit)
+    })
+}
+
+pub fn operate_spawn(next: PowerAction) -> PowerAction {
+    Arc::new(move |unit| {
+        if let (Some(spawn), Some(_)) =
+            (spawn_without_effect(unit), unit.get_power(PowerType::OperateSpawn))
+            && unit.is_power_enabled(PowerType::OperateSpawn)
+        {
+            if unit.pos().get_range_to(spawn.pos()) <= LONG_RANGE_ACTION {
+                let res = unit.use_power(PowerType::OperateSpawn, Some(spawn));
+                debug!("creep {} operate spawn res: {:?}", unit.name(), res);
+                match res {
+                    Ok(()) => {}
+                    Err(err) => error!("use power error: {:?}", err)
+                }
+                return None;
+            } else {
+                return Some(build_goal(spawn.pos(), LONG_RANGE_ACTION, None));
+            }
+        }
+        next(unit)
+    })
+}
+
+pub fn operate_storage(next: PowerAction) -> PowerAction {
+    Arc::new(move |unit| {
+        if let (Some(storage), Some(_)) =
+            (full_storage_without_effect(unit), unit.get_power(PowerType::OperateStorage))
+        {
+            if unit.pos().get_range_to(storage.pos()) <= LONG_RANGE_ACTION {
+                let res = unit.use_power(PowerType::OperateStorage, Some(storage));
+                debug!("creep {} operate storage res: {:?}", unit.name(), res);
+                match res {
+                    Ok(()) => {}
+                    Err(err) => error!("use power error: {:?}", err)
+                }
+                return None;
+            } else {
+                return Some(build_goal(storage.pos(), LONG_RANGE_ACTION, None));
+            }
+        }
+        next(unit)
+    })
+}
+
+pub fn operate_tower(next: PowerAction) -> PowerAction {
+    Arc::new(move |unit| {
+        if unit.is_power_available(PowerType::OperateTower) {
+            if let Some(tower) = tower_without_effect(unit) {
+                if unit.pos().in_range_to(tower.pos(), LONG_RANGE_ACTION) {
+                    let _ = unit.use_power(PowerType::OperateTower, Some(tower));
+                    return None;
+                } else {
+                    return Some(build_goal(tower.pos(), LONG_RANGE_ACTION, None));
+                }
+            } else {
+                return None;
+            }
+        }
+        next(unit)
+    })
+}
+
+fn renew(next: PowerAction) -> PowerAction {
+    Arc::new(move |unit| {
+        if unit.ticks_to_live().is_some_and(|ticks| ticks < MIN_TICKS)
+        {
+            if let Some(power_spawn) = unit.home_power_spawn() {
+                if unit.pos().is_near_to(power_spawn.pos()) {
+                    let _ = unit.renew(power_spawn);
+                    return None;
+                } else {
+                    return Some(build_goal(power_spawn.pos(), CLOSE_RANGE_ACTION, None));
+                }
+            } else {
+                warn!("power_creep: {} no powerspawn found for renew!!", unit.name());
+                return None;
+            }
+        }
+        next(unit)
+    })
+}
+
+pub fn transfer(next: PowerAction) -> PowerAction {
+    Arc::new(move |unit| {
+        if unit.used_capacity(Some(ResourceType::Ops)) > unit.capacity() / 2
+        {
+            if let Some(storage) = unit.home_storage()
+                && storage.store().get_free_capacity(None) > MIN_STORAGE_FREE_CAPACITY
+            {
+                if unit.pos().is_near_to(storage.pos()) {
+                    let _ = unit.transfer(storage, ResourceType::Ops, None);
+                    return None;
+                } else {
+                    return Some(build_goal(storage.pos(), CLOSE_RANGE_ACTION, None));
+                }
+            } else {
+                warn!("room: {}, storage is full!!", unit.home_name());
+                return None;
+            }
+        }
+        next(unit)
+    })
+}
+
+pub fn withdraw(amount: u32, next: PowerAction) -> PowerAction {
+    Arc::new(move |unit| {
+        if unit.used_capacity(Some(ResourceType::Ops)) < amount {
+            if let Some(storage) = unit.home_storage()
+                && storage.store().get_used_capacity(Some(ResourceType::Ops)) >= amount
+            {
+                if unit.pos().is_near_to(storage.pos()) {
+                    let _ = unit.withdraw(storage, ResourceType::Ops, None);
+                    return None;
+                } else {
+                    return Some(build_goal(storage.pos(), CLOSE_RANGE_ACTION, None));
+                }
+            } else {
+                warn!("room: {} resource ops not enough!!", unit.home_name());
+                return None;
+            }
+        }
+        next(unit)
+    })
 }
 
 fn full_storage_without_effect<'a>(unit: &'a PcUnit) -> Option<&'a StructureStorage> {
@@ -94,6 +310,13 @@ fn source_without_effect<'a>(unit: &'a PcUnit) -> Option<&'a Source> {
             }
             EffectType::NaturalEffect(_) => false,
         })
+    })
+}
+
+fn controller_without_effect(controller: &StructureController) -> bool {
+    !controller.effects().into_iter().any(|effect: Effect| match effect.effect() {
+        EffectType::PowerEffect(p) => matches!(p, PowerType::OperateController),
+        EffectType::NaturalEffect(_) => false,
     })
 }
 
