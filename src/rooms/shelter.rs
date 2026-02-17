@@ -628,6 +628,14 @@ impl<'s> Shelter<'s> {
         self.base.terminal()
     }
 
+    pub fn spawns(&self) -> &[StructureSpawn] {
+        &self.base.spawns
+    }
+
+    pub fn towers(&self) -> &[StructureTower] {
+        &self.base.towers
+    }
+
     pub fn production_labs(&self) -> (&[StructureLab], &[StructureLab]) {
         (self.base.labs.inputs(), self.base.labs.outputs())
     }
@@ -646,6 +654,10 @@ impl<'s> Shelter<'s> {
 
     pub fn all_minerals(&self) -> impl Iterator<Item = &Mineral> {
         once(&self.base.mineral).chain(self.farms.iter().filter_map(|farm| farm.mineral.as_ref()))
+    }
+
+    pub fn sources(&self) -> &[Source] {
+        &self.base.sources
     }
 
     pub fn all_sources(&self) -> impl Iterator<Item = &Source> {
@@ -737,60 +749,60 @@ impl<'s> Shelter<'s> {
         self.base.supply_resources(to, resource, amount)
     }
 
-    pub fn tower_without_effect(&self) -> Option<&StructureTower> {
-        self.base.towers.iter().find(|tower| {
-            !tower.effects().into_iter().any(|effect: Effect| match effect.effect() {
-                EffectType::PowerEffect(p) => matches!(p, PowerType::OperateTower),
-                EffectType::NaturalEffect(_) => false,
-            })
-        })
-    }
+    // pub fn tower_without_effect(&self) -> Option<&StructureTower> {
+    //     self.base.towers.iter().find(|tower| {
+    //         !tower.effects().into_iter().any(|effect: Effect| match effect.effect() {
+    //             EffectType::PowerEffect(p) => matches!(p, PowerType::OperateTower),
+    //             EffectType::NaturalEffect(_) => false,
+    //         })
+    //     })
+    // }
 
-    pub fn spawn_without_effect(&self) -> Option<&StructureSpawn> {
-        self.base.spawns.iter().find(|spawn| {
-            !spawn.effects().into_iter().any(|effect: Effect| match effect.effect() {
-                EffectType::PowerEffect(p) => matches!(p, PowerType::OperateSpawn),
-                EffectType::NaturalEffect(_) => false,
-            })
-        })
-    }
+    // pub fn spawn_without_effect(&self) -> Option<&StructureSpawn> {
+    //     self.base.spawns.iter().find(|spawn| {
+    //         !spawn.effects().into_iter().any(|effect: Effect| match effect.effect() {
+    //             EffectType::PowerEffect(p) => matches!(p, PowerType::OperateSpawn),
+    //             EffectType::NaturalEffect(_) => false,
+    //         })
+    //     })
+    // }
 
-    pub fn factory_without_effect(&self) -> Option<&StructureFactory> {
-        self.base.factory.as_ref().filter(|factory| {
-            !factory.effects().into_iter().any(|effect: Effect| match effect.effect() {
-                EffectType::PowerEffect(p) => matches!(p, PowerType::OperateFactory),
-                EffectType::NaturalEffect(_) => false,
-            })
-        })
-    }
+    // pub fn factory_without_effect(&self) -> Option<&StructureFactory> {
+    //     self.base.factory.as_ref().filter(|factory| {
+    //         !factory.effects().into_iter().any(|effect: Effect| match effect.effect() {
+    //             EffectType::PowerEffect(p) => matches!(p, PowerType::OperateFactory),
+    //             EffectType::NaturalEffect(_) => false,
+    //         })
+    //     })
+    // }
 
-    pub fn full_storage_without_effect(&self) -> Option<&StructureStorage> {
-        self.base.storage().filter(|storage| {
-            storage.effects().is_empty() && storage.store().get_used_capacity(None) > 990_000
-        })
-    }
+    // pub fn full_storage_without_effect(&self) -> Option<&StructureStorage> {
+    //     self.base.storage().filter(|storage| {
+    //         storage.effects().is_empty() && storage.store().get_used_capacity(None) > 990_000
+    //     })
+    // }
 
-    pub fn mineral_without_effect(&self) -> bool {
-        self.base.mineral.ticks_to_regeneration().is_none()
-            && !self.base.mineral.effects().into_iter().any(|effect: Effect| {
-                match effect.effect() {
-                    EffectType::PowerEffect(p) => matches!(p, PowerType::RegenMineral),
-                    EffectType::NaturalEffect(_) => false,
-                }
-            })
-    }
+    // pub fn mineral_without_effect(&self) -> bool {
+    //     self.base.mineral.ticks_to_regeneration().is_none()
+    //         && !self.base.mineral.effects().into_iter().any(|effect: Effect| {
+    //             match effect.effect() {
+    //                 EffectType::PowerEffect(p) => matches!(p, PowerType::RegenMineral),
+    //                 EffectType::NaturalEffect(_) => false,
+    //             }
+    //         })
+    // }
 
-    pub fn source_without_effect(&self) -> Option<&Source> {
-        //todo check remote rooms sources for powers without hardcoded ids
-        self.base.sources.iter().find(|source| {
-            !source.effects().into_iter().any(|effect: Effect| match effect.effect() {
-                EffectType::PowerEffect(p) => {
-                    matches!(p, PowerType::RegenSource if { effect.ticks_remaining() > 30 })
-                }
-                EffectType::NaturalEffect(_) => false,
-            })
-        })
-    }
+    // pub fn source_without_effect(&self) -> Option<&Source> {
+    //     //todo check remote rooms sources for powers without hardcoded ids
+    //     self.base.sources.iter().find(|source| {
+    //         !source.effects().into_iter().any(|effect: Effect| match effect.effect() {
+    //             EffectType::PowerEffect(p) => {
+    //                 matches!(p, PowerType::RegenSource if { effect.ticks_remaining() > 30 })
+    //             }
+    //             EffectType::NaturalEffect(_) => false,
+    //         })
+    //     })
+    // }
 }
 
 fn missed_buildings(
