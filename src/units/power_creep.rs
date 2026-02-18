@@ -1,16 +1,23 @@
 use std::collections::HashMap;
 
-use log::{debug, error};
+use log::error;
 use screeps::action_error_codes::{EnableRoomErrorCode, RenewErrorCode, TransferErrorCode, UsePowerErrorCode, WithdrawErrorCode};
 use screeps::{
-    Creep, HasPosition, Mineral, Position, PowerCreep, PowerInfo, PowerType, ResourceType, RoomName, RoomObject, RoomObjectProperties, SharedCreepProperties, Source, StructureController, StructureFactory, StructurePowerSpawn, StructureRampart, StructureSpawn, StructureStorage, StructureTower, Transferable, Withdrawable, game
+    Creep, HasPosition, Mineral, Position, PowerCreep, PowerInfo, PowerType, ResourceType, RoomName,
+    RoomObject, RoomObjectProperties, SharedCreepProperties, Source, StructureController, StructureFactory,
+    StructurePowerSpawn, StructureRampart, StructureSpawn, StructureStorage, StructureTower, Transferable,
+    Withdrawable, game
 };
 use serde::{Deserialize, Serialize};
 
-use crate::movement::{Movement, MovementGoal, MovementGoalBuilder, MovementProfile, PathState};
+use crate::movement::{Movement, MovementGoal, MovementGoalBuilder, MovementProfile, PathState, walker::get_danger_zones};
 use crate::rooms::shelter::Shelter;
-use crate::units::actions::{common_actions, end_of_chain, fortify, operate_controller, operate_factory, operate_mineral, operate_source, operate_spawn, operate_storage, operate_tower, transfer, withdraw};
-use crate::movement::walker::get_danger_zones;
+use crate::units::{
+    move_to_goal_common,
+    actions::{
+        common_actions, end_of_chain, fortify, operate_controller, operate_factory, operate_mineral,
+        operate_source, operate_spawn, operate_storage, operate_tower, transfer, withdraw
+    }};
 use crate::utils::commons;
 use crate::utils::constants::TOWER_ATTACK_RANGE;
 
@@ -254,52 +261,18 @@ impl PcUnit<'_, '_, '_> {
     }
 
     pub fn move_to_goal(self, mut goal: Option<MovementGoal>, movement: &mut Movement) {
+        let name = self.name();
         let position = self.pos();
-        //creep is not resting and is able to move
-        if let Some(mut movement_goal) = goal.take() {
-            if movement_goal.is_goal_met(position) {
-                // goal is met! unset the path_state if there is one and idle
-                movement.idle(position, self.creep.into());
-                self.memory.path_state = None;
-            } else {
-                let new_path_state = if let Some(mut current_path) = self.memory.path_state.take() {
-                    // first call the function that updates the current position
-                    // (or the stuck count if we didn't move)
-                    if current_path.check_if_moved_and_update_pos(position) {
-                        PathState::try_new(position, movement_goal, movement.get_find_route_options())
-                    } else if current_path.stuck_threshold_exceed() {
-                        debug!("{}, is last step, progress: {}, path.len: {}, stuck.count: {}", self.name(), current_path.path_progress, current_path.path.len(), current_path.stuck_count);
-                        movement_goal.avoid_creeps = true;
-                        PathState::try_new(position, movement_goal, movement.get_find_route_options())
-                    } else if movement_goal.pos != current_path.goal.pos || movement_goal.range < current_path.goal.range {
-                        //if goal pos is changed -> find new path
-                        PathState::try_new(position, movement_goal, movement.get_find_route_options())
-                    } else if movement_goal.repath_needed(&current_path.goal) {
-                        if let Some(new_path) = PathState::try_new(position, movement_goal, movement.get_find_route_options()) {
-                            //todo prefer longest way if enemies nearby? many enemies? boosted?
-                            if new_path.path.len() + 5 < current_path.path.len() {
-                                debug!("{} from: {}, new path + 5: {} shorter then prev: {}, new path: {:?}", self.name(), position, new_path.path.len(), current_path.path.len(), new_path);
-                                Some(new_path)
-                            } else {
-                                Some(current_path)
-                            }
-                        } else {
-                            Some(current_path)
-                        }
-                    } else {
-                        //if nothing is changed -> use current path
-                        Some(current_path)
-                    }
-                } else {
-                    PathState::try_new(position, movement_goal, movement.get_find_route_options())
-                }
-                .and_then(|path_state| movement.move_creep(self.creep.into(), path_state));
+        let unit = self.creep.into();
 
-                self.memory.path_state = new_path_state;
-            }
-        } else {
-            // no goal, mark as idle!
-            movement.idle(position, self.creep.into());
-        }
+        move_to_goal_common(
+            name.as_str(),
+            position,
+            unit,
+            goal.take(),
+            movement,
+            &mut self.memory.path_state,
+            true,
+        );
     }
 }
