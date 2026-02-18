@@ -13,10 +13,10 @@ use crate::rooms::{
         requests::{CarryData, Request, RequestKind, assignment::Assignment, meta::Status},
     },
 };
+use crate::utils::constants::LAB_PRODUCTION;
 
 const MIN_ENERGY_AMOUNT: u32 = 1000;
 const MIN_RESOURCE_AMOUNT: u32 = 2000;
-const LAB_PRODUCTION: u32 = 5;
 
 impl Shelter<'_> {
     pub(crate) fn run_labs(&self) -> Option<RoomEvent> {

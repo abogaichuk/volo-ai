@@ -5,6 +5,7 @@ use std::str::FromStr;
 
 use log::{debug, warn};
 use rand::Rng;
+use rand::distributions::uniform::SampleUniform;
 use regex::Regex;
 use screeps::look::{LookResult, STRUCTURES};
 use screeps::{
@@ -68,9 +69,13 @@ pub fn is_cpu_on_low() -> bool {
     }
 }
 
-pub fn get_random(from: usize, to: usize) -> usize {
-    rand::thread_rng().gen_range(from..to)
+pub fn get_random<T: SampleUniform + PartialOrd>(from: T, to: T) -> T {
+    rand::thread_rng().gen_range(from..=to)
 }
+
+// pub fn get_random(from: usize, to: usize) -> usize {
+//     rand::thread_rng().gen_range(from..to)
+// }
 
 pub fn find_keeper_lairs(room: &Room) -> impl Iterator<Item = StructureKeeperLair> {
     room.find(find::HOSTILE_STRUCTURES, None).into_iter().filter_map(|structure| match structure {

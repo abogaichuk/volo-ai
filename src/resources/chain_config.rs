@@ -1,3 +1,4 @@
+use rand::seq::SliceRandom;
 use screeps::ResourceType;
 
 #[derive(Clone, Copy)]
@@ -10,10 +11,24 @@ pub struct FactoryChainConfig {
 
 impl FactoryChainConfig {
     pub fn random_chain(&self) -> &Chain {
+        let mut choices = Vec::with_capacity(3);
+        choices.push(&self.chain);
+
+        if let Some(ref c) = self.opt1 {
+            choices.push(c);
+        }
+
+        if let Some(ref c) = self.opt2 {
+            choices.push(c);
+        }
+
+        choices
+            .choose(&mut rand::thread_rng())
+            .expect("at least one chain exists!")
         //todo get chain randomly?
         // once(self.chain).chain(self.opt1).chain(self.opt2);
         // &self.chain
-        self.opt2.as_ref().unwrap_or_else(|| self.opt1.as_ref().unwrap_or(&self.chain))
+        // self.opt2.as_ref().unwrap_or_else(|| self.opt1.as_ref().unwrap_or(&self.chain))
     }
 }
 

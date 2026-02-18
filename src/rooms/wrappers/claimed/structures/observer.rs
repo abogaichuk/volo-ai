@@ -1,7 +1,6 @@
 use log::error;
-use rand::Rng;
 
-use crate::rooms::wrappers::claimed::Claimed;
+use crate::{rooms::wrappers::claimed::Claimed, commons};
 
 //e6s20 - e24s20
 //add_to_observe('E6S20')
@@ -10,8 +9,8 @@ use crate::rooms::wrappers::claimed::Claimed;
 impl Claimed {
     pub(crate) fn run_observer(&self) {
         if let Some(observer) = &self.observer {
-            let x = get_random(-5, 5);
-            let y = get_random(-5, 5);
+            let x = commons::get_random(-5, 5);
+            let y = commons::get_random(-5, 5);
 
             if let Some(target) = self.get_name().checked_add((x, y)) {
                 let res = observer.observe_room(target);
@@ -26,8 +25,4 @@ impl Claimed {
             }
         }
     }
-}
-
-fn get_random(from: i32, to: i32) -> i32 {
-    rand::thread_rng().gen_range(from..=to)
 }
