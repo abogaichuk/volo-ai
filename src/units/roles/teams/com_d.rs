@@ -1,14 +1,17 @@
-use std::collections::HashMap;
-use std::fmt;
+use log::debug;
+use std::{fmt, collections::HashMap};
 
 use arrayvec::ArrayVec;
-use screeps::objects::Creep;
-use screeps::{Part, ResourceType, RoomName};
+use screeps::{Part, ResourceType, RoomName, objects::Creep, SharedCreepProperties};
 use serde::{Deserialize, Serialize};
 
 use super::Kind;
 use crate::movement::MovementProfile;
-use crate::units::roles::can_scale;
+use crate::rooms::shelter::Shelter;
+use crate::rooms::state::requests::meta::Status;
+use crate::rooms::state::requests::{Request, RequestKind};
+use crate::units::roles::{Role, can_scale};
+use crate::units::tasks::Task;
 
 #[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ComDismantler {
@@ -81,6 +84,30 @@ impl Kind for ComDismantler {
             HashMap::new()
         }
     }
+
+    fn get_task(&self, creep: &Creep, home: &mut Shelter) -> Task {
+        self.squad_id
+            .as_ref()
+            .and_then(|sid| {
+                get_request(home, sid).and_then(|req| home.take_request(&req)).map(|mut req| {
+                    debug!("{} found pb request {:?}", creep.name(), req);
+                    req.join(Some(creep.name()), Some(sid));
+                    home.add_request(req.clone());
+                    (req, Role::CombatDismantler(self.clone())).into()
+                })
+            })
+            .unwrap_or_default()
+    }
+}
+
+
+fn get_request(home: &Shelter, squad_id: &str) -> Option<Request> {
+    home.requests()
+        .find(|r| {
+            matches!(&r.kind, RequestKind::Powerbank(_) if
+            matches!(*r.status(), Status::InProgress | Status::Carry) && r.assigned_to(squad_id))
+        })
+        .cloned()
 }
 
 // fn get_request(requests: &mut HashSet<RoomRequest>, squad_id: &String) ->
