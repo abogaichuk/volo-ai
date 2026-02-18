@@ -49,7 +49,7 @@ impl Kind for Scout {
             .or_else(|| {
                 let values: Vec<RoomName> =
                     game::map::describe_exits(creep.pos().room_name()).values().collect();
-                let index = get_random(0, values.len());
+                let index = get_random(0, values.len()-1);
 
                 values
                     .get(index)

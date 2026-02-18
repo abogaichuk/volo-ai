@@ -1,8 +1,10 @@
 use std::collections::HashSet;
 
+use log::info;
 use screeps::look::STRUCTURES;
 use screeps::{
-    Creep, HasHits, HasPosition, Part, Position, RoomName, RoomXY, StructureObject, game,
+    Creep, HasHits, HasPosition, Part, Position, RoomName, RoomXY, SharedCreepProperties,
+    StructureObject, game,
 };
 
 use super::{MovementGoal, MovementGoalBuilder, MovementProfile};
@@ -46,8 +48,6 @@ impl Walker {
                     .build()
             }
             Self::Aggressive => {
-                try_heal(creep);
-
                 if let Some(hostile) = closest_creep(creep, enemies.iter()) {
                     if has_part(&[Part::Attack], creep, true)
                         && creep.pos().is_near_to(hostile.pos())
@@ -56,8 +56,9 @@ impl Walker {
                         let _ = creep.say("🖕", true); //finger
                     } else if in_range_to(creep, enemies.iter(), LONG_RANGE_ACTION) > 2 {
                         let _ = creep.ranged_mass_attack();
-                        let _ = creep.say("🖕", true); //finger
+                        try_heal(creep);
                     } else {
+                        try_heal(creep);
                         let _ = creep.ranged_attack(hostile);
                     }
                 }
@@ -123,7 +124,7 @@ impl Walker {
     }
 }
 
-fn get_danger_zones(room_name: RoomName, enemies: &[Creep]) -> Option<(RoomName, Vec<RoomXY>)> {
+pub fn get_danger_zones(room_name: RoomName, enemies: &[Creep]) -> Option<(RoomName, Vec<RoomXY>)> {
     let mut cells_under_attack: Vec<RoomXY> = enemies
         .iter()
         .filter_map(|enemy| {

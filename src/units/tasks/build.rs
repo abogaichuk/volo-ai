@@ -40,6 +40,6 @@ pub fn build(
         }
     } else {
         warn!("{} no cs at pos:{} found in a room {}", creep.name(), pos, creep.pos().room_name());
-        TaskResult::ResolveRequest(Task::Build(id, pos), false)
+        TaskResult::ResolveRequest(Task::Build(id, pos))
     }
 }

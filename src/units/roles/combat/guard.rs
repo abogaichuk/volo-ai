@@ -36,22 +36,35 @@ impl Kind for Guard {
     }
 
     fn body(&self, room_energy: u32) -> ArrayVec<[Part; 50]> {
-        let scale_parts = [Part::Attack, Part::Move, Part::Move, Part::Heal];
+        // let scale_parts = [Part::Attack, Part::Move, Part::Move, Part::Heal];
 
-        let mut body = [
-            Part::Attack,
+        // let mut body = [
+        //     Part::Attack,
+        //     Part::Move,
+        //     Part::Attack,
+        //     Part::Move,
+        //     Part::Attack,
+        //     Part::Move,
+        //     Part::Attack,
+        //     Part::Move,
+        //     Part::Attack,
+        //     Part::Move,
+        // ]
+        // .into_iter()
+        // .collect::<ArrayVec<[Part; 50]>>();
+        let scale_parts = [
+            Part::Move,
+            Part::Move,
+            Part::Move,
+            Part::Move,
             Part::Move,
             Part::Attack,
-            Part::Move,
             Part::Attack,
-            Part::Move,
             Part::Attack,
-            Part::Move,
             Part::Attack,
-            Part::Move,
-        ]
-        .into_iter()
-        .collect::<ArrayVec<[Part; 50]>>();
+            Part::Heal,
+        ];
+        let mut body = scale_parts.into_iter().collect::<ArrayVec<[Part; 50]>>();
         while can_scale(body.clone(), scale_parts.to_vec(), room_energy, 50) {
             body.extend(scale_parts.iter().copied());
         }

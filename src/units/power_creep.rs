@@ -1,15 +1,19 @@
 use std::collections::HashMap;
 
-use log::{debug, error, warn};
+use log::{debug, error};
+use screeps::action_error_codes::{EnableRoomErrorCode, RenewErrorCode, TransferErrorCode, UsePowerErrorCode, WithdrawErrorCode};
 use screeps::{
-    Effect, EffectType, HasPosition, Position, PowerCreep, PowerInfo, PowerType, ResourceType,
-    RoomName, RoomObjectProperties, RoomXY, SharedCreepProperties, StructureController, game,
+    Creep, HasPosition, Mineral, Position, PowerCreep, PowerInfo, PowerType, ResourceType, RoomName, RoomObject, RoomObjectProperties, SharedCreepProperties, Source, StructureController, StructureFactory, StructurePowerSpawn, StructureRampart, StructureSpawn, StructureStorage, StructureTower, Transferable, Withdrawable, game
 };
 use serde::{Deserialize, Serialize};
 
 use crate::movement::{Movement, MovementGoal, MovementGoalBuilder, MovementProfile, PathState};
 use crate::rooms::shelter::Shelter;
-use crate::utils::constants::{CLOSE_RANGE_ACTION, LONG_RANGE_ACTION};
+use crate::units::actions::{common_actions, end_of_chain, fortify, operate_controller, operate_factory, operate_mineral, operate_source, operate_spawn, operate_storage, operate_tower, transfer, withdraw};
+use crate::movement::walker::get_danger_zones;
+use crate::utils::commons;
+use crate::utils::constants::TOWER_ATTACK_RANGE;
+
 
 pub fn run_power_creeps(
     states: &mut HashMap<String, PowerCreepMemory>,
@@ -86,282 +90,163 @@ pub struct PcUnit<'m, 'h, 's> {
 }
 
 impl PcUnit<'_, '_, '_> {
-    fn name(&self) -> String {
+    pub fn name(&self) -> String {
         self.creep.name()
     }
 
-    fn pos(&self) -> Position {
+    pub fn pos(&self) -> Position {
         self.creep.pos()
     }
 
+    pub fn ticks_to_live(&self) -> Option<u32> {
+        self.creep.ticks_to_live()
+    }
+
+    pub fn used_capacity(&self, res: Option<ResourceType>) -> u32 {
+        self.creep.store().get_used_capacity(res)
+    }
+
+    pub fn capacity(&self) -> u32 {
+        self.creep.store().get_capacity(None)
+    }
+
+    pub fn is_power_enabled(&self, power: PowerType) -> bool {
+        self.home.is_power_enabled(power)
+    }
+
+    pub fn home_name(&self) -> RoomName {
+        self.home.name()
+    }
+
+    pub fn home_mineral(&self) -> &Mineral {
+        self.home.mineral()
+    }
+
+    pub fn home_sources(&self) -> &[Source] {
+        self.home.sources()
+    }
+
+    pub fn home_storage(&self) -> Option<&StructureStorage> {
+        self.home.storage()
+    }
+
+    pub fn home_factory(&self) -> Option<&StructureFactory> {
+        self.home.factory()
+    }
+
+    pub fn home_power_spawn(&self) -> Option<&StructurePowerSpawn> {
+        self.home.power_spawn()
+    }
+
+    pub fn home_controller(&self) -> &StructureController {
+        self.home.controller()
+    }
+
+    pub fn home_spawns(&self) -> &[StructureSpawn] {
+        self.home.spawns()
+    }
+
+    pub fn home_towers(&self) -> &[StructureTower] {
+        self.home.towers()
+    }
+
+    pub fn is_home_invaded(&self) -> bool {
+        self.home.invasion()
+    }
+
+    pub fn get_hostiles_at_home(&self) -> &[Creep] {
+        self.home.get_hostiles(None)
+    }
+
+    pub fn home_lowest_perimeter(&self) -> Option<&StructureRampart> {
+        self.home.lowest_perimetr_hits()
+    }
+
+    pub fn withdraw<T>(
+        &self,
+        target: &T,
+        ty: ResourceType,
+        amount: Option<u32>,) -> Result<(), WithdrawErrorCode>
+    where
+        T: Withdrawable + ?Sized
+    {
+        self.creep.withdraw(target, ty, amount)
+    }
+
+    pub fn transfer<T>(
+        &self,
+        target: &T,
+        ty: ResourceType,
+        amount: Option<u32>,
+    ) -> Result<(), TransferErrorCode>
+    where
+        T: Transferable + ?Sized,
+    {
+        self.creep.transfer(target, ty, amount)
+    }
+
+    pub fn use_power(
+        &self,
+        power: PowerType,
+        target: Option<&RoomObject>,
+    ) -> Result<(), UsePowerErrorCode> {
+        self.creep.use_power(power, target)
+    }
+
+    pub fn enable_room(&self, target: &StructureController) -> Result<(), EnableRoomErrorCode> {
+        self.creep.enable_room(target)
+    }
+
+    pub fn renew(&self, target: &RoomObject) -> Result<(), RenewErrorCode> {
+        self.creep.renew(target)
+    }
+
     pub fn run_unit(&mut self) -> Option<MovementGoal> {
-        if !self.home.controller().is_power_enabled() {
-            return enable_controller(&self.creep, self.home.controller());
-        }
 
-        if self.creep.ticks_to_live().is_some_and(|ticks| ticks < 100) {
-            return self.renew();
-        }
+        let hostiles = self.get_hostiles_at_home();
 
-        if self.is_power_available(PowerType::GenerateOps) {
-            let _ = self.creep.use_power(PowerType::GenerateOps, None);
-            return None;
-        }
-
-        if self.home.invasion() {
-            if self.creep.store().get_used_capacity(Some(ResourceType::Ops)) < 10 {
-                if let Some(storage) = self.home.storage()
-                    && storage.store().get_used_capacity(Some(ResourceType::Ops)) >= 10
-                {
-                    if self.creep.pos().is_near_to(storage.pos()) {
-                        let _ = self.creep.withdraw(storage, ResourceType::Ops, None);
-                        None
-                    } else {
-                        Some(build_goal(storage.pos(), CLOSE_RANGE_ACTION, None))
-                    }
-                } else {
-                    warn!("room: {} resource ops not enough!!", self.home.name());
-                    None
-                }
-            } else if self.is_power_available(PowerType::OperateTower) {
-                if let Some(tower) = self.home.tower_without_effect() {
-                    if self.creep.pos().in_range_to(tower.pos(), LONG_RANGE_ACTION) {
-                        let _ = self.creep.use_power(PowerType::OperateTower, Some(tower));
-                        None
-                    } else {
-                        Some(build_goal(tower.pos(), LONG_RANGE_ACTION, None))
-                    }
-                } else {
-                    None
-                }
-                //todo deside use fortify or operate towers firstly?
-            } else if self.is_power_available(PowerType::Fortify) {
-                //todo take from room history
-                if let Some(rampart) = self.home.lowest_perimetr_hits() {
-                    if self.creep.pos().in_range_to(rampart.pos(), LONG_RANGE_ACTION) {
-                        //todo moving safe for powercreep
-                        let _ = self.creep.use_power(PowerType::Fortify, Some(rampart));
-                        None
-                    } else {
-                        Some(build_goal(rampart.pos(), LONG_RANGE_ACTION, None))
-                    }
-                } else {
-                    None
-                }
-            } else {
-                None
-            }
-        } else if let (Some(source), Some(_)) =
-            (self.home.source_without_effect(), self.get_power(PowerType::RegenSource))
+        let actions = if self.is_home_invaded() {
+            common_actions(withdraw(10, operate_tower(fortify(end_of_chain()))))
+        } else if hostiles.iter()
+            .find(|hostile| commons::remoted_from_edge(hostile.pos(), TOWER_ATTACK_RANGE)).is_some()
         {
-            if self.creep.pos().in_range_to(source.pos(), LONG_RANGE_ACTION) {
-                let res = self.creep.use_power(PowerType::RegenSource, Some(source));
-                match res {
-                    Ok(()) => {}
-                    Err(err) => {
-                        error!("use power error: {:?}", err);
-                    }
-                }
-                None
-            } else {
-                Some(build_goal(source.pos(), LONG_RANGE_ACTION, None))
-            }
-        } else if let (Some(storage), Some(_)) =
-            (self.home.full_storage_without_effect(), self.get_power(PowerType::OperateStorage))
-        {
-            if self.creep.store().get_used_capacity(Some(ResourceType::Ops)) < 100 {
-                if let Some(storage) = self.home.storage()
-                    && storage.store().get_used_capacity(Some(ResourceType::Ops)) >= 100
-                {
-                    if self.creep.pos().is_near_to(storage.pos()) {
-                        let _ = self.creep.withdraw(storage, ResourceType::Ops, None);
-                        None
-                    } else {
-                        Some(build_goal(storage.pos(), CLOSE_RANGE_ACTION, None))
-                    }
-                } else {
-                    warn!("room: {} resource ops not enough!!", self.home.name());
-                    None
-                }
-            } else {
-                debug!("creep full: {}", self.creep.name());
-                if self.creep.pos().get_range_to(storage.pos()) <= LONG_RANGE_ACTION {
-                    let res = self.creep.use_power(PowerType::OperateStorage, Some(storage));
-                    debug!("creep {} operate storage res: {:?}", self.name(), res);
-                    match res {
-                        Ok(()) => {}
-                        Err(err) => {
-                            error!("use power error: {:?}", err);
-                        }
-                    }
-                    None
-                } else {
-                    Some(build_goal(storage.pos(), LONG_RANGE_ACTION, None))
-                }
-            }
-        } else if self.home.mineral_without_effect()
-            && self.get_power(PowerType::RegenMineral).is_some()
-        {
-            if self.creep.pos().in_range_to(self.home.mineral().pos(), 3) {
-                let res = self.creep.use_power(PowerType::RegenMineral, Some(self.home.mineral()));
-                match res {
-                    Ok(()) => {}
-                    Err(err) => {
-                        error!("use power error: {:?}", err);
-                    }
-                }
-                None
-            } else {
-                Some(build_goal(self.home.mineral().pos(), LONG_RANGE_ACTION, None))
-            }
-        } else if let (Some(spawn), Some(_)) =
-            (self.home.spawn_without_effect(), self.get_power(PowerType::OperateSpawn))
-            && self.home.is_power_enabled(PowerType::OperateSpawn)
-        {
-            if self.creep.store().get_used_capacity(Some(ResourceType::Ops)) < 100 {
-                if let Some(storage) = self.home.storage()
-                    && storage.store().get_used_capacity(Some(ResourceType::Ops)) >= 100
-                {
-                    if self.creep.pos().is_near_to(storage.pos()) {
-                        let _ = self.creep.withdraw(storage, ResourceType::Ops, None);
-                        None
-                    } else {
-                        Some(build_goal(storage.pos(), CLOSE_RANGE_ACTION, None))
-                    }
-                } else {
-                    warn!("room: {} resource ops not enough!!", self.home.name());
-                    None
-                }
-            } else {
-                debug!("creep full: {}", self.creep.name());
-                if self.creep.pos().get_range_to(spawn.pos()) <= LONG_RANGE_ACTION {
-                    let res = self.creep.use_power(PowerType::OperateSpawn, Some(spawn));
-                    debug!("creep {} operate spawn res: {:?}", self.creep.name(), res);
-                    match res {
-                        Ok(()) => {}
-                        Err(err) => {
-                            error!("use power error: {:?}", err);
-                        }
-                    }
-                    None
-                } else {
-                    Some(build_goal(spawn.pos(), LONG_RANGE_ACTION, None))
-                }
-            }
-        } else if let (Some(factory), Some(_), true) = (
-            self.home.factory_without_effect(),
-            self.get_power(PowerType::OperateFactory),
-            self.home.is_power_enabled(PowerType::OperateFactory),
-        ) {
-            if self.creep.store().get_used_capacity(Some(ResourceType::Ops)) < 100 {
-                if let Some(storage) = self.home.storage()
-                    && storage.store().get_used_capacity(Some(ResourceType::Ops)) >= 100
-                {
-                    if self.creep.pos().is_near_to(storage.pos()) {
-                        let _ = self.creep.withdraw(storage, ResourceType::Ops, None);
-                        None
-                    } else {
-                        Some(build_goal(storage.pos(), CLOSE_RANGE_ACTION, None))
-                    }
-                } else {
-                    warn!("room: {} resource ops not enough!!", self.home.name());
-                    None
-                }
-            } else {
-                debug!("creep full: {}", self.creep.name());
-                if self.creep.pos().get_range_to(factory.pos()) <= LONG_RANGE_ACTION {
-                    let res = self.creep.use_power(PowerType::OperateFactory, Some(factory));
-                    debug!("creep {} operate storage res: {:?}", self.creep.name(), res);
-                    match res {
-                        Ok(()) => {}
-                        Err(err) => {
-                            error!("use power error: {:?}", err);
-                        }
-                    }
-                    None
-                } else {
-                    Some(build_goal(factory.pos(), LONG_RANGE_ACTION, None))
-                }
-            }
-        } else if self.creep.store().get_used_capacity(Some(ResourceType::Ops))
-            > self.creep.store().get_capacity(Some(ResourceType::Ops)) / 2
-        {
-            if let Some(storage) = self.home.storage()
-                && storage.store().get_free_capacity(None) > 5000
-            {
-                if self.creep.pos().is_near_to(storage.pos()) {
-                    let _ = self.creep.transfer(storage, ResourceType::Ops, None);
-                    None
-                } else {
-                    Some(build_goal(storage.pos(), CLOSE_RANGE_ACTION, None))
-                }
-            } else {
-                warn!("room: {}, storage is full!!", self.home.name());
-                None
-            }
-        } else if controller_without_effect(self.home.controller())
-            && self.get_power(PowerType::OperateController).is_some()
-            && self.home.is_power_enabled(PowerType::OperateController)
-        {
-            if self.creep.store().get_used_capacity(Some(ResourceType::Ops)) < 200 {
-                if let Some(storage) = self.home.storage()
-                    && storage.store().get_used_capacity(Some(ResourceType::Ops)) >= 200
-                {
-                    if self.creep.pos().is_near_to(storage.pos()) {
-                        let _ = self.creep.withdraw(storage, ResourceType::Ops, None);
-                        None
-                    } else {
-                        Some(build_goal(storage.pos(), CLOSE_RANGE_ACTION, None))
-                    }
-                } else {
-                    warn!("room: {} resource ops not enough!!", self.home.name());
-                    None
-                }
-            } else {
-                debug!("creep full: {}", self.creep.name());
-                if self.creep.pos().get_range_to(self.home.controller().pos()) <= LONG_RANGE_ACTION
-                {
-                    let res = self
-                        .creep
-                        .use_power(PowerType::OperateController, Some(self.home.controller()));
-                    debug!("creep {} operate controller res: {:?}", self.creep.name(), res);
-                    match res {
-                        Ok(()) => {}
-                        Err(err) => {
-                            error!("use power error: {:?}", err);
-                        }
-                    }
-                    None
-                } else {
-                    Some(build_goal(self.home.controller().pos(), LONG_RANGE_ACTION, None))
-                }
-            }
+            common_actions(
+                withdraw(
+                    100,
+                    operate_storage(
+                        operate_tower(
+                            operate_source(
+                                operate_mineral(end_of_chain()))))))
         } else {
-            None
-            // go_to_workplace(creep, home);
-        }
-        // None
+            common_actions(operate_source(
+                withdraw(
+                    200, 
+                    operate_storage(
+                        operate_mineral(
+                            operate_spawn(
+                                operate_factory(
+                                    operate_controller(
+                                        transfer(end_of_chain())))))))))
+        };
+
+        actions(self)
+            .map(|(target, range)| {
+                let danger_zones = get_danger_zones(target.room_name(), hostiles);
+                MovementGoalBuilder::new(target)
+                    .range(range)
+                    .profile(MovementProfile::SwampFiveToOne)
+                    .avoid_creeps(false)
+                    .danger_zones(danger_zones)
+                    .build()
+            })
+
     }
 
-    fn renew(&self) -> Option<MovementGoal> {
-        if let Some(power_spawn) = self.home.power_spawn() {
-            if self.creep.pos().is_near_to(power_spawn.pos()) {
-                let _ = self.creep.renew(power_spawn);
-                None
-            } else {
-                Some(build_goal(power_spawn.pos(), CLOSE_RANGE_ACTION, None))
-            }
-        } else {
-            warn!("power_creep: {} no powerspawn found for renew!!", self.creep.name());
-            None
-        }
-    }
-
-    fn is_power_available(&self, power_type: PowerType) -> bool {
+    pub fn is_power_available(&self, power_type: PowerType) -> bool {
         self.creep.powers().get(power_type).is_some_and(|power| power.cooldown() == 0)
     }
 
-    fn get_power(&self, power_type: PowerType) -> Option<PowerInfo> {
+    pub fn get_power(&self, power_type: PowerType) -> Option<PowerInfo> {
         self.creep
             .powers()
             .get(power_type)
@@ -417,33 +302,4 @@ impl PcUnit<'_, '_, '_> {
             movement.idle(position, self.creep.into());
         }
     }
-}
-
-fn controller_without_effect(controller: &StructureController) -> bool {
-    !controller.effects().into_iter().any(|effect: Effect| match effect.effect() {
-        EffectType::PowerEffect(p) => matches!(p, PowerType::OperateController),
-        EffectType::NaturalEffect(_) => false,
-    })
-}
-
-fn enable_controller(creep: &PowerCreep, controller: &StructureController) -> Option<MovementGoal> {
-    if creep.pos().is_near_to(controller.pos()) {
-        let _ = creep.enable_room(controller);
-        None
-    } else {
-        Some(build_goal(controller.pos(), CLOSE_RANGE_ACTION, None))
-    }
-}
-
-fn build_goal(
-    pos: Position,
-    range: u32,
-    danger_zones: Option<(RoomName, Vec<RoomXY>)>,
-) -> MovementGoal {
-    MovementGoalBuilder::new(pos)
-        .range(range)
-        .profile(MovementProfile::SwampFiveToOne)
-        .avoid_creeps(false)
-        .danger_zones(danger_zones)
-        .build()
 }

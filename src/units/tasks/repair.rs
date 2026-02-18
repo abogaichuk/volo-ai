@@ -50,7 +50,7 @@ pub fn repair(
                         if times > 1 {
                             TaskResult::StillWorking(Task::Repair(id, pos, times - 1), None)
                         } else {
-                            TaskResult::ResolveRequest(Task::Repair(id, pos, times - 1), false)
+                            TaskResult::ResolveRequest(Task::Repair(id, pos, times - 1))
                         }
                     }
                     Err(err) => match err {
@@ -63,13 +63,13 @@ pub fn repair(
                                 id,
                                 err
                             );
-                            TaskResult::ResolveRequest(Task::Repair(id, pos, times), false)
+                            TaskResult::ResolveRequest(Task::Repair(id, pos, times))
                         }
                     },
                 }
             } else {
                 warn!("{} not repairable structure: {}", creep.name(), id);
-                TaskResult::ResolveRequest(Task::Repair(id, pos, times), false)
+                TaskResult::ResolveRequest(Task::Repair(id, pos, times))
             }
         } else {
             let goal = Walker::Reinforcing.walk(pos, LONG_RANGE_ACTION, creep, role, attackers);
@@ -77,6 +77,6 @@ pub fn repair(
         }
     } else {
         warn!("{} repair error, no structure found! {}", creep.name(), id);
-        TaskResult::ResolveRequest(Task::Repair(id, pos, times), false)
+        TaskResult::ResolveRequest(Task::Repair(id, pos, times))
     }
 }

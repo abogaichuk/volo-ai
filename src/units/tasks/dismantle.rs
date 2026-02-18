@@ -25,11 +25,11 @@ pub fn dismantle(
                     creep.name(),
                     id
                 );
-                TaskResult::ResolveRequest(Task::Dismantle(id, workplace), false)
+                TaskResult::ResolveRequest(Task::Dismantle(id, workplace))
             }
         } else {
             error!("{} not found structure: {}, resolve dismantle request!", creep.name(), id);
-            TaskResult::ResolveRequest(Task::Dismantle(id, workplace), false)
+            TaskResult::ResolveRequest(Task::Dismantle(id, workplace))
         }
     } else {
         let another_task = Task::PullTo(creep.name(), workplace);

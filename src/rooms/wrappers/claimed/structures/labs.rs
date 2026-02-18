@@ -13,10 +13,10 @@ use crate::rooms::{
         requests::{CarryData, Request, RequestKind, assignment::Assignment, meta::Status},
     },
 };
+use crate::utils::constants::LAB_PRODUCTION;
 
 const MIN_ENERGY_AMOUNT: u32 = 1000;
 const MIN_RESOURCE_AMOUNT: u32 = 2000;
-const LAB_PRODUCTION: u32 = 5;
 
 impl Shelter<'_> {
     pub(crate) fn run_labs(&self) -> Option<RoomEvent> {
@@ -141,11 +141,19 @@ impl Shelter<'_> {
 
         self.requests()
             .find(|r| match &r.kind {
-                RequestKind::Lab(d) => d.resource.reaction_components().is_some_and(|components| {
-                    components.iter().all(|component| {
-                        storage.store().get_used_capacity(Some(*component)) >= LAB_PRODUCTION
-                    })
-                }),
+                RequestKind::Lab(d) => {
+                    if d.reverse && storage.store().get_used_capacity(Some(d.resource)) >= d.amount
+                    {
+                        true
+                    } else {
+                        d.resource.reaction_components().is_some_and(|components| {
+                            components.iter().all(|component| {
+                                storage.store().get_used_capacity(Some(*component))
+                                    >= LAB_PRODUCTION
+                            })
+                        })
+                    }
+                }
                 _ => false,
             })
             .cloned()

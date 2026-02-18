@@ -72,7 +72,11 @@ impl Kind for Overseer {
     }
 
     fn respawn_timeout(&self, creep: Option<&Creep>) -> Option<usize> {
-        creep.map(|c| c.body().len() * 3 + 100).or(Some(0))
+        if self.workroom.is_some() {
+            creep.map(|c| c.body().len() * 3 + 100).or(Some(0))
+        } else {
+            None
+        }
     }
 
     fn get_task(&self, creep: &Creep, home: &mut Shelter) -> Task {

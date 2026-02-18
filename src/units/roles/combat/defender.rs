@@ -36,8 +36,17 @@ impl Kind for Defender {
     fn body(&self, room_energy: u32) -> ArrayVec<[Part; 50]> {
         let scale_parts = [Part::RangedAttack, Part::Heal, Part::Move, Part::Move];
 
-        let mut body =
-            [Part::RangedAttack, Part::Move].into_iter().collect::<ArrayVec<[Part; 50]>>();
+        //todo better scaling
+        let mut body = match room_energy {
+            ..=300 => [Part::RangedAttack, Part::Move].into_iter().collect::<ArrayVec<[Part; 50]>>(),
+            301..=600 => [Part::RangedAttack, Part::Move, Part::RangedAttack, Part::Move]
+                .into_iter().collect::<ArrayVec<[Part; 50]>>(),
+            _ => [Part::RangedAttack, Part::Move, Part::RangedAttack, Part::Move,
+                Part::RangedAttack, Part::Move, Part::RangedAttack, Part::Move,
+                Part::RangedAttack, Part::Move].into_iter().collect::<ArrayVec<[Part; 50]>>()
+        };
+        // let mut body =
+        //     [Part::RangedAttack, Part::Move].into_iter().collect::<ArrayVec<[Part; 50]>>();
 
         while can_scale(body.clone(), scale_parts.to_vec(), room_energy, 50) {
             body.extend(scale_parts.iter().copied());
@@ -57,10 +66,16 @@ impl Kind for Defender {
 
     fn boosts(&self, creep: &Creep) -> HashMap<Part, [ResourceType; 2]> {
         if self.boost && creep.ticks_to_live().is_some_and(|tick| tick > 1350) {
-            [(
-                Part::RangedAttack,
-                [ResourceType::CatalyzedKeaniumAlkalide, ResourceType::KeaniumAlkalide],
-            )]
+            [
+                (
+                    Part::RangedAttack,
+                    [ResourceType::CatalyzedKeaniumAlkalide, ResourceType::KeaniumAlkalide],
+                ),
+                (
+                    Part::Heal,
+                    [ResourceType::CatalyzedLemergiumAlkalide, ResourceType::LemergiumAlkalide],
+                )
+            ]
             .into()
         } else {
             HashMap::new()
@@ -82,7 +97,7 @@ impl Kind for Defender {
                     })
                 })
             })
-            .unwrap_or_else(|| Task::Defend(creep.pos().room_name(), false))
+            .unwrap_or_else(|| Task::HealAll)
     }
 }
 

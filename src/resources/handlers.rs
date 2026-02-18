@@ -3,10 +3,11 @@ use std::cmp::max;
 use screeps::{ResourceType, game};
 
 use crate::resources::chain_config::factory_chain_config;
-use crate::resources::{MIN_LAB_PRODUCTION, Resources, RoomContext};
+use crate::resources::{Resources, RoomContext};
 use crate::rooms::RoomEvent;
 use crate::rooms::state::requests::assignment::Assignment;
 use crate::rooms::state::requests::{CarryData, FactoryData, LabData, Request, RequestKind};
+use crate::utils::constants::LAB_PRODUCTION;
 
 pub type ResourceRoomHandlerFn =
     fn(ResourceType, u32, &Resources, &RoomContext) -> Option<RoomEvent>;
@@ -19,7 +20,7 @@ pub fn get_handler_for(res: ResourceType) -> ResourceRoomHandlerFn {
         Battery => battery_handler,
         Power => power_handler,
         Ops => ops_handler,
-        GhodiumMelt => ghodium_melt_handler,
+        Ghodium => ghodium_handler,
         Composite => composite_handler,
 
         Oxygen
@@ -33,7 +34,6 @@ pub fn get_handler_for(res: ResourceType) -> ResourceRoomHandlerFn {
         Hydroxide
         | ZynthiumKeanite
         | UtriumLemergite
-        | Ghodium
         | UtriumHydride
         | UtriumOxide
         | KeaniumHydride
@@ -73,7 +73,8 @@ pub fn get_handler_for(res: ResourceType) -> ResourceRoomHandlerFn {
         | KeaniumBar
         | ZynthiumBar
         | Reductant
-        | Oxidant => compressed_commodities_handler,
+        | Oxidant
+        | GhodiumMelt => compressed_commodities_handler,
 
         Metal
         | Alloy
@@ -153,12 +154,14 @@ fn reaction_first_tier(
 ) -> Option<RoomEvent> {
     if amount < 5_000 {
         Some(RoomEvent::Request(Request::new(
-            RequestKind::Lab(LabData::new(res, max(MIN_LAB_PRODUCTION, 5_000 - amount))),
+            RequestKind::Lab(LabData::new(res, max(LAB_PRODUCTION, 5_000 - amount), false)),
             Assignment::None,
         )))
     } else if amount > 20_000 {
-        //todo lab.reverseReaction(lab1, lab2)
-        None
+        Some(RoomEvent::Request(Request::new(
+            RequestKind::Lab(LabData::new(res, 5000, true)),
+            Assignment::None,
+        )))
     } else {
         None
     }
@@ -172,7 +175,7 @@ fn reaction_second_tier(
 ) -> Option<RoomEvent> {
     (amount < 3_000).then(|| {
         RoomEvent::Request(Request::new(
-            RequestKind::Lab(LabData::new(res, max(MIN_LAB_PRODUCTION, 3_000 - amount))),
+            RequestKind::Lab(LabData::new(res, max(LAB_PRODUCTION, 3_000 - amount), false)),
             Assignment::None,
         ))
     })
@@ -190,13 +193,13 @@ fn reaction_third_tier(
             Some(RoomEvent::Lack(res, 3_000))
         } else {
             Some(RoomEvent::Request(Request::new(
-                RequestKind::Lab(LabData::new(res, max(MIN_LAB_PRODUCTION, 3_000 - amount))),
+                RequestKind::Lab(LabData::new(res, max(LAB_PRODUCTION, 3_000 - amount), false)),
                 Assignment::None,
             )))
         }
     } else if amount < 10_000 {
         Some(RoomEvent::Request(Request::new(
-            RequestKind::Lab(LabData::new(res, max(MIN_LAB_PRODUCTION, 10_000 - amount))),
+            RequestKind::Lab(LabData::new(res, max(LAB_PRODUCTION, 10_000 - amount), false)),
             Assignment::None,
         )))
     } else {
@@ -265,15 +268,32 @@ fn power_handler(
     (amount < 10_000).then(|| RoomEvent::Lack(ResourceType::Power, 10_000))
 }
 
-fn ghodium_melt_handler(
-    _res: ResourceType,
-    ghodium_melt: u32,
-    _resources: &Resources,
+fn ghodium_handler(
+    res: ResourceType,
+    amount: u32,
+    resources: &Resources,
     _ctx: &RoomContext,
 ) -> Option<RoomEvent> {
-    if ghodium_melt < 600 {
+    let ghodium_melt = resources.amount(ResourceType::GhodiumMelt);
+
+    if amount > 10_000 && ghodium_melt > 3_000 {
         Some(RoomEvent::Request(Request::new(
-            RequestKind::Factory(FactoryData::new(ResourceType::GhodiumMelt, 300)),
+            RequestKind::Lab(LabData::new(res, 3_000, true)),
+            Assignment::None,
+        )))
+    } else if amount > 10_000 {
+        Some(RoomEvent::Request(Request::new(
+            RequestKind::Factory(FactoryData::new(ResourceType::GhodiumMelt, 1_000)),
+            Assignment::None,
+        )))
+    } else if amount < 5_000 && ghodium_melt > 3_000 {
+        Some(RoomEvent::Request(Request::new(
+            RequestKind::Factory(FactoryData::new(res, 2_500)),
+            Assignment::None,
+        )))
+    } else if amount < 5_000 {
+        Some(RoomEvent::Request(Request::new(
+            RequestKind::Lab(LabData::new(res, max(LAB_PRODUCTION, 5_000 - amount), false)),
             Assignment::None,
         )))
     } else {
@@ -289,7 +309,8 @@ fn compressed_commodities_handler(
 ) -> Option<RoomEvent> {
     // compressed resources are created by mineral handlers except ghodim_melt
     // handler for other rooms this handler throws Lack event
-    (amount < 600).then(|| RoomEvent::Lack(res, 600))
+    // todo in case of colony lack - implement trade feature
+    (amount < 1_000).then(|| RoomEvent::Lack(res, 1_000))
 }
 
 fn composite_handler(

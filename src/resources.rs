@@ -11,8 +11,6 @@ use crate::rooms::RoomEvent;
 pub mod chain_config;
 mod handlers;
 
-const MIN_LAB_PRODUCTION: u32 = 5;
-
 //todo statistics and colony_events resource handlers
 pub struct RoomContext {
     pub rcl: u8,

@@ -7,25 +7,22 @@ use itertools::Itertools;
 use log::{debug, error, info, warn};
 use screeps::{
     Creep, Effect, EffectType, HasId, HasPosition, HasStore, Mineral, ObjectId, OrderType, Part,
-    Position, PowerType, RawObjectId, ResourceType, Room, RoomName, RoomObjectProperties, RoomXY,
-    Source, StructureController, StructureFactory, StructureLab, StructureLink,
-    StructurePowerSpawn, StructureRampart, StructureSpawn, StructureStorage, StructureTerminal,
-    StructureTower, StructureType,
+    Position, PowerType, RawObjectId, ResourceType, Room, RoomName, RoomObjectProperties,
+    RoomPosition, RoomXY, Source, StructureController, StructureFactory, StructureLab,
+    StructureLink, StructurePowerSpawn, StructureRampart, StructureSpawn, StructureStorage,
+    StructureTerminal, StructureTower, StructureType,
     game::{self, market::Order},
 };
 
 use crate::{
     colony::ColonyEvent,
     resources::RoomContext,
-    rooms::{
-        missed_buildings,
-        state::{BoostReason, FarmInfo, constructions::RoomPlan, requests::FarmData},
-    },
+    rooms::state::{BoostReason, FarmInfo, constructions::RoomPlan, requests::FarmData},
     units::roles::{
         combat::overseer::Overseer, haulers::hauler::Hauler, miners::sk_miner::SKMiner,
         services::house_keeper::HouseKeeper,
     },
-    utils::commons::is_cpu_on_low,
+    utils::commons::{is_cpu_on_low, look_for},
 };
 use crate::{commons::find_roles, units::roles::services::upgrader::Upgrader};
 use crate::{rooms::is_extractor, statistics::RoomStats, utils::commons::find_container_near_by};
@@ -101,7 +98,7 @@ impl<'s> Shelter<'s> {
                 .chain(self.base.security_check(self.state, creeps))
                 .chain(self.base.run_spawns(self.state))
                 .chain(self.time_based_events(creeps))
-                .chain(self.farms.iter().flat_map(super::wrappers::farm::Farm::run_farm)),
+                .chain(self.farms.iter().flat_map(|farm| farm.run_farm(self.name()))),
         );
 
         let mut colony_events = Vec::new();
@@ -631,6 +628,14 @@ impl<'s> Shelter<'s> {
         self.base.terminal()
     }
 
+    pub fn spawns(&self) -> &[StructureSpawn] {
+        &self.base.spawns
+    }
+
+    pub fn towers(&self) -> &[StructureTower] {
+        &self.base.towers
+    }
+
     pub fn production_labs(&self) -> (&[StructureLab], &[StructureLab]) {
         (self.base.labs.inputs(), self.base.labs.outputs())
     }
@@ -651,6 +656,10 @@ impl<'s> Shelter<'s> {
         once(&self.base.mineral).chain(self.farms.iter().filter_map(|farm| farm.mineral.as_ref()))
     }
 
+    pub fn sources(&self) -> &[Source] {
+        &self.base.sources
+    }
+
     pub fn all_sources(&self) -> impl Iterator<Item = &Source> {
         self.base.sources.iter().chain(self.farms.iter().flat_map(|farm| farm.sources.iter()))
     }
@@ -663,10 +672,15 @@ impl<'s> Shelter<'s> {
             .find_map(|source| if pos.is_near_to(source.pos()) { Some(source.id()) } else { None })
     }
 
-    pub fn get_hostiles(&self, farm: RoomName) -> Option<&[Creep]> {
-        self.farms
-            .iter()
-            .find_map(|f| if f.get_name() == farm { Some(f.get_hostiles()) } else { None })
+    pub fn hostiles(&self) -> &[Creep] {
+        self.base.hostiles()
+    }
+
+    pub fn get_hostiles(&self, farm: Option<RoomName>) -> &[Creep] {
+        farm
+            .and_then(|farm| self.farms.iter()
+                .find_map(|f| if f.get_name() == farm { Some(f.hostiles()) } else { None }))
+                .unwrap_or_else(|| self.hostiles())
     }
 
     pub fn find_container_in_range(
@@ -735,58 +749,77 @@ impl<'s> Shelter<'s> {
         self.base.supply_resources(to, resource, amount)
     }
 
-    pub fn tower_without_effect(&self) -> Option<&StructureTower> {
-        self.base.towers.iter().find(|tower| {
-            !tower.effects().into_iter().any(|effect: Effect| match effect.effect() {
-                EffectType::PowerEffect(p) => matches!(p, PowerType::OperateTower),
-                EffectType::NaturalEffect(_) => false,
-            })
-        })
-    }
+    // pub fn tower_without_effect(&self) -> Option<&StructureTower> {
+    //     self.base.towers.iter().find(|tower| {
+    //         !tower.effects().into_iter().any(|effect: Effect| match effect.effect() {
+    //             EffectType::PowerEffect(p) => matches!(p, PowerType::OperateTower),
+    //             EffectType::NaturalEffect(_) => false,
+    //         })
+    //     })
+    // }
 
-    pub fn spawn_without_effect(&self) -> Option<&StructureSpawn> {
-        self.base.spawns.iter().find(|spawn| {
-            !spawn.effects().into_iter().any(|effect: Effect| match effect.effect() {
-                EffectType::PowerEffect(p) => matches!(p, PowerType::OperateSpawn),
-                EffectType::NaturalEffect(_) => false,
-            })
-        })
-    }
+    // pub fn spawn_without_effect(&self) -> Option<&StructureSpawn> {
+    //     self.base.spawns.iter().find(|spawn| {
+    //         !spawn.effects().into_iter().any(|effect: Effect| match effect.effect() {
+    //             EffectType::PowerEffect(p) => matches!(p, PowerType::OperateSpawn),
+    //             EffectType::NaturalEffect(_) => false,
+    //         })
+    //     })
+    // }
 
-    pub fn factory_without_effect(&self) -> Option<&StructureFactory> {
-        self.base.factory.as_ref().filter(|factory| {
-            !factory.effects().into_iter().any(|effect: Effect| match effect.effect() {
-                EffectType::PowerEffect(p) => matches!(p, PowerType::OperateFactory),
-                EffectType::NaturalEffect(_) => false,
-            })
-        })
-    }
+    // pub fn factory_without_effect(&self) -> Option<&StructureFactory> {
+    //     self.base.factory.as_ref().filter(|factory| {
+    //         !factory.effects().into_iter().any(|effect: Effect| match effect.effect() {
+    //             EffectType::PowerEffect(p) => matches!(p, PowerType::OperateFactory),
+    //             EffectType::NaturalEffect(_) => false,
+    //         })
+    //     })
+    // }
 
-    pub fn full_storage_without_effect(&self) -> Option<&StructureStorage> {
-        self.base.storage().filter(|storage| {
-            storage.effects().is_empty() && storage.store().get_used_capacity(None) > 990_000
-        })
-    }
+    // pub fn full_storage_without_effect(&self) -> Option<&StructureStorage> {
+    //     self.base.storage().filter(|storage| {
+    //         storage.effects().is_empty() && storage.store().get_used_capacity(None) > 990_000
+    //     })
+    // }
 
-    pub fn mineral_without_effect(&self) -> bool {
-        self.base.mineral.ticks_to_regeneration().is_none()
-            && !self.base.mineral.effects().into_iter().any(|effect: Effect| {
-                match effect.effect() {
-                    EffectType::PowerEffect(p) => matches!(p, PowerType::RegenMineral),
-                    EffectType::NaturalEffect(_) => false,
-                }
-            })
-    }
+    // pub fn mineral_without_effect(&self) -> bool {
+    //     self.base.mineral.ticks_to_regeneration().is_none()
+    //         && !self.base.mineral.effects().into_iter().any(|effect: Effect| {
+    //             match effect.effect() {
+    //                 EffectType::PowerEffect(p) => matches!(p, PowerType::RegenMineral),
+    //                 EffectType::NaturalEffect(_) => false,
+    //             }
+    //         })
+    // }
 
-    pub fn source_without_effect(&self) -> Option<&Source> {
-        //todo check remote rooms sources for powers without hardcoded ids
-        self.base.sources.iter().find(|source| {
-            !source.effects().into_iter().any(|effect: Effect| match effect.effect() {
-                EffectType::PowerEffect(p) => {
-                    matches!(p, PowerType::RegenSource if { effect.ticks_remaining() > 30 })
-                }
-                EffectType::NaturalEffect(_) => false,
-            })
+    // pub fn source_without_effect(&self) -> Option<&Source> {
+    //     //todo check remote rooms sources for powers without hardcoded ids
+    //     self.base.sources.iter().find(|source| {
+    //         !source.effects().into_iter().any(|effect: Effect| match effect.effect() {
+    //             EffectType::PowerEffect(p) => {
+    //                 matches!(p, PowerType::RegenSource if { effect.ticks_remaining() > 30 })
+    //             }
+    //             EffectType::NaturalEffect(_) => false,
+    //         })
+    //     })
+    // }
+}
+
+fn missed_buildings(
+    room_name: RoomName,
+    plan: &RoomPlan,
+) -> impl Iterator<Item = (RoomXY, StructureType)> + use<'_> {
+    plan.current_lvl_buildings()
+        .sorted_by_key(|cell| cell.structure)
+        .filter_map(move |cell| {
+            if let Ok(str_type) = StructureType::try_from(cell.structure) {
+                let room_position = RoomPosition::new(cell.xy.x.u8(), cell.xy.y.u8(), room_name);
+
+                if look_for(&room_position, str_type) { None } else { Some((cell.xy, str_type)) }
+            } else {
+                None
+            }
         })
-    }
+        .sorted_by_key(|(xy, _)| *xy)
+        .take(5)
 }

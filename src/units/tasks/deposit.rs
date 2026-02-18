@@ -40,7 +40,7 @@ pub fn deposit_mine(
             }
             TaskResult::StillWorking(Task::DepositHarvest(pos, id), None)
         } else {
-            TaskResult::ResolveRequest(Task::DepositHarvest(pos, id), false)
+            TaskResult::ResolveRequest(Task::DepositHarvest(pos, id))
         }
     } else {
         let goal = Walker::Exploring(true).walk(pos, CLOSE_RANGE_ACTION, creep, role, enemies);

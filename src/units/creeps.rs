@@ -39,13 +39,9 @@ impl CrUnit<'_, '_, '_> {
         }
     }
 
-    fn resolve_request(&mut self, task: Task, suicide: bool) {
+    fn resolve_request(&mut self, task: Task) {
         if let Ok(request) = Request::try_from(task) {
             self.home.resolve_request(request, self.name());
-
-            if suicide {
-                self.memory.respawned = true;
-            }
         }
     }
 
@@ -78,8 +74,8 @@ impl CrUnit<'_, '_, '_> {
                     _ => None,
                 }
             }
-            TaskResult::ResolveRequest(task, gracefull_suicide) => {
-                self.resolve_request(task, gracefull_suicide);
+            TaskResult::ResolveRequest(task) => {
+                self.resolve_request(task);
                 None
             }
             TaskResult::UpdateRequest(task) => {

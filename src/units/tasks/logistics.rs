@@ -26,7 +26,7 @@ pub fn take_resource(
             match creep.pickup(&resource) {
                 Ok(()) => {
                     let _ = creep.say("💰", false); //money bag
-                    TaskResult::ResolveRequest(Task::TakeResource(id), false)
+                    TaskResult::ResolveRequest(Task::TakeResource(id))
                 }
                 Err(err) => {
                     error!(
@@ -35,7 +35,7 @@ pub fn take_resource(
                         resource,
                         err
                     );
-                    TaskResult::ResolveRequest(Task::TakeResource(id), false)
+                    TaskResult::ResolveRequest(Task::TakeResource(id))
                 }
             }
         } else {
@@ -50,7 +50,7 @@ pub fn take_resource(
         }
     } else {
         error!("{} resource not found! {}", creep.name(), id);
-        TaskResult::ResolveRequest(Task::TakeResource(id), false)
+        TaskResult::ResolveRequest(Task::TakeResource(id))
     }
 }
 
@@ -239,7 +239,7 @@ pub fn withdraw(
             TaskResult::Completed => {
                 resources.remove(0);
                 if resources.is_empty() {
-                    TaskResult::ResolveRequest(Task::Withdraw(pos, id, resources), false)
+                    TaskResult::ResolveRequest(Task::Withdraw(pos, id, resources))
                 } else {
                     TaskResult::UpdateRequest(Task::Withdraw(pos, id, resources))
                 }
@@ -253,11 +253,11 @@ pub fn withdraw(
                     amount,
                     err
                 );
-                TaskResult::ResolveRequest(Task::Withdraw(pos, id, resources), false)
+                TaskResult::ResolveRequest(Task::Withdraw(pos, id, resources))
             }
         }
     } else {
-        TaskResult::ResolveRequest(Task::Withdraw(pos, id, resources), false)
+        TaskResult::ResolveRequest(Task::Withdraw(pos, id, resources))
     }
 }
 
@@ -298,8 +298,7 @@ pub fn long_range_withdraw(
                 ))
             } else {
                 TaskResult::ResolveRequest(
-                    Task::LongRangeWithdraw(pos, id, resource, amount),
-                    false,
+                    Task::LongRangeWithdraw(pos, id, resource, amount)
                 )
             }
         }
@@ -310,7 +309,7 @@ pub fn long_range_withdraw(
                 id,
                 resource
             );
-            TaskResult::ResolveRequest(Task::LongRangeWithdraw(pos, id, resource, amount), false)
+            TaskResult::ResolveRequest(Task::LongRangeWithdraw(pos, id, resource, amount))
         }
     }
 }
@@ -330,8 +329,7 @@ pub fn generate_safe_mode(
                     Ok(()) => {
                         let _ = creep.say("👌", false); //OK emoji!
                         TaskResult::ResolveRequest(
-                            Task::GenerateSafeMode(pos, id, storage_id),
-                            true,
+                            Task::GenerateSafeMode(pos, id, storage_id)
                         )
                     }
                     Err(err) => {
@@ -406,7 +404,7 @@ pub fn carry(
                             resource,
                             amount
                         );
-                        TaskResult::ResolveRequest(Task::Carry(from, to, resource, 0, None), false)
+                        TaskResult::ResolveRequest(Task::Carry(from, to, resource, 0, None))
                     } else {
                         debug!(
                             "{} update carry task: from: {}, to: {}, resource: {}, amount: {}",
@@ -431,12 +429,12 @@ pub fn carry(
                 ),
                 _ => {
                     error!("{} carry got abort from deliver to: {:?} task", creep.name(), to);
-                    TaskResult::ResolveRequest(Task::Carry(from, to, resource, amount, None), false)
+                    TaskResult::ResolveRequest(Task::Carry(from, to, resource, amount, None))
                 }
             }
         } else {
             error!("there is no structure carry to: {:?}", to);
-            TaskResult::ResolveRequest(Task::Carry(from, to, resource, amount, None), false)
+            TaskResult::ResolveRequest(Task::Carry(from, to, resource, amount, None))
         }
     } else if !creep.store().store_types().into_iter().any(|res| res != resource)
         && let Some(room_obj) = game::get_object_by_id_erased(&from)
@@ -465,7 +463,7 @@ pub fn carry(
                     resource,
                     amount
                 );
-                TaskResult::ResolveRequest(Task::Carry(from, to, resource, amount, None), false)
+                TaskResult::ResolveRequest(Task::Carry(from, to, resource, amount, None))
             }
             TaskResult::StillWorking(_, movement_goal) => TaskResult::StillWorking(
                 Task::Carry(from, to, resource, amount, None),
@@ -475,7 +473,7 @@ pub fn carry(
         }
     } else {
         error!("there is no structure carry from: {:?}", from);
-        TaskResult::ResolveRequest(Task::Carry(from, to, resource, amount, None), false)
+        TaskResult::ResolveRequest(Task::Carry(from, to, resource, amount, None))
     }
 }
 
@@ -495,7 +493,7 @@ pub fn pull_to(
                 destination
             );
             // let _ = creep.suicide();
-            TaskResult::ResolveRequest(Task::PullTo(creep_name, destination), false)
+            TaskResult::ResolveRequest(Task::PullTo(creep_name, destination))
         } else if creep.pos().is_near_to(cargo.pos()) {
             if creep.pos().is_equal_to(destination) {
                 let _ = creep.pull(&cargo);

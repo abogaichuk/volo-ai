@@ -1,9 +1,12 @@
-use log::debug;
+use std::cmp::Reverse;
+
+use log::{debug, info};
+use screeps::game::map::FindRouteOptions;
 use screeps::{
-    Creep, EffectType, Event, HasHits, HasId, HasPosition, MaybeHasId, Mineral, Part, Room,
-    RoomName, RoomObjectProperties, SOURCE_KEEPER_USERNAME, SharedCreepProperties, Source,
-    StructureContainer, StructureController, StructureInvaderCore, StructureKeeperLair,
-    StructureObject, StructureRoad, find, game,
+    Creep, EffectType, Event, ExitDirection, HasHits, HasId, HasPosition, MaybeHasId, Mineral,
+    Part, Room, RoomName, RoomObjectProperties, RoomPosition, RoomXY, SOURCE_KEEPER_USERNAME,
+    SharedCreepProperties, Source, StructureContainer, StructureController, StructureInvaderCore,
+    StructureKeeperLair, StructureObject, StructureRoad, StructureType, find, game,
 };
 
 use crate::commons::{capture_room_numbers, get_room_regex};
@@ -14,10 +17,12 @@ use crate::rooms::state::requests::{
     BodyPart, BookData, BuildData, CrashData, CreepHostile, PickupData, RepairData, Request,
     RequestKind, WithdrawData,
 };
-use crate::rooms::{RoomEvent, is_extractor, missed_buildings};
+use crate::rooms::{RoomEvent, is_extractor};
 use crate::units::roles::Role;
 use crate::units::roles::miners::mineral_miner::MineralMiner;
+use crate::utils::commons::look_for;
 use crate::utils::constants::FARM_ROOMS_PICKUP_RESOURCE_THRESHOLD;
+use itertools::Itertools;
 
 pub struct Farm {
     pub(crate) room: Room,
@@ -89,11 +94,11 @@ impl Farm {
         self.memory.is_active()
     }
 
-    pub fn run_farm(&self) -> Vec<RoomEvent> {
+    pub fn run_farm(&self, master_room: RoomName) -> Vec<RoomEvent> {
         match self.kind {
             //if reservable or central and is active -> farm this room
             FarmKind::Reservable | FarmKind::Central if self.memory.is_active() => {
-                self.create_cs(self.memory.plan());
+                self.create_cs(self.memory.plan(), master_room);
                 self.get_farm_requests(self.memory.plan())
             }
             FarmKind::SourceKeeperRoom => {
@@ -123,7 +128,7 @@ impl Farm {
                     vec![RoomEvent::UpdateFarmStatus(self.get_name(), true)]
                 } else {
                     //active farm and no invander cores
-                    self.create_cs(self.memory.plan());
+                    self.create_cs(self.memory.plan(), master_room);
                     self.get_farm_requests(self.memory.plan())
                 }
             }
@@ -134,11 +139,11 @@ impl Farm {
         }
     }
 
-    fn create_cs(&self, plan: Option<&RoomPlan>) {
+    fn create_cs(&self, plan: Option<&RoomPlan>, master_room: RoomName) {
         if let Some(plan) = plan
             && game::time().is_multiple_of(100)
         {
-            missed_buildings(self.get_name(), plan).for_each(|(xy, str_type)| {
+            self.missed_buildings(plan, master_room).for_each(|(xy, str_type)| {
                 let _ = self.room.create_construction_site(xy.x.u8(), xy.y.u8(), str_type, None);
             });
         }
@@ -367,8 +372,43 @@ impl Farm {
         None
     }
 
-    pub fn get_hostiles(&self) -> &[Creep] {
+    pub fn hostiles(&self) -> &[Creep] {
         &self.hostiles
+    }
+
+    fn missed_buildings(
+        &self,
+        plan: &RoomPlan,
+        master_room: RoomName,
+    ) -> impl Iterator<Item = (RoomXY, StructureType)> + use<'_> {
+        let constructions = plan.current_lvl_buildings().filter_map(move |cell| {
+            if let Ok(str_type) = StructureType::try_from(cell.structure) {
+                let room_position =
+                    RoomPosition::new(cell.xy.x.u8(), cell.xy.y.u8(), self.get_name());
+
+                if look_for(&room_position, str_type) { None } else { Some((cell.xy, str_type)) }
+            } else {
+                None
+            }
+        });
+
+        let exit =
+            game::map::find_exit(self.get_name(), master_room, Some(FindRouteOptions::default()));
+        debug!("exit from: {}, to: {} is: {:?}", self.get_name(), master_room, exit);
+
+        match exit {
+            Ok(direction) => match direction {
+                ExitDirection::Top => constructions.sorted_by_key(|(xy, _)| xy.y).take(10),
+                ExitDirection::Right => {
+                    constructions.sorted_by_key(|(xy, _)| Reverse(xy.x)).take(10)
+                }
+                ExitDirection::Bottom => {
+                    constructions.sorted_by_key(|(xy, _)| Reverse(xy.y)).take(10)
+                }
+                ExitDirection::Left => constructions.sorted_by_key(|(xy, _)| xy.x).take(10),
+            },
+            Err(_) => constructions.sorted_by_key(|(xy, _)| *xy).take(5),
+        }
     }
 }
 
