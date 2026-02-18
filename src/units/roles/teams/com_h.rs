@@ -1,12 +1,14 @@
+use std::collections::HashMap;
 use std::fmt;
 
 use arrayvec::ArrayVec;
 use screeps::objects::Creep;
-use screeps::{Part, RoomName};
+use screeps::{Part, ResourceType, RoomName};
 use serde::{Deserialize, Serialize};
 
 use super::Kind;
 use crate::movement::MovementProfile;
+use crate::units::roles::can_scale;
 
 #[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ComHealer {
@@ -32,16 +34,25 @@ impl ComHealer {
     }
 }
 impl Kind for ComHealer {
-    // fn body_config(&self) -> BodyConfig {
-    //     BodyConfig::new(
-    //         vec![Part::Heal, Part::Heal, Part::Heal, Part::Heal, Part::Tough,
-    // Part::Tough, Part::Tough, Part::Move, Part::Move, Part::RangedAttack],
-    //         vec![Part::Heal, Part::Heal, Part::Heal, Part::Heal, Part::Tough,
-    // Part::Tough, Part::Tough, Part::Move, Part::Move, Part::RangedAttack],
-    //         50)
-    // }
-    fn body(&self, _: u32) -> ArrayVec<[Part; 50]> {
-        [Part::Move].into_iter().collect()
+    fn body(&self, room_energy: u32) -> ArrayVec<[Part; 50]> {
+        let scale_parts = [
+            Part::Tough,
+            Part::Heal,
+            Part::Heal,
+            Part::Move
+        ];
+        let basic_parts = [
+            Part::Heal, Part::RangedAttack,
+            Part::Heal, Part::RangedAttack,
+            Part::Heal, Part::RangedAttack,
+            Part::Heal, Part::RangedAttack,
+            Part::Heal, Part::RangedAttack];
+        let mut body = basic_parts.into_iter().collect::<ArrayVec<[Part; 50]>>();
+        while can_scale(body.clone(), scale_parts.to_vec(), room_energy, 50) {
+            body.extend(scale_parts.iter().copied());
+        }
+
+        body
     }
 
     fn get_movement_profile(&self, creep: &Creep) -> MovementProfile {
@@ -49,6 +60,33 @@ impl Kind for ComHealer {
             MovementProfile::PlainsOneToOne
         } else {
             MovementProfile::RoadsOneToTwo
+        }
+    }
+
+    fn boosts(&self, creep: &Creep) -> HashMap<Part, [ResourceType; 2]> {
+        //todo change ticks to boost here when labs carry requests will be fixed
+        if creep.ticks_to_live().is_some_and(|tick| tick > 1300) {
+            [
+                (
+                    Part::Move,
+                    [ResourceType::CatalyzedZynthiumAlkalide, ResourceType::ZynthiumAlkalide],
+                ),
+                (
+                    Part::RangedAttack,
+                    [ResourceType::CatalyzedKeaniumAlkalide, ResourceType::KeaniumAlkalide],
+                ),
+                (
+                    Part::Heal,
+                    [ResourceType::CatalyzedLemergiumAlkalide, ResourceType::LemergiumAlkalide],
+                ),
+                (
+                    Part::Tough,
+                    [ResourceType::CatalyzedGhodiumAlkalide, ResourceType::GhodiumAlkalide],
+                ),
+            ]
+            .into()
+        } else {
+            HashMap::new()
         }
     }
 }

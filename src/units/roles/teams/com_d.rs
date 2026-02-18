@@ -1,12 +1,14 @@
+use std::collections::HashMap;
 use std::fmt;
 
 use arrayvec::ArrayVec;
 use screeps::objects::Creep;
-use screeps::{Part, RoomName};
+use screeps::{Part, ResourceType, RoomName};
 use serde::{Deserialize, Serialize};
 
 use super::Kind;
 use crate::movement::MovementProfile;
+use crate::units::roles::can_scale;
 
 #[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ComDismantler {
@@ -41,19 +43,45 @@ impl Kind for ComDismantler {
         }
     }
 
-    fn body(&self, _: u32) -> ArrayVec<[Part; 50]> {
-        [Part::Move].into_iter().collect()
+    fn body(&self, room_energy: u32) -> ArrayVec<[Part; 50]> {
+        let scale_parts = [
+            Part::Tough,
+            Part::Work,
+            Part::Work,
+            Part::Work,
+            Part::Move
+        ];
+        let mut body = scale_parts.into_iter().collect::<ArrayVec<[Part; 50]>>();
+        while can_scale(body.clone(), scale_parts.to_vec(), room_energy, 50) {
+            body.extend(scale_parts.iter().copied());
+        }
+
+        body
+    }
+
+    fn boosts(&self, creep: &Creep) -> HashMap<Part, [ResourceType; 2]> {
+        //todo change ticks to boost here when labs carry requests will be fixed
+        if creep.ticks_to_live().is_some_and(|tick| tick > 1300) {
+            [
+                (
+                    Part::Move,
+                    [ResourceType::CatalyzedZynthiumAlkalide, ResourceType::ZynthiumAlkalide],
+                ),
+                (
+                    Part::Work,
+                    [ResourceType::CatalyzedZynthiumAcid, ResourceType::ZynthiumAcid],
+                ),
+                (
+                    Part::Tough,
+                    [ResourceType::CatalyzedGhodiumAlkalide, ResourceType::GhodiumAlkalide],
+                ),
+            ]
+            .into()
+        } else {
+            HashMap::new()
+        }
     }
 }
-
-// fn all_boosts() -> HashMap<Part, [ResourceType; 2]> {
-//     let mut m = HashMap::new();
-//     m.insert(Part::Move, [ResourceType::CatalyzedZynthiumAlkalide,
-// ResourceType::ZynthiumAlkalide]);     m.insert(Part::Work,
-// [ResourceType::CatalyzedZynthiumAcid, ResourceType::ZynthiumAcid]);
-//     m.insert(Part::Tough, [ResourceType::CatalyzedGhodiumAlkalide,
-// ResourceType::GhodiumAlkalide]);     m
-// }
 
 // fn get_request(requests: &mut HashSet<RoomRequest>, squad_id: &String) ->
 // Option<RoomRequest> {     requests.iter()
