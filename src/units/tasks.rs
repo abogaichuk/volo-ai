@@ -53,7 +53,7 @@ pub enum Task {
     Harvest(Position, ObjectId<Source>),
     HarvestAndUpgrade(Position, ObjectId<Source>, ObjectId<StructureController>),
     PowerbankAttack(Position, ObjectId<StructurePowerBank>, HashSet<String>),
-    PowerbankHeal(Position, ObjectId<StructurePowerBank>, HashSet<String>),
+    // PowerbankHeal(Position, ObjectId<StructurePowerBank>, HashSet<String>),
     PowerbankCarry(Position, ObjectId<StructurePowerBank>),
     DepositHarvest(Position, ObjectId<Deposit>),
     DepositCarry(Position),
@@ -277,14 +277,14 @@ impl Task {
                 role,
                 with_parts(hostiles, vec![Part::Attack, Part::RangedAttack]),
             ),
-            Task::PowerbankHeal(pos, id, members) => powerbank::pb_heal(
-                pos,
-                id,
-                members,
-                creep,
-                role,
-                with_parts(hostiles, vec![Part::RangedAttack]),
-            ),
+            // Task::PowerbankHeal(pos, id, members) => powerbank::pb_heal(
+            //     pos,
+            //     id,
+            //     members,
+            //     creep,
+            //     role,
+            //     with_parts(hostiles, vec![Part::RangedAttack]),
+            // ),
             Task::PowerbankAttack(pos, id, members) => powerbank::pb_attack(
                 pos,
                 id,
@@ -478,9 +478,9 @@ impl fmt::Debug for Task {
             Task::PowerbankAttack(pos, id, members) => {
                 write!(f, "Task::PowerbankAttack[{id}, {pos}, {members:?}]")
             }
-            Task::PowerbankHeal(pos, id, members) => {
-                write!(f, "Task::PowerbankHeal[{id}, {pos}, {members:?}]")
-            }
+            // Task::PowerbankHeal(pos, id, members) => {
+            //     write!(f, "Task::PowerbankHeal[{id}, {pos}, {members:?}]")
+            // }
             Task::PowerbankCarry(pos, id) => write!(f, "Task::PowerbankCarry[{id}, {pos}]"),
             Task::DepositHarvest(pos, id) => write!(f, "Task::DepositHarvest[{id}, {pos}]"),
             Task::DepositCarry(pos) => write!(f, "Task::DepositCarry[{pos}]"),
@@ -529,11 +529,11 @@ impl From<(Request, Role)> for Task {
                 .and_then(|squad_id| req.assignment.squads_members(squad_id))
                 .map(|members| Task::PowerbankAttack(d.pos, d.id, members))
                 .unwrap_or_default(),
-            (RequestKind::Powerbank(d), Role::PBHealer(pbh)) => pbh
+            (RequestKind::Powerbank(_), Role::PBHealer(pbh)) => pbh
                 .squad_id
                 .as_ref()
                 .and_then(|squad_id| req.assignment.squads_members(squad_id))
-                .map(|members| Task::PowerbankHeal(d.pos, d.id, members))
+                .map(|members| Task::Heal(members))
                 .unwrap_or_default(),
             (RequestKind::Powerbank(d), Role::PBCarrier(_)) => Task::PowerbankCarry(d.pos, d.id),
             (RequestKind::Dismantle(d), Role::CombatDismantler(com_d)) => com_d

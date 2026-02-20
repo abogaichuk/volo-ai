@@ -11,3 +11,4 @@ pub mod remote_upgrader;
 pub mod scout;
 pub mod trader;
 pub mod upgrader;
+pub mod healer;

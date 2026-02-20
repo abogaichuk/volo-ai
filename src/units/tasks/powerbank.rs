@@ -60,7 +60,8 @@ pub fn pb_attack(
         } else if creep.pos().is_near_to(pos) {
             if let Some(powerbank) = id.resolve() {
                 let _ = creep.attack(&powerbank);
-                TaskResult::StillWorking(Task::PowerbankAttack(pos, id, members), None)
+                let goal = Walker::Exploring(false).walk(pos, 0, creep, role, enemies);
+                TaskResult::StillWorking(Task::PowerbankAttack(pos, id, members), Some(goal))
             } else {
                 let _ = creep.suicide();
                 TaskResult::StillWorking(Task::PowerbankAttack(pos, id, members), None)
@@ -77,42 +78,42 @@ pub fn pb_attack(
     }
 }
 
-pub fn pb_heal(
-    pos: Position,
-    id: ObjectId<StructurePowerBank>,
-    members: HashSet<String>,
-    creep: &Creep,
-    role: &Role,
-    enemies: Vec<Creep>,
-) -> TaskResult {
-    if let Some(pb_attacker) = members
-        .iter()
-        .find(|name| **name != creep.name())
-        .and_then(|member| game::creeps().get(member.clone()))
-    {
-        //if member found
-        if pb_attacker.pos().is_near_to(pos) && creep.pos().is_near_to(pb_attacker.pos()) {
-            if creep.hits() < creep.hits_max() {
-                let _ = creep.heal(creep);
-            } else {
-                let _ = creep.heal(&pb_attacker);
-            }
-            TaskResult::StillWorking(Task::PowerbankHeal(pos, id, members), None)
-        } else {
-            let goal = Walker::Therapeutic.walk(pb_attacker.pos(), 0, creep, role, enemies);
-            TaskResult::StillWorking(Task::PowerbankHeal(pos, id, members), Some(goal))
-        }
-    } else if creep.pos().is_near_to(pos) {
-        //if no attacker and near powerbank -> means attacker commited suicide
-        let _ = creep.suicide();
-        TaskResult::Completed
-    } else {
-        //wait for attacker getting fresh members on the next tick
-        let _ = creep.heal(creep);
-        TaskResult::Completed
-        // TaskResult::StillWorking(Task::PowerbankHeal(pos, id, members), None)
-    }
-}
+// pub fn pb_heal(
+//     pos: Position,
+//     id: ObjectId<StructurePowerBank>,
+//     members: HashSet<String>,
+//     creep: &Creep,
+//     role: &Role,
+//     enemies: Vec<Creep>,
+// ) -> TaskResult {
+//     if let Some(pb_attacker) = members
+//         .iter()
+//         .find(|name| **name != creep.name())
+//         .and_then(|member| game::creeps().get(member.clone()))
+//     {
+//         //if member found
+//         if pb_attacker.pos().is_near_to(pos) && creep.pos().is_near_to(pb_attacker.pos()) {
+//             if creep.hits() < creep.hits_max() {
+//                 let _ = creep.heal(creep);
+//             } else {
+//                 let _ = creep.heal(&pb_attacker);
+//             }
+//             TaskResult::StillWorking(Task::PowerbankHeal(pos, id, members), None)
+//         } else {
+//             let goal = Walker::Therapeutic.walk(pb_attacker.pos(), 0, creep, role, enemies);
+//             TaskResult::StillWorking(Task::PowerbankHeal(pos, id, members), Some(goal))
+//         }
+//     } else if creep.pos().is_near_to(pos) {
+//         //if no attacker and near powerbank -> means attacker commited suicide
+//         let _ = creep.suicide();
+//         TaskResult::Completed
+//     } else {
+//         //wait for attacker getting fresh members on the next tick
+//         let _ = creep.heal(creep);
+//         TaskResult::Completed
+//         // TaskResult::StillWorking(Task::PowerbankHeal(pos, id, members), None)
+//     }
+// }
 
 pub fn pb_carry(
     pos: Position,
