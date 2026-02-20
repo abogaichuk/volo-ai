@@ -1,4 +1,3 @@
-use log::debug;
 use std::{fmt, collections::HashMap};
 
 use arrayvec::ArrayVec;
@@ -8,8 +7,7 @@ use serde::{Deserialize, Serialize};
 use super::Kind;
 use crate::movement::MovementProfile;
 use crate::rooms::shelter::Shelter;
-use crate::rooms::state::requests::meta::Status;
-use crate::rooms::state::requests::{Request, RequestKind};
+use crate::rooms::state::requests::Request;
 use crate::units::roles::{Role, can_scale};
 use crate::units::tasks::Task;
 
@@ -86,16 +84,20 @@ impl Kind for ComDismantler {
     }
 
     fn get_task(&self, creep: &Creep, home: &mut Shelter) -> Task {
-        self.squad_id
-            .as_ref()
-            .and_then(|sid| {
-                get_request(home, sid).and_then(|req| home.take_request(&req)).map(|mut req| {
-                    debug!("{} found pb request {:?}", creep.name(), req);
-                    req.join(Some(creep.name()), Some(sid));
-                    home.add_request(req.clone());
-                    (req, Role::CombatDismantler(self.clone())).into()
-                })
+        home.get_available_boost(creep, self.boosts(creep))
+            .map(|(id, body_part)| {
+                let parts_number = creep.body().iter().filter(|bp| bp.part() == body_part).count();
+                Task::Boost(id, u32::try_from(parts_number).ok())
             })
+            .or_else(|| self.squad_id
+                .as_ref()
+                .and_then(|sid| {
+                    get_request(home, sid).and_then(|req| home.take_request(&req)).map(|mut req| {
+                        req.join(Some(creep.name()), Some(sid));
+                        home.add_request(req.clone());
+                        (req, Role::CombatDismantler(self.clone())).into()
+                    })
+                }))
             .unwrap_or_default()
     }
 }
@@ -103,23 +105,6 @@ impl Kind for ComDismantler {
 
 fn get_request(home: &Shelter, squad_id: &str) -> Option<Request> {
     home.requests()
-        .find(|r| {
-            matches!(&r.kind, RequestKind::Powerbank(_) if
-            matches!(*r.status(), Status::InProgress | Status::Carry) && r.assigned_to(squad_id))
-        })
+        .find(|r| r.assigned_to(squad_id))
         .cloned()
 }
-
-// fn get_request(requests: &mut HashSet<RoomRequest>, squad_id: &String) ->
-// Option<RoomRequest> {     requests.iter()
-//         .find(|request| {
-//             match request {
-//                 RoomRequest::DESTROY(destroy_request) =>
-//                     destroy_request.status == RequestStatus::InProgress &&
-// destroy_request.squads.iter()                         .any(|squad| squad.id
-// == *squad_id),                 _ => false
-//             }
-//         })
-//         .cloned()
-//         .and_then(|request| requests.take(&request))
-// }

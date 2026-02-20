@@ -7,6 +7,7 @@ use log::{debug, warn};
 use rand::Rng;
 use rand::distributions::uniform::SampleUniform;
 use regex::Regex;
+use screeps::game::map::FindRouteOptions;
 use screeps::look::{LookResult, STRUCTURES};
 use screeps::{
     ConstructionSite, Creep, Flag, HasId, HasPosition, HasStore, OwnedStructureProperties, Part,
@@ -99,20 +100,6 @@ pub fn find_injured_my_creeps(room: &Room, ignore: Option<String>) -> impl Itera
     room.find(find::MY_CREEPS, None).into_iter().filter(move |creep| {
         ignore.as_ref().is_some_and(|name| *name != creep.name()) && creep.hits() < creep.hits_max()
     })
-}
-
-pub fn find_exit(to_room: RoomName, creep: &Creep, room: &Room) -> Option<Position> {
-    if room.name() == to_room {
-        warn!("fix me: {}, roomname: {}, to_room: {}", creep.name(), room.name(), to_room);
-        None
-    } else {
-        room.find_exit_to(to_room).ok().and_then(|exit_direction| {
-            creep
-                .pos()
-                .find_closest_by_path(find::Exit::from(exit_direction), None)
-                .map(std::convert::Into::into)
-        })
-    }
 }
 
 pub fn capture_room_numbers(re: &Regex, room_name: RoomName) -> Option<(u32, u32)> {
@@ -421,14 +408,38 @@ pub fn is_walkable(position: Position) -> bool {
     }
 }
 
-pub fn find_closest_exit(creep: &Creep, to: Option<RoomName>) -> Option<Position> {
-    let room = creep.room().expect("expect creep is in a room!");
-    let exit = to
-        .and_then(|to_room| room.find_exit_to(to_room).ok())
-        .map_or(find::Exit::All, find::Exit::from);
+pub fn find_closest_exit<T>(obj: &T, to: Option<RoomName>) -> Option<Position>
+    where T: HasPosition
+{
+     let exit = to
+        .and_then(|to| game::map::find_exit(
+            obj.pos().room_name(),
+            to,
+            Some(FindRouteOptions::default())).ok())
+         .map_or(find::Exit::All, find::Exit::from);
 
-    creep.pos().find_closest_by_path(exit, None).map(std::convert::Into::into)
+    obj.pos().find_closest_by_path(exit, None).map(std::convert::Into::into)
 }
+
+pub fn find_walkable_positions_remoted_from(position: Position, range: u32) -> Option<Position> {
+    get_positions_ranged_from(position, range).find(|pos| !pos.is_room_edge() && is_walkable(*pos))
+}
+
+fn get_positions_ranged_from(position: Position, range: u32) -> impl Iterator<Item = Position> {
+    all_positions(position.room_name()).filter(move |pos| pos.get_range_to(position) == range)
+}
+
+fn all_positions(room_name: RoomName) -> impl Iterator<Item = Position> {
+    (1..49).flat_map(move |x| {
+        (1..49).clone().map(move |y| unsafe {
+            Position::new(
+                RoomCoordinate::unchecked_new(x),
+                RoomCoordinate::unchecked_new(y),
+                room_name,
+            )
+        })
+    })
+ }
 
 pub fn find_source_near(pos: Position, room: &Room) -> Option<Source> {
     room.find(find::SOURCES, None).into_iter().find(|source| pos.is_near_to(source.pos()))

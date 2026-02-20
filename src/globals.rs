@@ -113,6 +113,7 @@ pub fn spawn(room_name: String, creep: JsValue) -> String {
 
 #[wasm_bindgen]
 pub fn request(room_name: String, request_js: JsValue) -> String {
+    info!("request_js: {:?}", request_js);
     match serde_wasm_bindgen::from_value::<Request>(request_js.clone()) {
         Ok(request) => match RoomName::from_str(&room_name) {
             Ok(room_name) => GLOBAL_MEMORY.with(|mem_refcell| {

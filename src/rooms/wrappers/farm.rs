@@ -223,7 +223,7 @@ impl Farm {
         self.room()
             .find(find::TOMBSTONES, None)
             .iter()
-            .filter(|tomb| tomb.store().get_used_capacity(None) > 1000)
+            .filter(|tomb| tomb.store().get_used_capacity(None) > 1000 || tomb.store().store_types().len() > 1)
             .map(|tomb| {
                 let resources =
                     tomb.store().store_types().into_iter().map(|res| (res, None)).collect();

@@ -61,6 +61,8 @@ impl Walker {
                         try_heal(creep);
                         let _ = creep.ranged_attack(hostile);
                     }
+                } else {
+                    try_heal(creep);
                 }
 
                 MovementGoalBuilder::new(to)

@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use log::warn;
 use screeps::{HasHits, ObjectId, Part, Position, ResourceType, StructurePowerBank, game};
 use serde::{Deserialize, Serialize};
@@ -5,6 +7,7 @@ use smallvec::SmallVec;
 
 use crate::rooms::RoomEvent;
 use crate::rooms::shelter::Shelter;
+use crate::rooms::state::requests::assignment::Squad;
 use crate::rooms::state::requests::{Assignment, Meta, Status};
 use crate::units::roles::Role;
 use crate::units::roles::teams::pb_a::PBAttacker;
@@ -55,8 +58,10 @@ pub(in crate::rooms::state::requests) fn powerbank_handler(
                     if power_bank.hits() == power_bank.hits_max()
                         && power_bank.ticks_to_decay() < 4300
                     {
-                        if let Some(squad_id) = assignment.new_squad(data.id.to_string(), meta) {
-                            meta.update(Status::InProgress);
+                        if let Assignment::Squads(squads) = assignment {
+                            let squad_id = format!("{}_{}", data.id, squads.len() + 1);
+                            let squad = Squad { id: squad_id.clone(), members: HashSet::new() };
+                            squads.push(squad);
 
                             let pb_a = Role::PBAttacker(PBAttacker::new(
                                 Some(squad_id.clone()),
@@ -67,45 +72,100 @@ pub(in crate::rooms::state::requests) fn powerbank_handler(
 
                             events.push(RoomEvent::Spawn(pb_h, 1));
                             events.push(RoomEvent::Spawn(pb_a, 1));
+
+                            meta.update(Status::InProgress);
                         } else {
                             warn!("creation new squad error: {:?}", data);
                         }
+                        // if let Some(squad_id) = assignment.new_squad(data.id.to_string(), meta) {
+                        //     meta.update(Status::InProgress);
+
+                        //     let pb_a = Role::PBAttacker(PBAttacker::new(
+                        //         Some(squad_id.clone()),
+                        //         Some(home.name()),
+                        //     ));
+                        //     let pb_h =
+                        //         Role::PBHealer(PBHealer::new(Some(squad_id), Some(home.name())));
+
+                        //     events.push(RoomEvent::Spawn(pb_h, 1));
+                        //     events.push(RoomEvent::Spawn(pb_a, 1));
+                        // } else {
+                        //     warn!("creation new squad error: {:?}", data);
+                        // }
                     } else if power_bank.hits() < power_bank.hits_max() {
                         meta.update(Status::Aborted);
                     }
                 }
             }
             Status::Created => {
-                if let Some(squad_id) = assignment.new_squad(data.id.to_string(), meta) {
-                    meta.update(Status::InProgress);
+                if let Assignment::Squads(squads) = assignment {
+                    let squad_id = format!("{}_{}", data.id, squads.len() + 1);
+                    let squad = Squad { id: squad_id.clone(), members: HashSet::new() };
+                    squads.push(squad);
 
                     let pb_a = Role::PBAttacker(PBAttacker::new(
                         Some(squad_id.clone()),
                         Some(home.name()),
                     ));
-                    let pb_h = Role::PBHealer(PBHealer::new(Some(squad_id), Some(home.name())));
+                    let pb_h =
+                        Role::PBHealer(PBHealer::new(Some(squad_id), Some(home.name())));
 
                     events.push(RoomEvent::Spawn(pb_h, 1));
                     events.push(RoomEvent::Spawn(pb_a, 1));
+
+                    meta.update(Status::InProgress);
                 } else {
                     warn!("creation new squad error: {:?}", data);
                 }
+                // if let Some(squad_id) = assignment.new_squad(data.id.to_string(), meta) {
+                //     meta.update(Status::InProgress);
+
+                //     let pb_a = Role::PBAttacker(PBAttacker::new(
+                //         Some(squad_id.clone()),
+                //         Some(home.name()),
+                //     ));
+                //     let pb_h = Role::PBHealer(PBHealer::new(Some(squad_id), Some(home.name())));
+
+                //     events.push(RoomEvent::Spawn(pb_h, 1));
+                //     events.push(RoomEvent::Spawn(pb_a, 1));
+                // } else {
+                //     warn!("creation new squad error: {:?}", data);
+                // }
             }
             Status::InProgress if meta.updated_at + 1350 < game::time() => {
-                if let Some(squad_id) = assignment.new_squad(data.id.to_string(), meta) {
-                    meta.update(Status::InProgress);
+                if let Assignment::Squads(squads) = assignment {
+                    let squad_id = format!("{}_{}", data.id, squads.len() + 1);
+                    let squad = Squad { id: squad_id.clone(), members: HashSet::new() };
+                    squads.push(squad);
 
                     let pb_a = Role::PBAttacker(PBAttacker::new(
                         Some(squad_id.clone()),
                         Some(home.name()),
                     ));
-                    let pb_h = Role::PBHealer(PBHealer::new(Some(squad_id), Some(home.name())));
+                    let pb_h =
+                        Role::PBHealer(PBHealer::new(Some(squad_id), Some(home.name())));
 
                     events.push(RoomEvent::Spawn(pb_h, 1));
                     events.push(RoomEvent::Spawn(pb_a, 1));
+
+                    meta.update(Status::InProgress);
                 } else {
                     warn!("creation new squad error: {:?}", data);
                 }
+                // if let Some(squad_id) = assignment.new_squad(data.id.to_string(), meta) {
+                //     meta.update(Status::InProgress);
+
+                //     let pb_a = Role::PBAttacker(PBAttacker::new(
+                //         Some(squad_id.clone()),
+                //         Some(home.name()),
+                //     ));
+                //     let pb_h = Role::PBHealer(PBHealer::new(Some(squad_id), Some(home.name())));
+
+                //     events.push(RoomEvent::Spawn(pb_h, 1));
+                //     events.push(RoomEvent::Spawn(pb_a, 1));
+                // } else {
+                //     warn!("creation new squad error: {:?}", data);
+                // }
             }
             Status::InProgress => {
                 if let Some(power_bank) = data.id.resolve() {
@@ -117,8 +177,10 @@ pub(in crate::rooms::state::requests) fn powerbank_handler(
                     if (power_bank.hits() < 600_000 && another_attacker > 0)
                         || power_bank.hits() < 400_000
                     {
-                        if let Some(squad_id) = assignment.new_squad(data.id.to_string(), meta) {
-                            meta.update(Status::Carry);
+                        if let Assignment::Squads(squads) = assignment {
+                            let squad_id = format!("{}_{}", data.id, squads.len() + 1);
+                            let squad = Squad { id: squad_id.clone(), members: HashSet::new() };
+                            squads.push(squad);
 
                             let pb_c =
                                 Role::PBCarrier(PBCarrier::new(Some(squad_id), Some(home.name())));
@@ -127,9 +189,24 @@ pub(in crate::rooms::state::requests) fn powerbank_handler(
                                 pb_c,
                                 ((data.amount + 800) / 1600) as usize, //(data.amount as f32 / 1600_f32).round() as usize,
                             ));
+
+                            meta.update(Status::Carry);
                         } else {
                             warn!("creation new squad error: {:?}", data);
                         }
+                        // if let Some(squad_id) = assignment.new_squad(data.id.to_string(), meta) {
+                        //     meta.update(Status::Carry);
+
+                            // let pb_c =
+                            //     Role::PBCarrier(PBCarrier::new(Some(squad_id), Some(home.name())));
+
+                            // events.push(RoomEvent::Spawn(
+                            //     pb_c,
+                            //     ((data.amount + 800) / 1600) as usize, //(data.amount as f32 / 1600_f32).round() as usize,
+                            // ));
+                        // } else {
+                        //     warn!("creation new squad error: {:?}", data);
+                        // }
                     }
                 }
             }

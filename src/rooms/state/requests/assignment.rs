@@ -30,22 +30,22 @@ impl Assignment {
         }
     }
 
-    pub fn new_squad(&mut self, id_part: String, meta: &mut Meta) -> Option<String> {
-        match self {
-            Assignment::Squads(squads) => {
-                let squad_index = squads.len() + 1;
-                let squad_id = format!("{id_part}_{squad_index}");
+    // pub fn new_squad(&mut self, id_part: String, meta: &mut Meta) -> Option<String> {
+    //     match self {
+    //         Assignment::Squads(squads) => {
+    //             let squad_index = squads.len() + 1;
+    //             let squad_id = format!("{id_part}_{squad_index}");
 
-                let squad = Squad { id: squad_id.clone(), members: HashSet::new() };
+    //             let squad = Squad { id: squad_id.clone(), members: HashSet::new() };
 
-                squads.push(squad);
-                meta.status = Status::InProgress;
-                meta.updated_at = game::time();
-                Some(squad_id)
-            }
-            _ => None,
-        }
-    }
+    //             squads.push(squad);
+    //             meta.status = Status::InProgress;
+    //             meta.updated_at = game::time();
+    //             Some(squad_id)
+    //         }
+    //         _ => None,
+    //     }
+    // }
 
     pub fn squads_members(&self, squad_id: &str) -> Option<HashSet<String>> {
         match self {
