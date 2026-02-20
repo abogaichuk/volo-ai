@@ -8,7 +8,7 @@ use super::Kind;
 use crate::movement::MovementProfile;
 use crate::rooms::shelter::Shelter;
 use crate::rooms::state::requests::Request;
-use crate::units::roles::{Role, can_scale};
+use crate::units::roles::{Role, can_scale, pvp_parts_priority};
 use crate::units::tasks::Task;
 
 #[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -52,11 +52,13 @@ impl Kind for ComDismantler {
             Part::Work,
             Part::Move
         ];
+
         let mut body = scale_parts.into_iter().collect::<ArrayVec<[Part; 50]>>();
         while can_scale(body.clone(), scale_parts.to_vec(), room_energy, 50) {
             body.extend(scale_parts.iter().copied());
         }
 
+        body.sort_by_key(|a| pvp_parts_priority(*a));
         body
     }
 

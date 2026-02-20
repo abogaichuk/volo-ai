@@ -8,7 +8,7 @@ pub use data::{
     ProtectData, PullData, RepairData, SMData, TransferData, WithdrawData,
 };
 use log::error;
-use screeps::{Part, RoomName};
+use screeps::Part;
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 use thiserror::Error;

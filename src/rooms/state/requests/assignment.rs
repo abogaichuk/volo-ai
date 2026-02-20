@@ -1,10 +1,9 @@
-use std::collections::HashSet;
-use std::fmt::{Display, Formatter};
+use std::{collections::HashSet, fmt::{Display, Formatter}};
 
 use screeps::game;
 use serde::{Deserialize, Serialize};
 
-use super::{Meta, RequestError, Status};
+use super::RequestError;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum Assignment {
@@ -15,7 +14,6 @@ pub enum Assignment {
     /// Many doers in one pool
     Multi(HashSet<String>),
     /// Sequential squads
-    /// //todo changed to Box<Vec<Squad>> to reduce mem allocation
     Squads(Vec<Squad>),
 }
 
@@ -29,23 +27,6 @@ impl Assignment {
             Assignment::Squads(squads) => squads.iter().any(|s| s.id == *name),
         }
     }
-
-    // pub fn new_squad(&mut self, id_part: String, meta: &mut Meta) -> Option<String> {
-    //     match self {
-    //         Assignment::Squads(squads) => {
-    //             let squad_index = squads.len() + 1;
-    //             let squad_id = format!("{id_part}_{squad_index}");
-
-    //             let squad = Squad { id: squad_id.clone(), members: HashSet::new() };
-
-    //             squads.push(squad);
-    //             meta.status = Status::InProgress;
-    //             meta.updated_at = game::time();
-    //             Some(squad_id)
-    //         }
-    //         _ => None,
-    //     }
-    // }
 
     pub fn squads_members(&self, squad_id: &str) -> Option<HashSet<String>> {
         match self {
@@ -240,4 +221,13 @@ impl Display for Assignment {
 pub struct Squad {
     pub id: String,
     pub members: HashSet<String>,
+}
+
+impl Squad {
+    pub fn new<T>(target_id: T, index: usize) -> Self
+        where T: Display
+    {
+        let squad_id = format!("{}_{}", target_id, index);
+        Self { id: squad_id, members: HashSet::new() }
+    }
 }

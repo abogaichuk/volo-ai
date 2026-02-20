@@ -1,6 +1,4 @@
 use std::cmp::min;
-use std::collections::HashSet;
-
 use log::warn;
 use screeps::{Deposit, HasPosition, ObjectId, Part, Position, RoomName, find, game};
 use serde::{Deserialize, Serialize};
@@ -26,6 +24,31 @@ impl DepositData {
     pub const fn new(id: ObjectId<Deposit>, pos: Position, empty_cells: usize) -> Self {
         Self { id, pos, empty_cells }
     }
+
+    fn spawn_squad(
+        &self,
+        meta: &mut Meta,
+        assignment: &mut Assignment,
+        home_name: RoomName,
+        events: &mut SmallVec<[RoomEvent; 3]>)
+    {
+        if let Assignment::Squads(squads) = assignment {
+            let squad = Squad::new(self.id, squads.len() + 1);
+
+            let dep_miner =
+                Role::DepositMiner(DepositMiner::new(Some(squad.id.clone()), Some(home_name)));
+            let dep_hauler =
+                Role::DepositHauler(DepositHauler::new(Some(squad.id.clone()), Some(home_name)));
+
+            squads.push(squad);
+            events.push(RoomEvent::Spawn(dep_miner, min(3, self.empty_cells)));
+            events.push(RoomEvent::Spawn(dep_hauler, 1));
+
+            meta.update(Status::InProgress);
+        } else {
+            warn!("creation new squad error: {:?}", self);
+        }
+    }
 }
 
 pub(in crate::rooms::state::requests) fn deposit_handler(
@@ -37,35 +60,7 @@ pub(in crate::rooms::state::requests) fn deposit_handler(
     let mut events: SmallVec<[RoomEvent; 3]> = SmallVec::new();
     match meta.status {
         Status::Created => {
-            if let Assignment::Squads(squads) = assignment {
-                let squad_id = format!("{}_{}", data.id, squads.len() + 1);
-                let squad = Squad { id: squad_id.clone(), members: HashSet::new() };
-                squads.push(squad);
-
-                let dep_miner =
-                    Role::DepositMiner(DepositMiner::new(Some(squad_id.clone()), Some(home_name)));
-                let dep_hauler =
-                    Role::DepositHauler(DepositHauler::new(Some(squad_id), Some(home_name)));
-
-                events.push(RoomEvent::Spawn(dep_miner, min(3, data.empty_cells)));
-                events.push(RoomEvent::Spawn(dep_hauler, 1));
-
-                meta.update(Status::InProgress);
-            } else {
-                warn!("creation new squad error: {:?}", data);
-            }
-
-            // if let Some(squad_id) = assignment.new_squad(data.id.to_string(), meta) {
-            //     let dep_miner =
-            //         Role::DepositMiner(DepositMiner::new(Some(squad_id.clone()), Some(home_name)));
-            //     let dep_hauler =
-            //         Role::DepositHauler(DepositHauler::new(Some(squad_id), Some(home_name)));
-
-            //     events.push(RoomEvent::Spawn(dep_miner, min(3, data.empty_cells)));
-            //     events.push(RoomEvent::Spawn(dep_hauler, 1));
-            // } else {
-            //     warn!("creation new squad error: {:?}", data);
-            // }
+            data.spawn_squad(meta, assignment, home_name, &mut events);
         }
         Status::InProgress => {
             if let Some(deposit) = data.id.resolve()
@@ -81,42 +76,7 @@ pub(in crate::rooms::state::requests) fn deposit_handler(
                 });
 
                 if fast_spawn || game::time() > meta.updated_at + 1400 {
-                    if let Assignment::Squads(squads) = assignment {
-                        let squad_id = format!("{}_{}", data.id, squads.len() + 1);
-                        let squad = Squad { id: squad_id.clone(), members: HashSet::new() };
-                        squads.push(squad);
-
-                        let dep_miner = Role::DepositMiner(DepositMiner::new(
-                            Some(squad_id.clone()),
-                            Some(home_name),
-                        ));
-                        let dep_hauler = Role::DepositHauler(DepositHauler::new(
-                            Some(squad_id),
-                            Some(home_name),
-                        ));
-
-                        events.push(RoomEvent::Spawn(dep_miner, min(3, data.empty_cells)));
-                        events.push(RoomEvent::Spawn(dep_hauler, 1));
-
-                        meta.update(Status::InProgress);
-                    } else {
-                        warn!("creation new squad error: {:?}", data);
-                    }
-                    // if let Some(squad_id) = assignment.new_squad(data.id.to_string(), meta) {
-                        // let dep_miner = Role::DepositMiner(DepositMiner::new(
-                        //     Some(squad_id.clone()),
-                        //     Some(home_name),
-                        // ));
-                        // let dep_hauler = Role::DepositHauler(DepositHauler::new(
-                        //     Some(squad_id),
-                        //     Some(home_name),
-                        // ));
-
-                        // events.push(RoomEvent::Spawn(dep_miner, min(3, data.empty_cells)));
-                        // events.push(RoomEvent::Spawn(dep_hauler, 1));
-                    // } else {
-                    //     warn!("creation new squad error: {:?}", data);
-                    // }
+                    data.spawn_squad(meta, assignment, home_name, &mut events);
                 }
             }
         }

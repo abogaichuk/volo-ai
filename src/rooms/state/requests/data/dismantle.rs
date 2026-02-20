@@ -1,6 +1,4 @@
 use log::error;
-use std::collections::HashSet;
-
 use screeps::{ObjectId, Position, Structure, game};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
@@ -41,13 +39,12 @@ pub(in crate::rooms::state::requests) fn dismantle_handler(
         Status::Created => {
             match assignment {
                 Assignment::Squads(squads) => {
-                    let squad_id = format!("{}_{}", data.id, squads.len() + 1);
-                    let squad = Squad { id: squad_id.clone(), members: HashSet::new() };
-                    squads.push(squad);
+                    let squad = Squad::new(data.id, squads.len() + 1);
 
-                    let dismantler = Role::CombatDismantler(ComDismantler::new(Some(squad_id.clone()), Some(home.name())));
-                    let healer = Role::CombatHealer(ComHealer::new(Some(squad_id), Some(home.name())));
+                    let dismantler = Role::CombatDismantler(ComDismantler::new(Some(squad.id.clone()), Some(home.name())));
+                    let healer = Role::CombatHealer(ComHealer::new(Some(squad.id.clone()), Some(home.name())));
                     
+                    squads.push(squad);
                     events.push(RoomEvent::Spawn(dismantler, 1));
                     events.push(RoomEvent::Spawn(healer, 1));
                     events.push(RoomEvent::AddBoost(BoostReason::Dismantle, 300));
@@ -82,27 +79,5 @@ pub(in crate::rooms::state::requests) fn dismantle_handler(
         }
         _ => {}
     }
-    // match meta.status {
-    //     Status::Created => {
-    //         meta.update(Status::Spawning);
-
-            // let dismantler = Role::Dismantler(Dismantler::new(Some(home.name())));
-            // let puller = Role::Puller(Puller::new(Some(home.name())));
-            // events.push(RoomEvent::Spawn(dismantler, 1));
-            // events.push(RoomEvent::Spawn(puller, 1));
-    //     }
-    //     Status::InProgress
-    //         if game::time().is_multiple_of(100) && !assignment.has_alive_members() =>
-    //     {
-    //         meta.update(Status::Created);
-    //         *assignment = Assignment::Single(None);
-    //     }
-    //     Status::OnHold => {
-    //         if is_walkable(data.workplace) {
-    //             meta.update(Status::Created);
-    //         }
-    //     }
-    //     _ => {}
-    // }
     events
 }
