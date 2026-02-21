@@ -34,6 +34,7 @@ mod powerbank;
 mod repair;
 mod reservation;
 mod upgrade;
+mod support;
 
 //todo implement prelude
 pub enum Task {
@@ -52,7 +53,7 @@ pub enum Task {
     Harvest(Position, ObjectId<Source>),
     HarvestAndUpgrade(Position, ObjectId<Source>, ObjectId<StructureController>),
     PowerbankAttack(Position, ObjectId<StructurePowerBank>, HashSet<String>),
-    PowerbankHeal(Position, ObjectId<StructurePowerBank>, HashSet<String>),
+    // PowerbankHeal(Position, ObjectId<StructurePowerBank>, HashSet<String>),
     PowerbankCarry(Position, ObjectId<StructurePowerBank>),
     DepositHarvest(Position, ObjectId<Deposit>),
     DepositCarry(Position),
@@ -60,6 +61,7 @@ pub enum Task {
     TakeResource(ObjectId<Resource>),
     FillStructure(Box<dyn Fillable>),
     Dismantle(ObjectId<Structure>, Position),
+    CombatDismantle(ObjectId<Structure>, Position, HashSet<String>),
     PullTo(String, Position),
     TakeFromStructure(Position, RawObjectId, ResourceType, Option<u32>),
     DeliverToStructure(Position, RawObjectId, ResourceType, Option<u32>),
@@ -71,6 +73,7 @@ pub enum Task {
     Book(ObjectId<StructureController>, Position),
     Claim(ObjectId<StructureController>, Position),
     Crash(ObjectId<StructureInvaderCore>, Position),
+    Heal(HashSet<String>),
     HealAll,
     Oversee(RoomName, Option<(Position, u32)>),
     Protect(RoomName, Option<Position>),
@@ -268,14 +271,20 @@ impl Task {
                 role,
                 with_parts(hostiles, vec![Part::RangedAttack, Part::Attack]),
             ),
-            Task::PowerbankHeal(pos, id, members) => powerbank::pb_heal(
-                pos,
-                id,
+            Task::Heal(members) => support::heal(
                 members,
                 creep,
                 role,
-                with_parts(hostiles, vec![Part::RangedAttack]),
+                with_parts(hostiles, vec![Part::Attack, Part::RangedAttack]),
             ),
+            // Task::PowerbankHeal(pos, id, members) => powerbank::pb_heal(
+            //     pos,
+            //     id,
+            //     members,
+            //     creep,
+            //     role,
+            //     with_parts(hostiles, vec![Part::RangedAttack]),
+            // ),
             Task::PowerbankAttack(pos, id, members) => powerbank::pb_attack(
                 pos,
                 id,
@@ -335,6 +344,14 @@ impl Task {
                 with_parts(hostiles, vec![Part::RangedAttack, Part::Attack]),
             ),
             Task::Dismantle(id, workplace) => dismantle::dismantle(id, workplace, creep, role),
+            Task::CombatDismantle(id, pos, members) => dismantle::combat_dismantle(
+                id,
+                pos,
+                members,
+                creep,
+                role,
+                with_parts(hostiles, vec![Part::Attack, Part::RangedAttack]),
+            ),
             Task::TakeResource(id) => logistics::take_resource(
                 id,
                 creep,
@@ -425,6 +442,7 @@ impl fmt::Debug for Task {
             Task::DefendHome => write!(f, "Task::DefendHome"),
             Task::Speak => write!(f, "Task::Speak"),
             Task::Idle(ticks) => write!(f, "Task::Idle[{ticks}]"),
+            Task::Heal(members) => write!(f, "Task::Heal[{members:?}]"),
             Task::Provoke(ticks, range) => write!(f, "Task::Provoke[{ticks}, {range}]"),
             Task::Portal(pos) => write!(f, "Task::Portal[{pos}]"),
             Task::MoveMe(room_name, walk_type) => {
@@ -460,13 +478,16 @@ impl fmt::Debug for Task {
             Task::PowerbankAttack(pos, id, members) => {
                 write!(f, "Task::PowerbankAttack[{id}, {pos}, {members:?}]")
             }
-            Task::PowerbankHeal(pos, id, members) => {
-                write!(f, "Task::PowerbankHeal[{id}, {pos}, {members:?}]")
-            }
+            // Task::PowerbankHeal(pos, id, members) => {
+            //     write!(f, "Task::PowerbankHeal[{id}, {pos}, {members:?}]")
+            // }
             Task::PowerbankCarry(pos, id) => write!(f, "Task::PowerbankCarry[{id}, {pos}]"),
             Task::DepositHarvest(pos, id) => write!(f, "Task::DepositHarvest[{id}, {pos}]"),
             Task::DepositCarry(pos) => write!(f, "Task::DepositCarry[{pos}]"),
             Task::Dismantle(id, pos) => write!(f, "Task::Dismantle[{id}, {pos}]"),
+            Task::CombatDismantle(id, pos, members) => {
+                write!(f, "Task::CombatDismantle[{id}, {pos}, {members:?}]")
+            }
             Task::PullTo(name, pos) => write!(f, "Task::PullTo[{name}, {pos}]"),
             Task::Book(id, pos) => write!(f, "Task::Book[{id}, {pos}]"),
             Task::Claim(id, pos) => write!(f, "Task::Claim[{id}, {pos}]"),
@@ -508,13 +529,25 @@ impl From<(Request, Role)> for Task {
                 .and_then(|squad_id| req.assignment.squads_members(squad_id))
                 .map(|members| Task::PowerbankAttack(d.pos, d.id, members))
                 .unwrap_or_default(),
-            (RequestKind::Powerbank(d), Role::PBHealer(pbh)) => pbh
+            (RequestKind::Powerbank(_), Role::PBHealer(pbh)) => pbh
                 .squad_id
                 .as_ref()
                 .and_then(|squad_id| req.assignment.squads_members(squad_id))
-                .map(|members| Task::PowerbankHeal(d.pos, d.id, members))
+                .map(|members| Task::Heal(members))
                 .unwrap_or_default(),
             (RequestKind::Powerbank(d), Role::PBCarrier(_)) => Task::PowerbankCarry(d.pos, d.id),
+            (RequestKind::Dismantle(d), Role::CombatDismantler(com_d)) => com_d
+                .squad_id
+                .as_ref()
+                .and_then(|squad_id| req.assignment.squads_members(squad_id))
+                .map(|members| Task::CombatDismantle(d.id, d.workplace, members))
+                .unwrap_or_default(),
+            (RequestKind::Dismantle(_), Role::CombatHealer(h)) => h
+                .squad_id
+                .as_ref()
+                .and_then(|squad_id| req.assignment.squads_members(squad_id))
+                .map(|members| Task::Heal(members))
+                .unwrap_or_default(),
             (kind, _) => <Task as From<RequestKind>>::from(kind),
         }
     }

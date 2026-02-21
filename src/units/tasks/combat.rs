@@ -13,7 +13,7 @@ use crate::units::{Task, TaskResult, has_part, roles::Role, with_parts};
 use crate::utils::commons::{
     closest_attacker, closest_creep, find_closest_injured, find_closest_injured_my_creeps,
     find_keeper_lairs, find_ramparts, find_walkable_positions_near_by, has_boosted_part,
-    is_walkable, try_heal,
+    is_walkable, try_heal, find_closest_exit,
 };
 use crate::utils::constants::{CLOSE_RANGE_ACTION, LONG_RANGE_ACTION};
 
@@ -262,21 +262,19 @@ pub fn protect(
         //injured
         if creep.pos().room_name() == room_name {
             //injured in a target room -> run away
-            let closest_exit = creep.pos().find_closest_by_path(find::EXIT, None).map_or(
-                Position::new(
-                    unsafe { RoomCoordinate::unchecked_new(25) },
-                    unsafe { RoomCoordinate::unchecked_new(25) },
-                    *role.get_home().expect("expect home room"),
-                ),
-                std::convert::Into::into,
-            );
 
             if let Some(any) = any_in_range_structure(creep, &structures) {
                 let _ = creep.ranged_attack(any);
             }
 
-            let goal = Walker::Berserk.walk(closest_exit, 0, creep, role, hostiles);
-            TaskResult::StillWorking(Task::Protect(room_name, None), Some(goal))
+            if let Some(exit) = find_closest_exit(creep, None) {
+                let goal = Walker::Berserk.walk(exit, 0, creep, role, hostiles);
+                TaskResult::StillWorking(Task::Protect(room_name, None), Some(goal))
+            } else {
+                warn!("{} no exit found in room {}", creep.name(), creep.pos().room_name());
+                let _ = creep.heal(creep);
+                TaskResult::Abort
+            }
         } else {
             //injured outside the target room, wait for heal
             if creep.pos().is_room_edge()
@@ -340,15 +338,8 @@ fn defend_combat(
     let with_boosted_ranged_part = has_boosted_part(&[Part::RangedAttack], closest, true);
 
     if creep.hits() * 10 <= creep.hits_max() * 9 {
-        let closest_exit = creep.pos().find_closest_by_path(find::EXIT, None).map_or(
-            Position::new(
-                unsafe { RoomCoordinate::unchecked_new(25) },
-                unsafe { RoomCoordinate::unchecked_new(25) },
-                *role.get_home().expect("expect home room"),
-            ),
-            std::convert::Into::into,
-        );
-        Some(Walker::Exploring(false).walk(closest_exit, 0, creep, role, Vec::new()))
+        find_closest_exit(creep, None)
+            .map(|exit| Walker::Exploring(false).walk(exit, 0, creep, role, Vec::new()))
     } else if closest.owner().username() != INVADER_USERNAME {
         if with_attack_part
             || with_boosted_ranged_part

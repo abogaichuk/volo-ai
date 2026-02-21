@@ -12,12 +12,13 @@ use crate::units::roles::{Role, can_scale, pvp_parts_priority};
 use crate::units::tasks::Task;
 
 #[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct ComHealer {
+pub struct Healer {
     pub(crate) squad_id: Option<String>,
     pub(crate) home: Option<RoomName>,
+    // pub(crate) grade: Option<RoomName>,
 }
 
-impl fmt::Debug for ComHealer {
+impl fmt::Debug for Healer {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if let Some(home) = self.home {
             write!(f, "home: {home}, ")?;
@@ -29,12 +30,12 @@ impl fmt::Debug for ComHealer {
     }
 }
 
-impl ComHealer {
+impl Healer {
     pub const fn new(squad_id: Option<String>, home: Option<RoomName>) -> Self {
         Self { squad_id, home }
     }
 }
-impl Kind for ComHealer {
+impl Kind for Healer {
     fn body(&self, room_energy: u32) -> ArrayVec<[Part; 50]> {
         let scale_parts = [
             Part::Tough,
@@ -106,7 +107,7 @@ impl Kind for ComHealer {
                     get_request(home, sid).and_then(|req| home.take_request(&req)).map(|mut req| {
                         req.join(Some(creep.name()), Some(sid));
                         home.add_request(req.clone());
-                        (req, Role::CombatHealer(self.clone())).into()
+                        (req, Role::Healer(self.clone())).into()
                     })
                 }))
             .unwrap_or_default()

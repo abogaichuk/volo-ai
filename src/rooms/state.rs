@@ -141,10 +141,16 @@ impl BoostReason {
             BoostReason::Invasion => {
                 vec![ResourceType::CatalyzedUtriumAcid, ResourceType::CatalyzedLemergiumAlkalide]
             }
-            BoostReason::Carry => vec![ResourceType::CatalyzedKeaniumAcid],
+            BoostReason::Carry => vec![ResourceType::CatalyzedZynthiumAlkalide],
             BoostReason::Upgrade => vec![ResourceType::CatalyzedGhodiumAcid],
             BoostReason::Repair => vec![ResourceType::CatalyzedLemergiumAcid],
-            BoostReason::Dismantle => vec![ResourceType::CatalyzedZynthiumAcid],
+            BoostReason::Dismantle => vec![
+                ResourceType::CatalyzedZynthiumAcid,
+                ResourceType::CatalyzedGhodiumAlkalide,
+                ResourceType::CatalyzedKeaniumAlkalide,
+                ResourceType::CatalyzedLemergiumAlkalide,
+                ResourceType::CatalyzedZynthiumAlkalide
+            ],
             BoostReason::Caravan => vec![ResourceType::CatalyzedKeaniumAlkalide],
             BoostReason::Defend => vec![ResourceType::CatalyzedKeaniumAlkalide, ResourceType::CatalyzedLemergiumAlkalide],
             BoostReason::Pvp => vec![

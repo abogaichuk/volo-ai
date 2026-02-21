@@ -8,7 +8,7 @@ pub use data::{
     ProtectData, PullData, RepairData, SMData, TransferData, WithdrawData,
 };
 use log::error;
-use screeps::{Part, RoomName};
+use screeps::Part;
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 use thiserror::Error;
@@ -100,7 +100,7 @@ impl Request {
             RequestKind::Repair(_) => repair_handler(meta, assignment),
             RequestKind::Claim(_) => claim_handler(meta, assignment, home.name()),
             RequestKind::Book(b) => book_handler(b, meta, assignment, home),
-            RequestKind::Dismantle(d) => dismantle_handler(d, meta, assignment, home.name()),
+            RequestKind::Dismantle(d) => dismantle_handler(d, meta, assignment, home),
             RequestKind::Crash(_) => crash_handler(meta, assignment, home, creeps),
             RequestKind::SafeMode(_) => sm_handler(meta, assignment, home.name()),
             RequestKind::Pull(_) => pull_handler(),
@@ -437,6 +437,9 @@ impl TryFrom<Task> for Request {
                     Assignment::Multi(HashSet::new()),
                 ))
             }
+            Task::CombatDismantle(id, workplace, _) => Ok(Request::new(
+                RequestKind::Dismantle(DismantleData::new(id, workplace)),
+                Assignment::Squads(Vec::new()))),
             _ => Err(()),
         }
     }

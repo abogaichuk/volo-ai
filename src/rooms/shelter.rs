@@ -6,8 +6,8 @@ use std::{
 use itertools::Itertools;
 use log::{debug, error, info, warn};
 use screeps::{
-    Creep, Effect, EffectType, HasId, HasPosition, HasStore, Mineral, ObjectId, OrderType, Part,
-    Position, PowerType, RawObjectId, ResourceType, Room, RoomName, RoomObjectProperties,
+    Creep, HasId, HasPosition, HasStore, Mineral, ObjectId, OrderType, Part,
+    Position, PowerType, RawObjectId, ResourceType, Room, RoomName,
     RoomPosition, RoomXY, Source, StructureController, StructureFactory, StructureLab,
     StructureLink, StructurePowerSpawn, StructureRampart, StructureSpawn, StructureStorage,
     StructureTerminal, StructureTower, StructureType,
@@ -748,61 +748,6 @@ impl<'s> Shelter<'s> {
     ) -> Option<RoomEvent> {
         self.base.supply_resources(to, resource, amount)
     }
-
-    // pub fn tower_without_effect(&self) -> Option<&StructureTower> {
-    //     self.base.towers.iter().find(|tower| {
-    //         !tower.effects().into_iter().any(|effect: Effect| match effect.effect() {
-    //             EffectType::PowerEffect(p) => matches!(p, PowerType::OperateTower),
-    //             EffectType::NaturalEffect(_) => false,
-    //         })
-    //     })
-    // }
-
-    // pub fn spawn_without_effect(&self) -> Option<&StructureSpawn> {
-    //     self.base.spawns.iter().find(|spawn| {
-    //         !spawn.effects().into_iter().any(|effect: Effect| match effect.effect() {
-    //             EffectType::PowerEffect(p) => matches!(p, PowerType::OperateSpawn),
-    //             EffectType::NaturalEffect(_) => false,
-    //         })
-    //     })
-    // }
-
-    // pub fn factory_without_effect(&self) -> Option<&StructureFactory> {
-    //     self.base.factory.as_ref().filter(|factory| {
-    //         !factory.effects().into_iter().any(|effect: Effect| match effect.effect() {
-    //             EffectType::PowerEffect(p) => matches!(p, PowerType::OperateFactory),
-    //             EffectType::NaturalEffect(_) => false,
-    //         })
-    //     })
-    // }
-
-    // pub fn full_storage_without_effect(&self) -> Option<&StructureStorage> {
-    //     self.base.storage().filter(|storage| {
-    //         storage.effects().is_empty() && storage.store().get_used_capacity(None) > 990_000
-    //     })
-    // }
-
-    // pub fn mineral_without_effect(&self) -> bool {
-    //     self.base.mineral.ticks_to_regeneration().is_none()
-    //         && !self.base.mineral.effects().into_iter().any(|effect: Effect| {
-    //             match effect.effect() {
-    //                 EffectType::PowerEffect(p) => matches!(p, PowerType::RegenMineral),
-    //                 EffectType::NaturalEffect(_) => false,
-    //             }
-    //         })
-    // }
-
-    // pub fn source_without_effect(&self) -> Option<&Source> {
-    //     //todo check remote rooms sources for powers without hardcoded ids
-    //     self.base.sources.iter().find(|source| {
-    //         !source.effects().into_iter().any(|effect: Effect| match effect.effect() {
-    //             EffectType::PowerEffect(p) => {
-    //                 matches!(p, PowerType::RegenSource if { effect.ticks_remaining() > 30 })
-    //             }
-    //             EffectType::NaturalEffect(_) => false,
-    //         })
-    //     })
-    // }
 }
 
 fn missed_buildings(

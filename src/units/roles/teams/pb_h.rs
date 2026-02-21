@@ -68,9 +68,15 @@ impl Kind for PBHealer {
 
 fn get_request(home: &Shelter, squad_id: &str) -> Option<Request> {
     home.requests()
-        .find(|r| {
-            matches!(&r.kind, RequestKind::Powerbank(_) if
-            matches!(*r.status(), Status::InProgress | Status::Carry) && r.assigned_to(squad_id))
-        })
+        .find(|r| r.assigned_to(squad_id))
         .cloned()
 }
+
+// fn get_request(home: &Shelter, squad_id: &str) -> Option<Request> {
+//     home.requests()
+//         .find(|r| {
+//             matches!(&r.kind, RequestKind::Powerbank(_) if
+//             matches!(*r.status(), Status::InProgress | Status::Carry) && r.assigned_to(squad_id))
+//         })
+//         .cloned()
+// }

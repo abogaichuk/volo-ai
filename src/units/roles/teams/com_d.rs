@@ -1,12 +1,15 @@
-use std::fmt;
+use std::{fmt, collections::HashMap};
 
 use arrayvec::ArrayVec;
-use screeps::objects::Creep;
-use screeps::{Part, RoomName};
+use screeps::{Part, ResourceType, RoomName, objects::Creep, SharedCreepProperties};
 use serde::{Deserialize, Serialize};
 
 use super::Kind;
 use crate::movement::MovementProfile;
+use crate::rooms::shelter::Shelter;
+use crate::rooms::state::requests::Request;
+use crate::units::roles::{Role, can_scale, pvp_parts_priority};
+use crate::units::tasks::Task;
 
 #[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ComDismantler {
@@ -41,30 +44,69 @@ impl Kind for ComDismantler {
         }
     }
 
-    fn body(&self, _: u32) -> ArrayVec<[Part; 50]> {
-        [Part::Move].into_iter().collect()
+    fn body(&self, room_energy: u32) -> ArrayVec<[Part; 50]> {
+        let scale_parts = [
+            Part::Tough,
+            Part::Work,
+            Part::Work,
+            Part::Work,
+            Part::Move
+        ];
+
+        let mut body = scale_parts.into_iter().collect::<ArrayVec<[Part; 50]>>();
+        while can_scale(body.clone(), scale_parts.to_vec(), room_energy, 50) {
+            body.extend(scale_parts.iter().copied());
+        }
+
+        body.sort_by_key(|a| pvp_parts_priority(*a));
+        body
+    }
+
+    fn boosts(&self, creep: &Creep) -> HashMap<Part, [ResourceType; 2]> {
+        //todo change ticks to boost here when labs carry requests will be fixed
+        if creep.ticks_to_live().is_some_and(|tick| tick > 1300) {
+            [
+                (
+                    Part::Move,
+                    [ResourceType::CatalyzedZynthiumAlkalide, ResourceType::ZynthiumAlkalide],
+                ),
+                (
+                    Part::Work,
+                    [ResourceType::CatalyzedZynthiumAcid, ResourceType::ZynthiumAcid],
+                ),
+                (
+                    Part::Tough,
+                    [ResourceType::CatalyzedGhodiumAlkalide, ResourceType::GhodiumAlkalide],
+                ),
+            ]
+            .into()
+        } else {
+            HashMap::new()
+        }
+    }
+
+    fn get_task(&self, creep: &Creep, home: &mut Shelter) -> Task {
+        home.get_available_boost(creep, self.boosts(creep))
+            .map(|(id, body_part)| {
+                let parts_number = creep.body().iter().filter(|bp| bp.part() == body_part).count();
+                Task::Boost(id, u32::try_from(parts_number).ok())
+            })
+            .or_else(|| self.squad_id
+                .as_ref()
+                .and_then(|sid| {
+                    get_request(home, sid).and_then(|req| home.take_request(&req)).map(|mut req| {
+                        req.join(Some(creep.name()), Some(sid));
+                        home.add_request(req.clone());
+                        (req, Role::CombatDismantler(self.clone())).into()
+                    })
+                }))
+            .unwrap_or_default()
     }
 }
 
-// fn all_boosts() -> HashMap<Part, [ResourceType; 2]> {
-//     let mut m = HashMap::new();
-//     m.insert(Part::Move, [ResourceType::CatalyzedZynthiumAlkalide,
-// ResourceType::ZynthiumAlkalide]);     m.insert(Part::Work,
-// [ResourceType::CatalyzedZynthiumAcid, ResourceType::ZynthiumAcid]);
-//     m.insert(Part::Tough, [ResourceType::CatalyzedGhodiumAlkalide,
-// ResourceType::GhodiumAlkalide]);     m
-// }
 
-// fn get_request(requests: &mut HashSet<RoomRequest>, squad_id: &String) ->
-// Option<RoomRequest> {     requests.iter()
-//         .find(|request| {
-//             match request {
-//                 RoomRequest::DESTROY(destroy_request) =>
-//                     destroy_request.status == RequestStatus::InProgress &&
-// destroy_request.squads.iter()                         .any(|squad| squad.id
-// == *squad_id),                 _ => false
-//             }
-//         })
-//         .cloned()
-//         .and_then(|request| requests.take(&request))
-// }
+fn get_request(home: &Shelter, squad_id: &str) -> Option<Request> {
+    home.requests()
+        .find(|r| r.assigned_to(squad_id))
+        .cloned()
+}

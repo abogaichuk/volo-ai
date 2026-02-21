@@ -1,14 +1,12 @@
-use log::{debug, info, warn};
+use log::{debug, warn};
 use screeps::action_error_codes::SpawnCreepErrorCode;
-use screeps::{ResourceType, SpawnOptions, StructureProperties, StructureSpawn, game};
+use screeps::{SpawnOptions, StructureProperties, StructureSpawn, game};
 use smallvec::SmallVec;
 
 use crate::rooms::RoomEvent;
 use crate::rooms::state::RoomState;
 use crate::rooms::wrappers::claimed::Claimed;
 use crate::units::roles::{Kind, Role};
-
-const MIN_ENERGY_AMOUNT: u32 = 5000;
 
 impl Claimed {
     //todo bug, miner spawned with only 1 carry part = no work and no move

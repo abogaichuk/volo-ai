@@ -27,6 +27,7 @@ use self::services::remote_upgrader::RemoteUpgrader;
 use self::services::scout::Scout;
 use self::services::trader::Trader;
 use self::services::upgrader::Upgrader;
+use self::services::healer::Healer;
 use self::teams::com_d::ComDismantler;
 use self::teams::com_h::ComHealer;
 use self::teams::dep_hauler::DepositHauler;
@@ -134,6 +135,7 @@ pub enum Role {
     PBCarrier(PBCarrier),
     CombatDismantler(ComDismantler),
     CombatHealer(ComHealer),
+    Healer(Healer),
     Destroyer(Destroyer),
     DismantlerWithHeal(DismantlerWithHeal),
     Fighter(Fighter),
@@ -167,6 +169,7 @@ impl Role {
             Role::PBCarrier(r) => r.home = Some(home),
             Role::CombatDismantler(r) => r.home = Some(home),
             Role::CombatHealer(r) => r.home = Some(home),
+            Role::Healer(r) => r.home = Some(home),
             Role::Destroyer(r) => r.home = Some(home),
             Role::DismantlerWithHeal(r) => r.home = Some(home),
             Role::Fighter(r) => r.home = Some(home),
@@ -201,6 +204,7 @@ impl Role {
             // Role::Protector(r) => r.home,
             Role::CombatDismantler(r) => r.home.as_ref(),
             Role::CombatHealer(r) => r.home.as_ref(),
+            Role::Healer(r) => r.home.as_ref(),
             Role::Destroyer(r) => r.home.as_ref(),
             Role::DismantlerWithHeal(r) => r.home.as_ref(),
             Role::Fighter(r) => r.home.as_ref(),
@@ -261,6 +265,7 @@ impl Display for Role {
             Role::PBCarrier(_) => "pb_c",
             Role::CombatDismantler(_) => "com_d",
             Role::CombatHealer(_) => "com_h",
+            Role::Healer(_) => "healer",
             Role::Destroyer(_) => "destroyer",
             Role::DismantlerWithHeal(_) => "dh",
             Role::DepositMiner(_) => "dep_miner",

@@ -1,10 +1,10 @@
 use log::{debug, warn};
-use screeps::{Creep, HasPosition, Position, RoomCoordinate, RoomName, SharedCreepProperties};
+use screeps::{Creep, HasPosition, Position, SharedCreepProperties};
 
 use crate::movement::walker::Walker;
 use crate::units::roles::Role;
 use crate::units::{Task, TaskResult};
-use crate::utils::commons::is_walkable;
+use crate::utils::commons::find_walkable_positions_remoted_from;
 use crate::utils::constants::{ESCAPE_FROM_EDGE_RANGE, HIDE_TIMEOUT};
 
 pub fn hide(
@@ -49,24 +49,4 @@ pub fn escape(position: Position, creep: &Creep, role: &Role, enemies: Vec<Creep
         let goal = Walker::Exploring(false).walk(position, 0, creep, role, enemies);
         TaskResult::StillWorking(Task::Escape(position), Some(goal))
     }
-}
-
-fn find_walkable_positions_remoted_from(position: Position, range: u32) -> Option<Position> {
-    get_positions_ranged_from(position, range).find(|pos| !pos.is_room_edge() && is_walkable(*pos))
-}
-
-fn all_positions(room_name: RoomName) -> impl Iterator<Item = Position> {
-    (1..49).flat_map(move |x| {
-        (1..49).clone().map(move |y| unsafe {
-            Position::new(
-                RoomCoordinate::unchecked_new(x),
-                RoomCoordinate::unchecked_new(y),
-                room_name,
-            )
-        })
-    })
-}
-
-fn get_positions_ranged_from(position: Position, range: u32) -> impl Iterator<Item = Position> {
-    all_positions(position.room_name()).filter(move |pos| pos.get_range_to(position) == range)
 }
